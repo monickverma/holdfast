@@ -1,0 +1,66 @@
+{
+  "wallTime": "2026-11-01T19:07:43.034Z",
+  "lane": "testnet",
+  "chainId": 133,
+  "vault": "0x9b31aeda4839747a4251d623ddfee4152c961b28",
+  "method": "eth_call, nothing signed or sent",
+  "runtimeMatchesArtifact": true,
+  "note": "Six named attacks through the viewer against the deployed version 3 vault. The price guard is off and no guardian or stop is set.",
+  "version": 3,
+  "attacks": [
+    {
+      "attack": "agent-withdraw",
+      "from": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+      "expected": "NotOwner",
+      "refused": true,
+      "error": "NotOwner",
+      "matchedExpected": true,
+      "block": "35186701"
+    },
+    {
+      "attack": "over-cap",
+      "from": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+      "expected": "OverTradeCap",
+      "refused": true,
+      "error": "OverTradeCap",
+      "matchedExpected": true,
+      "block": "35186702"
+    },
+    {
+      "attack": "zero-floor",
+      "from": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+      "expected": "BelowFloor",
+      "refused": true,
+      "error": "BelowFloor",
+      "matchedExpected": true,
+      "block": "35186702"
+    },
+    {
+      "attack": "stale-deadline",
+      "from": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+      "expected": "BadDeadline",
+      "refused": true,
+      "error": "BadDeadline",
+      "matchedExpected": true,
+      "block": "35186702"
+    },
+    {
+      "attack": "stranger-trade",
+      "from": "0x000000000000000000000000000000000000dEaD",
+      "expected": "NotAgent",
+      "refused": true,
+      "error": "NotAgent",
+      "matchedExpected": true,
+      "block": "35186702"
+    },
+    {
+      "attack": "stranger-withdraw",
+      "from": "0x000000000000000000000000000000000000dEaD",
+      "expected": "NotOwner",
+      "refused": true,
+      "error": "NotOwner",
+      "matchedExpected": true,
+      "block": "35186702"
+    }
+  ]
+}

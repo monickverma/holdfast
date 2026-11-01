@@ -1,16 +1,19 @@
 // Read-only evidence server. No signer, executor or policy writer is loaded, and private keys never enter this process.
 import Anthropic from "@anthropic-ai/sdk";
-import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
+import { createServer, type IncomingMessage } from "node:http";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
-import { createPublicClient, formatUnits, http, isAddress } from "viem";
+import { createPublicClient, formatUnits, http, isAddress, parseAbi, type Address } from "viem";
 import type { Agent } from "../agent.js";
 import { MAINNET_MARKET as HSKSWAP, testMarket, networkProfile } from "../config.js";
+import { DEMO_ATTACKS, runDemo, type RpcRequest } from "../demo.js";
 import { buildFacts } from "../facts.js";
 import { Assistant, DEFAULT_MODEL } from "../nl.js";
 import { DEFAULT_POLICY } from "../policy.js";
+import { readProof } from "../proof.js";
 import { VAULT_ABI } from "../reader.js";
 import { quantileReport } from "../stats.js";
 import { JsonlLog } from "../trace.js";
@@ -117,6 +120,11 @@ export function readEvidence(dataDir = join(root, "data")) {
   return { lanes: result, attacks, incomplete, empty: !groups.some((g) => g.traces.length || g.ledger.length) && !attacks };
 }
 
+const ERC20 = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+
+/** A vault from an earlier generation has no such function. Its absence is shown as absent, never as a default. */
+const orNull = <T>(promise: Promise<T>) => promise.catch(() => null);
+
 async function vaultLimits(address: string | undefined) {
   if (!address) return { status: "No vault is set." };
   if (!isAddress(address)) return { status: "Vault configuration is invalid." };
@@ -130,24 +138,129 @@ async function vaultLimits(address: string | undefined) {
     const testnet = profile.network === "testnet";
     const tokens = await Promise.all(([[testnet ? 'tWHSK' : 'HSK', market.whsk, 18], [testnet ? 'tUSDT' : 'USDT', market.usdt, 6]] as const).map(async ([token, tokenAddress, decimals]) => {
       const values = await Promise.all((["maxTrade", "remaining", "floorPriceX18"] as const).map((functionName) => client.readContract({ address, abi: VAULT_ABI, functionName, args: [tokenAddress], blockNumber })));
-      return { lane: profile.lane, token, maxTrade: formatUnits(values[0]!, decimals), remainingLifetime: formatUnits(values[1]!, decimals), floorOutputPerInput: formatUnits(values[2]!, decimals === 18 ? 6 : 30) };
+      const optional = (functionName: "hourlyBudget" | "budgetAvailable" | "dailyBudget" | "dailyAvailable") => orNull(client.readContract({ address, abi: VAULT_ABI, functionName, args: [tokenAddress], blockNumber }));
+      const [hourlyBudget, hourlyAvailable, dailyBudget, dailyAvailable] = await Promise.all([optional("hourlyBudget"), optional("budgetAvailable"), optional("dailyBudget"), optional("dailyAvailable")]);
+      const balance = await client.readContract({ address: tokenAddress, abi: ERC20, functionName: "balanceOf", args: [address], blockNumber });
+      const amount = (value: bigint | null) => (value === null ? null : formatUnits(value, decimals));
+      return { lane: profile.lane, token, address: tokenAddress, decimals, balance: formatUnits(balance, decimals), maxTrade: formatUnits(values[0]!, decimals), remainingLifetime: formatUnits(values[1]!, decimals), floorOutputPerInput: formatUnits(values[2]!, decimals === 18 ? 6 : 30), hourlyBudget: amount(hourlyBudget), hourlyAvailable: amount(hourlyAvailable), dailyBudget: amount(dailyBudget), dailyAvailable: amount(dailyAvailable) };
     }));
-    return { lane: profile.lane, status: "Read from chain", address, explorer: explorers[profile.lane], block: blockNumber.toString(), tokens };
+    const read = <T>(functionName: string) => orNull(client.readContract({ address, abi: VAULT_ABI, functionName, blockNumber } as never) as Promise<T>);
+    const [version, owner, agent, guardian, paused, agentExpiry, twapWindow, bandTicks, stop, stopReady, block] = await Promise.all([
+      read<bigint>("VERSION"), read<Address>("owner"), read<Address>("agent"), read<Address>("guardian"), read<boolean>("paused"), read<number>("agentExpiry"), read<number>("twapWindow"), read<number>("guardBandTicks"),
+      read<readonly [bigint, bigint, number, number, number, boolean, boolean]>("stop"), read<boolean>("stopReady"), client.getBlock({ blockNumber }),
+    ]);
+    return {
+      lane: profile.lane, chainId: profile.chainId, status: "Read from chain", address, explorer: explorers[profile.lane], block: blockNumber.toString(), blockTime: Number(block.timestamp), tokens,
+      version: version === null ? null : Number(version), owner, agent, guardian, paused,
+      agentExpiry: agentExpiry === null ? null : Number(agentExpiry),
+      guard: twapWindow === null ? null : { on: twapWindow !== 0, windowSec: twapWindow, bandTicks },
+      stop: stop === null ? null : { armed: stop[5], ready: stopReady === true },
+    };
   } catch { return { status: "Vault read unavailable. Not yet run successfully." }; }
 }
 
-export function createViewer(options: { dataDir?: string; assistant?: Pick<Assistant, "handle"> | null; vaultAddress?: string } = {}) {
+/** A fixed window per key. A key is only as good as the address behind it, so anything that costs money also has a global cap. */
+export function rateLimiter(limit: number, windowMs: number, now: () => number = Date.now) {
+  const seen = new Map<string, { start: number; used: number }>();
+  return (key: string): boolean => {
+    const time = now();
+    if (seen.size > 10_000) for (const [k, v] of seen) if (time - v.start >= windowMs) seen.delete(k);
+    if (seen.size > 20_000) seen.clear();
+    const entry = seen.get(key);
+    if (!entry || time - entry.start >= windowMs) { seen.set(key, { start: time, used: 1 }); return true; }
+    if (entry.used >= limit) return false;
+    entry.used++;
+    return true;
+  };
+}
+
+/** One value for ttl, shared between callers, so a burst of visitors costs one disk walk and one set of reads. */
+function cached<T>(ttlMs: number, load: () => Promise<T>) {
+  let at = -Infinity;
+  let value: Promise<T> | undefined;
+  return () => {
+    if (!value || performance.now() - at >= ttlMs) {
+      at = performance.now();
+      value = load().catch((error) => { at = -Infinity; throw error; });
+    }
+    return value;
+  };
+}
+
+const sameSecret = (given: string, secret: string) => {
+  const a = Buffer.from(given);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
+const STATIC: Record<string, [string, string]> = {
+  "/": ["index.html", "text/html"],
+  "/app.js": ["app.js", "text/javascript"],
+  "/charts.js": ["charts.js", "text/javascript"],
+  "/wallet.js": ["wallet.js", "text/javascript"],
+  "/style.css": ["style.css", "text/css"],
+};
+
+export function createViewer(options: {
+  dataDir?: string;
+  assistant?: Pick<Assistant, "handle"> | null;
+  vaultAddress?: string;
+  evidenceDir?: string;
+  rpc?: RpcRequest;
+  cacheMs?: number;
+  chatToken?: string;
+  chatDailyLimit?: number;
+  limits?: { api?: number; demo?: number; chat?: number };
+} = {}) {
   const dataDir = options.dataDir ?? join(root, "data");
+  const evidenceDir = options.evidenceDir ?? join(root, "evidence");
+  const cacheMs = options.cacheMs ?? 15_000;
+  const chatToken = options.chatToken ?? process.env.CHAT_TOKEN;
+  const chatDailyLimit = options.chatDailyLimit ?? Number(process.env.CHAT_DAILY_LIMIT ?? 200);
+  const allowApi = rateLimiter(options.limits?.api ?? 120, 60_000);
+  const allowDemo = rateLimiter(options.limits?.demo ?? 20, 60_000);
+  const allowChat = rateLimiter(options.limits?.chat ?? 5, 60_000);
+  const chatToday = { day: "", used: 0 };
   const llmLog = new JsonlLog(join(dataDir, "llm.jsonl"));
   const assistant = options.assistant === undefined
     ? (process.env.ANTHROPIC_API_KEY ? new Assistant(new Anthropic(), process.env.LLM_MODEL ?? DEFAULT_MODEL, (record) => llmLog.append(record)) : null)
     : options.assistant;
   const address = options.vaultAddress ?? process.env.VAULT_ADDRESS ?? (networkProfile().network === "testnet" ? testMarket().vault : undefined);
-  return createServer(async (req, res) => {
-    const send = (status: number, body: unknown, type = "application/json") => {
+  const evidence = cached(cacheMs, async () => ({ ...readEvidence(dataDir), vault: await vaultLimits(address) }));
+  const proof = cached(Math.max(cacheMs, 60_000), async () => readProof(evidenceDir));
+  const profile = networkProfile();
+  const rpc: RpcRequest = options.rpc ?? (async (method, params) => {
+    const response = await fetch(profile.rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10_000) });
+    return await response.json() as { result?: unknown; error?: { message?: string; data?: unknown } };
+  });
+  // One upstream call per attack per window, however many visitors press the button.
+  const demos = new Map(Object.keys(DEMO_ATTACKS).map((name) => [name, cached(cacheMs, async () => {
+    const market = profile.network === "testnet" ? testMarket() : HSKSWAP;
+    if (!address || !isAddress(address)) throw new Error("No vault");
+    const client = createPublicClient({ transport: http(profile.rpcUrl, { timeout: 10_000, retryCount: 0 }) });
+    if (await client.getChainId() !== profile.chainId) throw new Error("Wrong chain");
+    const block = await client.getBlock();
+    const read = <T>(functionName: string, args: unknown[] = []) => client.readContract({ address, abi: VAULT_ABI, functionName, args, blockNumber: block.number } as never) as Promise<T>;
+    const [agent, owner, maxTrade, remaining] = await Promise.all([read<Address>("agent"), read<Address>("owner"), read<bigint>("maxTrade", [market.whsk]), read<bigint>("remaining", [market.whsk])]);
+    const outcome = await runDemo(name, { vault: address, agent, owner, tokenIn: market.whsk, maxTrade, spendable: remaining < maxTrade ? remaining : maxTrade, timestamp: block.timestamp }, block.number, rpc);
+    return { ...outcome, lane: profile.lane, chainId: profile.chainId, vault: address, explorer: explorers[profile.lane], readAt: new Date().toISOString(), note: "A real eth_call against this vault's state. Nothing was signed or sent." };
+  })]));
+  /** A person at this machine, not a proxied visitor. */
+  const isLoopback = (req: IncomingMessage, localHost: string) => req.headers.host === localHost && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "") && !req.headers["x-forwarded-for"];
+  /** The proxy appends the address it saw, so the last entry is the one a client cannot choose. */
+  const clientOf = (req: IncomingMessage) => {
+    const forwarded = req.headers["x-forwarded-for"];
+    const list = (Array.isArray(forwarded) ? forwarded.join(",") : forwarded ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    return list.at(-1) ?? req.socket.remoteAddress ?? "unknown";
+  };
+  const server = createServer(async (req, res) => {
+    const send = (status: number, body: unknown, type = "application/json", extra: Record<string, string> = {}) => {
       res.writeHead(status, {
-        "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+        "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+        "X-Frame-Options": "DENY", "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()", "Cross-Origin-Opener-Policy": "same-origin", "Cross-Origin-Resource-Policy": "same-origin",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+        ...(req.headers.host === process.env.RENDER_EXTERNAL_HOSTNAME ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" } : {}),
+        ...extra,
       });
       let text = type === "application/json" ? JSON.stringify(body) : String(body);
       // The API key is never returned, including when echoed by a model or evidence field. The vault address is public.
@@ -167,11 +280,31 @@ export function createViewer(options: { dataDir?: string; assistant?: Pick<Assis
       ) {
         return send(403, { error: "Host refused." });
       }
-      if (req.method === "GET" && ["/", "/app.js", "/style.css"].includes(path)) {
-        const name = path === "/" ? "index.html" : path.slice(1);
-        return send(200, readFileSync(join(root, "web", name), "utf8"), path === "/" ? "text/html" : path.endsWith(".js") ? "text/javascript" : "text/css");
+      const local = isLoopback(req, localHost);
+      const client = clientOf(req);
+      const chatOpen = Boolean(assistant) && (local || Boolean(chatToken));
+      if (req.method === "GET" && STATIC[path]) {
+        const [name, type] = STATIC[path]!;
+        return send(200, readFileSync(join(root, "web", name), "utf8"), type);
       }
-      if (req.method === "GET" && path === "/api/evidence") return send(200, { ...readEvidence(dataDir), vault: await vaultLimits(address), chat: assistant ? "Questions only. Answers are model output." : "ANTHROPIC_API_KEY is missing. Chat is unavailable." });
+      if (req.method === "GET" && path === "/healthz") return send(200, { ok: true });
+      if (req.method === "GET" && path.startsWith("/api/") && !allowApi(client)) return send(429, { error: "Too many requests. Try again in a minute." }, "application/json", { "Retry-After": "60" });
+      if (req.method === "GET" && path === "/api/evidence") {
+        return send(200, {
+          ...await evidence(), network: profile.network,
+          chat: !assistant ? "ANTHROPIC_API_KEY is missing. Chat is unavailable." : chatOpen ? "Questions only. Answers are model output." : "Chat is off on this public server, because each answer costs money.",
+          chatOpen,
+        });
+      }
+      if (req.method === "GET" && path === "/api/proof") return send(200, await proof());
+      if (req.method === "GET" && path === "/api/demo") return send(200, { attacks: Object.entries(DEMO_ATTACKS).map(([id, a]) => ({ id, title: a.title, actor: a.actor, expected: a.expected })), available: Boolean(address && isAddress(address)) });
+      if (req.method === "GET" && path.startsWith("/api/demo/")) {
+        const demo = demos.get(path.slice("/api/demo/".length));
+        if (!demo) return send(404, { error: "No such attack." });
+        if (!allowDemo(client)) return send(429, { error: "Too many requests. Try again in a minute." }, "application/json", { "Retry-After": "60" });
+        try { return send(200, await demo()); }
+        catch { return send(503, { error: "The network did not answer, so this ran nothing. Try again." }); }
+      }
       if (req.method === "POST" && path === "/api/chat") {
         const expectedOrigin =
           req.headers.host === process.env.RENDER_EXTERNAL_HOSTNAME
@@ -185,10 +318,22 @@ export function createViewer(options: { dataDir?: string; assistant?: Pick<Assis
           return send(403, { error: "Origin refused." });
         }
         if (!assistant) return send(503, { error: "ANTHROPIC_API_KEY is missing. Chat is unavailable." });
+        // Each answer spends the operator's money, and an Origin header is only a browser's word. Off this machine, a
+        // caller must hold the token. With no token set, public chat does not exist.
+        if (!local) {
+          const given = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
+          if (!chatToken || !given || !sameSecret(given, chatToken)) return send(403, { error: "Chat is off on this public server." });
+        }
+        if (!allowChat(client)) return send(429, { error: "Too many questions. Try again in a minute." }, "application/json", { "Retry-After": "60" });
         let body = "";
         for await (const chunk of req) { body += chunk; if (body.length > 8_000) return send(413, { error: "Question too long." }); }
         const { message } = JSON.parse(body);
         if (typeof message !== "string" || !message.trim()) return send(400, { error: "A question is required." });
+        // Counted before the call: a failed call may still have been billed.
+        const day = new Date().toISOString().slice(0, 10);
+        if (chatToday.day !== day) { chatToday.day = day; chatToday.used = 0; }
+        if (chatToday.used >= chatDailyLimit) return send(429, { error: "Today's question budget is used up." });
+        chatToday.used++;
         const base = buildFacts({ lastMarket: undefined } as unknown as Agent, DEFAULT_POLICY) as Row;
         const reply = await assistant.handle(`Answer questions only. Policy changes belong in the REPL.\n${message}`, { status: base.status, evidence: readEvidence(dataDir), vault: await vaultLimits(address) }, DEFAULT_POLICY, 0n);
         return send(200, { label: "Model output", text: reply.kind === "answer" ? reply.text : "This panel only answers questions. Policy changes stay in the existing REPL." });
@@ -196,13 +341,18 @@ export function createViewer(options: { dataDir?: string; assistant?: Pick<Assis
       send(404, { error: "Not found." });
     } catch { send(400, { error: "Request unavailable." }); }
   });
+  server.requestTimeout = 30_000;
+  server.headersTimeout = 15_000;
+  server.keepAliveTimeout = 5_000;
+  server.maxConnections = 500;
+  return server;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   // Only these names are taken from .env, so the wallet keys stay out of this process.
   if (existsSync(join(root, ".env"))) {
     const file = parseEnv(readFileSync(join(root, ".env"), "utf8"));
-    for (const name of ["VAULT_ADDRESS", "ANTHROPIC_API_KEY", "LLM_MODEL"]) if (file[name] && !process.env[name]) process.env[name] = file[name];
+    for (const name of ["VAULT_ADDRESS", "ANTHROPIC_API_KEY", "LLM_MODEL", "CHAT_TOKEN", "CHAT_DAILY_LIMIT"]) if (file[name] && !process.env[name]) process.env[name] = file[name];
   }
   const port = Number(process.env.PORT ?? 4177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid viewer port.");

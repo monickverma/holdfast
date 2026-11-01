@@ -30,6 +30,30 @@ export const VAULT_ABI = parseAbi([
   "function setAgent(address agent_, uint256 expiry_)",
   "function setLimits(address token, uint256 maxTrade_, uint256 remaining_, uint256 floorPriceX18_, uint256 hourlyBudget_)",
   "function withdraw(address token, address to, uint256 amount)",
+  "function VERSION() view returns (uint256)",
+  "function guardian() view returns (address)",
+  "function pendingOwner() view returns (address)",
+  "function pool() view returns (address)",
+  "function twapWindow() view returns (uint32)",
+  "function guardBandTicks() view returns (uint16)",
+  "function priceGuardTicks() view returns (bool ok, int24 spot, int24 twap)",
+  "function dailyBudget(address) view returns (uint256)",
+  "function dailyAvailable(address) view returns (uint256)",
+  "function stopReady() view returns (bool)",
+  "function stop() view returns (uint72 tranche, uint72 remaining, uint40 nextAt, uint32 cooldown, int24 triggerTick, bool armed, bool sellsTokenA)",
+  "function stopTerms() view returns (uint112 floorPriceX18, uint16 bandTicks)",
+  "function setLimitsIfRemaining(address token, uint256 maxTrade_, uint256 remaining_, uint256 floorPriceX18_, uint256 hourlyBudget_, uint256 expectedRemaining)",
+  "function setDailyBudget(address token, uint256 dailyBudget_)",
+  "function setGuardian(address guardian_)",
+  "function setPriceGuard(address pool_, uint32 window_, uint16 bandTicks_)",
+  "function armStop(address token, int24 triggerTick, uint256 tranche, uint256 total, uint256 floorPriceX18_, uint16 bandTicks_, uint32 cooldown)",
+  "function disarmStop()",
+  "function triggerStop() returns (uint256 amountOut)",
+  "function halt()",
+  "function revokeAgent()",
+  "function transferOwnership(address newOwner)",
+  "function acceptOwnership()",
+  "event StopFired(address indexed by, address indexed tokenIn, uint256 amountIn, uint256 amountOut, int256 twapTick, uint256 remainingAfter)",
   "event Traded(bytes32 indexed intentId, address indexed tokenIn, uint256 amountIn, uint256 amountOut, uint256 remainingAfter)",
   "error NotOwner()",
   "error NotAgent()",
@@ -51,6 +75,18 @@ export const VAULT_ABI = parseAbi([
   "error TokenCallFailed()",
   "error ZeroAddress()",
   "error LimitTooLarge()",
+  "error NotOwnerOrGuardian()",
+  "error NotPendingOwner()",
+  "error OverDailyBudget()",
+  "error RemainingChanged()",
+  "error BadPriceGuard()",
+  "error OracleUnavailable()",
+  "error PriceOutOfBand()",
+  "error NoPriceGuard()",
+  "error BadStop()",
+  "error StopNotArmed()",
+  "error StopCoolingDown()",
+  "error StopNotTriggered()",
 ]);
 
 const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
@@ -80,6 +116,8 @@ export interface QuoteRequest {
 export interface Quote extends QuoteRequest {
   amountOut: bigint;
   ticksCrossed: number;
+  /** The pool's price after this swap. Absent on a quote built locally from a frame. */
+  sqrtPriceAfter?: bigint;
 }
 
 export interface TokenLimits {
@@ -90,12 +128,26 @@ export interface TokenLimits {
   hourlyBudget: bigint;
   /** What the hourly budget allows right now. */
   available: bigint;
+  /** Zero means no daily cap. Absent on a vault from before v3. */
+  dailyBudget?: bigint;
+  dailyAvailable?: bigint;
+}
+
+/** The vault's own price check, on a v3 vault. */
+export interface PriceGuardState {
+  windowSec: number;
+  bandTicks: number;
+  /** False if the pool's oracle did not answer, in which case the vault refuses every trade. */
+  oracleOk: boolean;
+  twapTick: number;
 }
 
 export interface VaultState {
   paused: boolean;
   /** When the agent key stops working. Null on a vault from before expiry existed. */
   agentExpiry: bigint | null;
+  /** Absent if the guard is off, or on a vault from before v3. */
+  guard?: PriceGuardState;
   whsk: TokenLimits;
   usdt: TokenLimits;
 }
@@ -138,7 +190,7 @@ export async function poolReserves(rpc: RpcClient, block: bigint): Promise<{ kin
 /** Reads everything for one decision in one batch, every call pinned to the same block hash. */
 export async function readMarket(
   rpc: RpcClient,
-  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">,
   head: Head,
   quoteRequests: QuoteRequest[],
 ): Promise<MarketState> {
@@ -168,7 +220,7 @@ export interface Tick {
  */
 export async function readTick(
   rpc: RpcClient,
-  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">,
   quoteRequests: QuoteRequest[],
   nonceOf?: Address,
 ): Promise<Tick | null> {
@@ -203,7 +255,7 @@ export async function readTick(
 }
 
 /** Every value a decision needs, in the fixed order buildMarket expects. */
-function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">, quoteRequests: QuoteRequest[]): MarketRead[] {
+function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">, quoteRequests: QuoteRequest[]): MarketRead[] {
   const pool = HSKSWAP.pool;
   const reads: MarketRead[] = [
     contractRead(pool, POOL_ABI, "slot0", []),
@@ -240,12 +292,22 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVau
       );
       if (!config.legacyVault) reads.push(contractRead(vault, VAULT_ABI, "hourlyBudget", [token]), contractRead(vault, VAULT_ABI, "budgetAvailable", [token]));
     }
+    if (config.guardedVault) {
+      reads.push(
+        contractRead(vault, VAULT_ABI, "twapWindow", []),
+        contractRead(vault, VAULT_ABI, "guardBandTicks", []),
+        contractRead(vault, VAULT_ABI, "priceGuardTicks", []),
+      );
+      for (const token of [HSKSWAP.whsk, HSKSWAP.usdt]) {
+        reads.push(contractRead(vault, VAULT_ABI, "dailyBudget", [token]), contractRead(vault, VAULT_ABI, "dailyAvailable", [token]));
+      }
+    }
   }
   return reads;
 }
 
 function buildMarket(
-  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">,
   head: Head,
   quoteRequests: QuoteRequest[],
   values: unknown[],
@@ -257,8 +319,8 @@ function buildMarket(
   const twapTick = arithmeticMeanTick(tickCumulatives[1]! - tickCumulatives[0]!, elapsed);
 
   const quotes: Quote[] = quoteRequests.map((request, i) => {
-    const [amountOut, , ticksCrossed] = values[4 + i] as readonly [bigint, bigint, number, bigint];
-    return { ...request, amountOut, ticksCrossed };
+    const [amountOut, sqrtPriceAfter, ticksCrossed] = values[4 + i] as readonly [bigint, bigint, number, bigint];
+    return { ...request, amountOut, ticksCrossed, sqrtPriceAfter };
   });
 
   const market: MarketState = {
@@ -293,8 +355,24 @@ function buildMarket(
       whsk: limits(first),
       usdt: limits(first + (legacy ? 4 : 6)),
     };
+    if (config.guardedVault) {
+      const at = first + 12;
+      const windowSec = values[at] as number;
+      const [oracleOk, , twap] = values[at + 2] as readonly [boolean, number, number];
+      if (windowSec !== 0) market.vault.guard = { windowSec, bandTicks: values[at + 1] as number, oracleOk, twapTick: twap };
+      market.vault.whsk.dailyBudget = values[at + 3] as bigint;
+      market.vault.whsk.dailyAvailable = values[at + 4] as bigint;
+      market.vault.usdt.dailyBudget = values[at + 5] as bigint;
+      market.vault.usdt.dailyAvailable = values[at + 6] as bigint;
+    }
   }
   return market;
+}
+
+/** The tick a V3 pool has at this price. Floating point, which is enough for a check the vault makes again exactly. */
+export function tickAtSqrtPrice(sqrtPriceX96: bigint): number {
+  const ratio = Number(sqrtPriceX96) / 2 ** 96;
+  return Math.floor(Math.log(ratio * ratio) / Math.log(1.0001));
 }
 
 /** Uniswap rounds a negative fractional mean tick toward negative infinity. */

@@ -1,0 +1,2244 @@
+{
+  "summary": {
+    "lane": "fork",
+    "note": "New vault source, with key expiry and the hourly budget. Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
+    "wallTime": "2026-11-01T19:02:30.380Z",
+    "attacks": {
+      "n": 120,
+      "contained": 120,
+      "forbiddenAccepts": 0,
+      "wilson95ForForbidden": {
+        "low": 0,
+        "high": 0.03101916643281046
+      }
+    },
+    "benign": {
+      "n": 120,
+      "completed": 120,
+      "wilson95": {
+        "low": 0.9689808335671896,
+        "high": 1
+      }
+    },
+    "capViolations": 0,
+    "maxDrainedHsk": 20,
+    "lifetimeCapHsk": 60,
+    "hourlyBudgetHsk": 20,
+    "keyTtlSeconds": 86400,
+    "drainedMeans": "Tokens that left the vault in one case, not value lost. The swap proceeds stay in the vault as USDT. See sandwich for value lost.",
+    "sandwich": {
+      "budgetEqualsLifetimeCap": {
+        "budgetHsk": 60,
+        "fills": 3,
+        "soldHsk": 60,
+        "marketValueUsdt": 5.25528,
+        "receivedUsdt": 3.02088,
+        "lostUsdt": 2.2344,
+        "boundUsdt": 2.25528
+      },
+      "budgetSetToOneThird": {
+        "budgetHsk": 20,
+        "fills": 1,
+        "soldHsk": 20,
+        "marketValueUsdt": 1.75176,
+        "receivedUsdt": 1.006966,
+        "lostUsdt": 0.744794,
+        "boundUsdt": 0.75176
+      }
+    },
+    "byFamily": {
+      "recipient-substitution": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "amount-inflation": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "nonce-replay": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "expiry-policy-reset": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "stolen-key-over-time": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "concurrent-spend": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      }
+    }
+  },
+  "results": [
+    {
+      "family": "recipient-substitution",
+      "variant": "withdraw to the agent",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "12815498308000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "pull from the vault directly",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "15812287425000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "use the router with the vault's allowance",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "5033318214000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "replace the agent with an attacker",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "17907529810000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "withdraw to the agent",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "11043871219000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "pull from the vault directly",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "14544224993000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "use the router with the vault's allowance",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "13179836532000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "replace the agent with an attacker",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "8185464042000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "withdraw to the agent",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "8202399806000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "pull from the vault directly",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "15447285265000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "use the router with the vault's allowance",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "15987232471000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "replace the agent with an attacker",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "2824669047000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "withdraw to the agent",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "8031540862000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "pull from the vault directly",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "6095660597000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "use the router with the vault's allowance",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "4385180942000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "replace the agent with an attacker",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "16850368062000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "withdraw to the agent",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "8346869327000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "pull from the vault directly",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "8360899535000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "use the router with the vault's allowance",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "11162976253000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "replace the agent with an attacker",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "recipient-substitution",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "6411034510000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "12996508933000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "3150666582000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "14601932971000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "4041200097000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "9900671847000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "17185329417000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "6484406715000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "3653049325000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "12349455288000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "4072790390000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "2473571923000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "5476869205000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "14987464270000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "4346856099000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "15413498667000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "16659102928000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "13603877962000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "1964578510000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "over the trade cap",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "2826793456000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "below the price floor",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "amount-inflation",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "19330580068000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "6474867347000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "6474867347000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "3993747483000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "3993747483000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "7682748172000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "7682748172000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "12303684079000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "12303684079000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "1365111999000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "1365111999000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "6292053641000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "6292053641000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "5113022264000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "5113022264000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "11061300964000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "11061300964000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "9462856044000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "9462856044000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "3193543141000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "3193543141000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "18979305750000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "18979305750000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "16720879186000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "16720879186000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "6551130459000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "6551130459000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "8372123291000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "8372123291000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "9123466245000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "9123466245000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "3929685107000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "3929685107000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "14080041446000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "14080041446000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "12255876336000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "12255876336000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "changed payload, same intent",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "3362735633000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "3362735633000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "exact replay",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "1347938963000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "nonce-replay",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "1347938963000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "expired deadline",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "2112340161000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "deadline too far ahead",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "4602662390000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent raises its own caps",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "15833325194000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent unpauses after a pause",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "5723900764000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "expired deadline",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "15769816364000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "deadline too far ahead",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "18272333382000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent raises its own caps",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "2631666629000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent unpauses after a pause",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "17755986228000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "expired deadline",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "11689114943000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "deadline too far ahead",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "6203695053000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent raises its own caps",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "10651712644000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent unpauses after a pause",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "12236911752000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "expired deadline",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "5156979296000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "deadline too far ahead",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "13539656784000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent raises its own caps",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "9853252027000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent unpauses after a pause",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "2466662592000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "expired deadline",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "6864289580000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "deadline too far ahead",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "9878430162000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent raises its own caps",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "5215535928000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "agent unpauses after a pause",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "expiry-policy-reset",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "9101317679000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "15299602578000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "5413012086000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "12050844448000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "3265237665000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "7338228335000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "5547072970000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "11133852179000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "5914456932000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "19118650211000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "17497664014000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "14534095694000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "7194415435000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "7729901650000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "11631768516000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "14606871242000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "13880425014000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "17726880223000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "10654337228000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "4154951805000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "13243099293000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "19886149413000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "19862192105000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "18842522088000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "19755666592000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "19281220480000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "19219317775000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "17681142585000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "18990884386000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "19861230266000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "19617374653000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "19364556321000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "19160328872000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "19602356390000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "19805015785000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "19429587774000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "19225413032000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "18526337123000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "19564322076000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "18921028264000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "32 trades in one block, over the cap",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "19943716033000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "concurrent-spend",
+      "variant": "3 trades in one block, under the cap",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "15000000000000000000",
+      "capViolation": false,
+      "success": true
+    }
+  ]
+}

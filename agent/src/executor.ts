@@ -1,10 +1,12 @@
 import {
+  concatHex,
   decodeErrorResult,
   decodeFunctionResult,
   encodeAbiParameters,
   encodeFunctionData,
   keccak256,
   parseEventLogs,
+  stringToHex,
   type Address,
   type Hex,
 } from "viem";
@@ -24,6 +26,8 @@ export const SYNC_SEND_TIMEOUT_MS = 6_000;
 export const EXPIRY_GRACE_SEC = 30n;
 /** How often unconfirmed bytes go out again, in case the node dropped them. The same bytes can land only once. */
 const RESEND_MS = 10_000;
+/** A receipt younger than this many blocks can still be undone, so it keeps being checked. */
+export const REORG_WATCH_BLOCKS = 64n;
 
 /** "sync" asks the node to answer with the receipt; "classic" sends and polls. */
 export type SendMode = "sync" | "classic";
@@ -45,6 +49,7 @@ export interface ExecutorOptions {
 export interface RawReceipt {
   status: Hex;
   blockNumber: Hex;
+  blockHash?: Hex;
   gasUsed: Hex;
   effectiveGasPrice: Hex;
   l1Fee?: Hex;
@@ -111,6 +116,40 @@ export class Executor {
     }
   }
 
+  /**
+   * Checks receipts young enough to be undone. A flashblock receipt is a preconfirmation, so one can disappear. An
+   * intent whose receipt vanished goes back to "broadcast": the same bytes go out again until its deadline, and then
+   * the vault's own record settles it. Returns the intents that changed.
+   */
+  async reconcile(headNumber: bigint): Promise<Intent[]> {
+    const changed: Intent[] = [];
+    for (const intent of this.ledger.all()) {
+      if ((intent.status !== "included" && intent.status !== "reverted") || intent.finalized || !intent.blockHash) continue;
+      const receipt = await this.rpc.call<RawReceipt | null>("eth_getTransactionReceipt", [intent.txHash]);
+      const reorgs = (intent.reorgs ?? 0) + 1;
+      if (!receipt) {
+        changed.push(
+          this.ledger.update(intent.key, {
+            status: "broadcast",
+            reorgs,
+            broadcastBlock: headNumber,
+            blockNumber: undefined,
+            blockHash: undefined,
+            amountOut: undefined,
+            gasUsed: undefined,
+            feeWei: undefined,
+            revertReason: undefined,
+          }),
+        );
+      } else if (receipt.blockHash !== intent.blockHash) {
+        changed.push(await this.record(this.ledger.update(intent.key, { reorgs }), receipt));
+      } else if (headNumber - intent.blockNumber! >= REORG_WATCH_BLOCKS) {
+        this.ledger.update(intent.key, { finalized: true });
+      }
+    }
+    return changed;
+  }
+
   /** Reserve, sign, persist, then broadcast. The signed bytes are on disk before they can reach the network. */
   async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number, isCurrent: () => boolean = () => true): Promise<Intent> {
     if (this.busy) throw new SubmissionBusy("signer already has a submission owner");
@@ -132,6 +171,8 @@ export class Executor {
         [decision.tokenIn, decision.amountIn, decision.minOut, intentId],
       ),
     );
+    const decisionBody = decisionRecord(decision, market);
+    const decisionHash = keccak256(stringToHex(decisionBody));
     const { intent, existing } = await trace.span("reserve", () =>
       this.ledger.reserve({
         key,
@@ -142,6 +183,8 @@ export class Executor {
         amountIn: decision.amountIn,
         minOut: decision.minOut,
         deadline,
+        decisionBody,
+        decisionHash,
       }),
     );
     if (existing) return intent;
@@ -155,11 +198,15 @@ export class Executor {
     const nonce = await trace.span("nonce", () => this.nextNonce(pendingNonce));
     check();
     const signed = await trace.span("sign", async () => {
-      const data = encodeFunctionData({
-        abi: VAULT_ABI,
-        functionName: "execute",
-        args: [decision.tokenIn, decision.amountIn, decision.minOut, deadline, intentId],
-      });
+      // The vault ignores bytes after its arguments. These tie the transaction to the decision that made it.
+      const data = concatHex([
+        encodeFunctionData({
+          abi: VAULT_ABI,
+          functionName: "execute",
+          args: [decision.tokenIn, decision.amountIn, decision.minOut, deadline, intentId],
+        }),
+        decisionHash,
+      ]);
       const rawTx = await this.account.signTransaction({
         type: "eip1559",
         chainId: this.chainId,
@@ -242,14 +289,16 @@ export class Executor {
     const blockNumber = BigInt(receipt.blockNumber);
     const gasUsed = BigInt(receipt.gasUsed);
     const feeWei = gasUsed * BigInt(receipt.effectiveGasPrice) + BigInt(receipt.l1Fee ?? 0);
+    const blockHash = receipt.blockHash;
     if (receipt.status !== "0x1") {
       const revertReason = await this.revertReason(intent, blockNumber);
-      return this.ledger.update(intent.key, { status: "reverted", blockNumber, gasUsed, feeWei, revertReason });
+      return this.ledger.update(intent.key, { status: "reverted", blockNumber, blockHash, gasUsed, feeWei, revertReason });
     }
     const [traded] = parseEventLogs({ abi: VAULT_ABI, eventName: "Traded", logs: receipt.logs as never });
     return this.ledger.update(intent.key, {
       status: "included",
       blockNumber,
+      blockHash,
       gasUsed,
       feeWei,
       amountOut: (traded?.args as { amountOut?: bigint } | undefined)?.amountOut ?? 0n,
@@ -288,6 +337,51 @@ export class Executor {
       if (error instanceof RpcError) return decodeRevert(error);
       return error instanceof Error ? error.message : "unknown";
     }
+  }
+}
+
+/** What a decision was made from. Canonical, so anyone holding it can recompute the hash a transaction carries. */
+export function decisionRecord(decision: TradeDecision, market: Pick<MarketState, "head" | "spotPriceX18">): string {
+  return JSON.stringify({
+    block: market.head.number.toString(),
+    blockHash: market.head.hash,
+    spotPriceX18: market.spotPriceX18?.toString(),
+    trigger: decision.trigger,
+    orderId: decision.orderId,
+    tokenIn: decision.tokenIn,
+    amountIn: decision.amountIn.toString(),
+    quotedOut: decision.quotedOut?.toString(),
+    minOut: decision.minOut.toString(),
+    reason: decision.reason,
+  });
+}
+
+export interface Simulation {
+  /** True if the vault would accept the trade, false if it refuses, null if the node could not say. */
+  ok: boolean | null;
+  amountOut?: bigint;
+  error?: string;
+  latencyMs: number;
+}
+
+/** Asks the vault, through eth_call, what it would do with this trade from `from`. Signs nothing and sends nothing. */
+export async function simulateTrade(rpc: RpcClient, vault: Address, from: Address, decision: Pick<TradeDecision, "tokenIn" | "amountIn" | "minOut">, head: Pick<Head, "timestamp">, block: string = "latest"): Promise<Simulation> {
+  const data = encodeFunctionData({
+    abi: VAULT_ABI,
+    functionName: "execute",
+    // A fresh ID, so a used one can never be the reason given.
+    args: [decision.tokenIn, decision.amountIn, decision.minOut, head.timestamp + INTENT_TTL_SEC, keccak256(stringToHex(`simulate:${performance.now()}:${Math.random()}`))],
+  });
+  const started = performance.now();
+  try {
+    const raw = await rpc.callOnce<Hex>("eth_call", [{ from, to: vault, data }, block]);
+    return { ok: true, amountOut: decodeFunctionResult({ abi: VAULT_ABI, functionName: "execute", data: raw }), latencyMs: performance.now() - started };
+  } catch (error) {
+    const latencyMs = performance.now() - started;
+    const name = error instanceof RpcError ? decodeRevert(error) : String(error);
+    // A revert carries data or says so. Anything else, such as a timeout, is the node's problem and not the vault's answer.
+    const refused = error instanceof RpcError && (error.data !== undefined || /revert/i.test(error.message));
+    return { ok: refused ? false : null, error: name, latencyMs };
   }
 }
 

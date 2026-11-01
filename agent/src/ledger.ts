@@ -30,6 +30,15 @@ export interface Intent {
   /** Execution plus L1 fee, in wei, from the receipt. */
   feeWei?: bigint;
   revertReason?: string;
+  /** The block its receipt named, so a reorg that moves it can be seen. */
+  blockHash?: Hex;
+  /** Set once the receipt has survived long enough that it no longer needs checking. */
+  finalized?: boolean;
+  /** How many times a reorg has undone or moved this intent's receipt. */
+  reorgs?: number;
+  /** The canonical JSON of the decision. Its hash follows the arguments in the transaction's calldata. */
+  decisionBody?: string;
+  decisionHash?: Hex;
 }
 
 const BIGINT_FIELDS = ["amountIn", "minOut", "deadline", "broadcastBlock", "blockNumber", "amountOut", "gasUsed", "feeWei"] as const;

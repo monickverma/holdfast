@@ -17,7 +17,7 @@ export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address
   const wallet = createWalletClient({ chain, transport, account });
   const gasPrice = await client.getGasPrice();
   // Hard preflight ceiling leaves ample room for all six deployments and setup.
-  const gasBudget = 15_000_000n;
+  const gasBudget = 20_000_000n;
   if (gasBudget * gasPrice >= 50_000_000_000_000_000n) throw new Error("Deployment budget exceeds 0.05 HSK at this gas price");
   let gas = 0n, fee = 0n;
   // The public RPC can lag behind its own receipts, returning an old nonce or estimating against a chain
@@ -32,7 +32,7 @@ export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address
   const artifact = (name: string) => JSON.parse(readFileSync(`out/${name === "HoldfastVault" ? "HoldfastVault" : "TestMarket"}.sol/${name}.json`, "utf8"));
   const deploy = async (name: string, args: unknown[]) => {
     const a = artifact(name);
-    const r = await receipt(await wallet.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args, gasPrice, gas: 3_000_000n, nonce: nonce++ }));
+    const r = await receipt(await wallet.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args, gasPrice, gas: name === "HoldfastVault" ? 6_000_000n : 3_000_000n, nonce: nonce++ }));
     return r.contractAddress!;
   };
   const write = async (name: string, address: Address, functionName: string, args: unknown[]) => receipt(await wallet.writeContract({ address, abi: artifact(name).abi, functionName, args, gasPrice, gas: 400_000n, nonce: nonce++ }));
@@ -51,7 +51,7 @@ export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address
   await write("TestToken", usdt, "mint", [vault, 10n * 10n ** 6n]);
   await write("HoldfastVault", vault, "setLimits", [whsk, 10n * 10n ** 18n, 50n * 10n ** 18n, 90_000n, 50n * 10n ** 18n]);
   await write("HoldfastVault", vault, "setLimits", [usdt, 1_000_000n, 5_000_000n, 9n * 10n ** 30n, 5_000_000n]);
-  const market = { generation: 2, chainId: id, whsk, usdt, pool, router, quoter, vault, gasUsed: gas.toString(), feeWei: fee.toString() };
+  const market = { generation: 3, chainId: id, whsk, usdt, pool, router, quoter, vault, gasUsed: gas.toString(), feeWei: fee.toString() };
   if (persist) { mkdirSync("data", { recursive: true }); writeFileSync(testMarketFile(), JSON.stringify(market, null, 2)); }
   console.log(`Deployment and setup: ${gas} gas, ${formatEther(fee)} HSK; at 1 gwei: ${formatEther(gas * 1_000_000_000n)} HSK`);
   return market;

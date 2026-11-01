@@ -1,0 +1,5 @@
+{
+  "wallTime": "2026-11-01T18:54:30.154Z",
+  "status": "BLOCKED",
+  "reason": "ANTHROPIC_API_KEY is not set, so no model was called. Nothing about the live model is claimed."
+}

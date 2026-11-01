@@ -21,17 +21,25 @@ contract TestToken {
 
 /// TEST MARKET, NOT Uniswap V3. Constant product, 0.3% fee, fixed semantic order:
 /// token0 is test WHSK (18 decimals), token1 is test USDT (6), regardless of addresses.
-/// observe synthesizes history at today's tick; it is NOT a historical TWAP oracle.
+/// observe keeps a real history, shaped like V3's, so a price guard or a stop on this market meets a price that takes
+/// time to move. Before the seed, the seed's own price counts as having always held.
 contract TestPool {
     TestToken public immutable token0;
     TestToken public immutable token1;
+    uint24 public constant fee = 3000;
     uint256 public reserve0;
     uint256 public reserve1;
+    struct Observation { uint32 time; int56 cumulative; }
+    Observation[] private observations;
+    /// Worked out once per swap, because the search costs far more than the read.
+    int24 private tick;
     constructor(TestToken a,TestToken b) { token0=a; token1=b; }
     function seed(uint256 a,uint256 b) external {
         require(reserve0==0 && a>0 && b>0 && a<=type(uint128).max && b<=type(uint128).max,"seed");
         token0.transferFrom(msg.sender,address(this),a); token1.transferFrom(msg.sender,address(this),b);
         reserve0=a; reserve1=b;
+        tick=currentTick();
+        observations.push(Observation(uint32(block.timestamp),0));
     }
     function quote(address input,uint256 amount) public view returns(uint256) {
         require(input==address(token0)||input==address(token1),"token");
@@ -44,9 +52,18 @@ contract TestPool {
     function swap(address input,uint256 amount,address recipient,uint256 minimum) external returns(uint256 out) {
         out=quote(input,amount); require(out>=minimum && out>0,"slippage");
         require((input==address(token0)?reserve0:reserve1)+amount<=type(uint128).max,"reserve limit");
+        _observe();
         TestToken(input).transferFrom(msg.sender,address(this),amount);
         if(input==address(token0)) { reserve0+=amount; reserve1-=out; token1.transfer(recipient,out); }
         else { reserve1+=amount; reserve0-=out; token0.transfer(recipient,out); }
+        tick=currentTick();
+    }
+    /// The price that held until now goes into the history, before this swap changes it.
+    function _observe() private {
+        Observation storage last=observations[observations.length-1];
+        uint32 time=uint32(block.timestamp);
+        if(last.time==time) return;
+        observations.push(Observation(time,last.cumulative+int56(tick)*int56(uint56(time-last.time))));
     }
     function sqrt(uint256 x) internal pure returns(uint256 y) {
         if(x==0) return 0; y=x; uint256 z=(x+1)/2;
@@ -68,14 +85,39 @@ contract TestPool {
         while(low<high) { int24 mid=low+(high-low+1)/2; if(priceAt(mid)<=ratio) low=mid; else high=mid-1; }
         return low;
     }
-    function slot0() external view returns(uint160,int24,uint16,uint16,uint16,uint8,bool) {
+    function _sqrtPrice(uint256 r0,uint256 r1) private pure returns(uint160) {
         // Q128 ratio -> Q64 square root -> Q96. Avoid decimal scaling assumptions.
-        return(uint160(sqrt((reserve1<<128)/reserve0)<<32),currentTick(),0,1,1,0,true);
+        return uint160(sqrt((r1<<128)/r0)<<32);
+    }
+    function slot0() external view returns(uint160,int24,uint16,uint16,uint16,uint8,bool) {
+        return(_sqrtPrice(reserve0,reserve1),tick,0,1,1,0,true);
+    }
+    /// The price this swap would leave behind.
+    function sqrtPriceAfter(address input,uint256 amount) external view returns(uint160) {
+        uint256 out=quote(input,amount);
+        return input==address(token0)?_sqrtPrice(reserve0+amount,reserve1-out):_sqrtPrice(reserve0-out,reserve1+amount);
     }
     function observe(uint32[] calldata ago) external view returns(int56[] memory ticks,uint160[] memory secondsPerLiquidity) {
         ticks=new int56[](ago.length); secondsPerLiquidity=new uint160[](ago.length);
-        int56 tick=int56(currentTick());
-        for(uint256 i; i<ago.length;i++) ticks[i]=tick*(int56(uint56(block.timestamp))-int56(uint56(ago[i])));
+        for(uint256 i; i<ago.length;i++) ticks[i]=_cumulativeAt(uint32(block.timestamp)-ago[i]);
+    }
+    function _cumulativeAt(uint32 time) private view returns(int56) {
+        uint256 n=observations.length;
+        Observation memory first=observations[0];
+        Observation memory last=observations[n-1];
+        if(time>=last.time) return last.cumulative+int56(tick)*int56(uint56(time-last.time));
+        // Between two swaps the price did not move, so each stretch is one tick, the one the later entry recorded.
+        if(time<first.time) return first.cumulative-int56(_seedTick())*int56(uint56(first.time-time));
+        uint256 low=0; uint256 high=n-1;
+        while(low+1<high) { uint256 mid=(low+high)/2; if(observations[mid].time<=time) low=mid; else high=mid; }
+        Observation memory a=observations[low]; Observation memory b=observations[high];
+        return a.cumulative+(b.cumulative-a.cumulative)*int56(uint56(time-a.time))/int56(uint56(b.time-a.time));
+    }
+    /// The first stretch of history, or today's tick if nothing has traded since the seed.
+    function _seedTick() private view returns(int24) {
+        if(observations.length<2) return tick;
+        Observation memory a=observations[0]; Observation memory b=observations[1];
+        return int24((b.cumulative-a.cumulative)/int56(uint56(b.time-a.time)));
     }
 }
 contract TestRouter {
@@ -97,8 +139,6 @@ contract TestQuoter {
     function quoteExactInputSingle(QuoteParams calldata p) external view returns(uint256,uint160,uint32,uint256) {
         require(p.fee==3000 && p.sqrtPriceLimitX96==0,"params");
         require((p.tokenIn==address(pool.token0()) && p.tokenOut==address(pool.token1())) || (p.tokenIn==address(pool.token1()) && p.tokenOut==address(pool.token0())),"pair");
-        (uint160 spot,,,,,,)=pool.slot0();
-        // Agent consumes amountOut and crossed ticks only; spot is not a V3 post-swap forecast.
-        return(pool.quote(p.tokenIn,p.amountIn),spot,0,200000);
+        return(pool.quote(p.tokenIn,p.amountIn),pool.sqrtPriceAfter(p.tokenIn,p.amountIn),0,200000);
     }
 }

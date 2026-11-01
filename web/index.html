@@ -1,36 +1,229 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdfast</title><meta name="description" content="A non-custodial vault and trading agent. An agent key can trade inside limits the owner sets on chain, and cannot withdraw. Testnet stage."><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><main>
-<header class="hero"><div class="bar"><p class="eyebrow">AI Agent Trading · HSK Chain</p><button id="theme" type="button">Switch theme</button></div><h1>Holdfast</h1><p class="lead">Let AI trade. Never let it take unrestricted control.</p><p>Holdfast is a non-custodial vault and trading agent. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p><p class="links"><a href="https://github.com/monickverma/holdfast">Source code</a><a href="https://github.com/monickverma/holdfast/blob/main/BENCHMARKS.md">Benchmarks and method</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/ARCHITECTURE.md">Architecture</a></p></header>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holdfast</title>
+<meta name="description" content="A non-custodial vault and trading agent on HSK Chain. An agent key can trade inside limits the owner sets on chain, and cannot withdraw. Testnet stage.">
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="mast">
+  <a class="mark" href="#top">Holdfast</a>
+  <nav aria-label="Sections">
+    <a href="#enforced">Enforced</a>
+    <a href="#how">How</a>
+    <a href="#vault">Vault</a>
+    <a href="#proof">Proof</a>
+    <a href="#refused">Refused</a>
+  </nav>
+  <div class="mast-right">
+    <span id="network" class="chip" role="status">Reading network…</span>
+    <button id="theme" type="button" class="quiet">Switch theme</button>
+  </div>
+</header>
+
+<main id="main">
+<section id="top" class="hero">
+  <div class="hero-text">
+    <p class="eyebrow">AI agent trading on HSK Chain</p>
+    <h1>Let AI trade. Never let it take unrestricted control.</h1>
+    <p class="lead">Holdfast is a non-custodial vault and trading agent. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p>
+    <p class="links"><a href="https://github.com/monickverma/holdfast">Source code</a><a href="https://github.com/monickverma/holdfast/blob/main/BENCHMARKS.md">Benchmarks and method</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/ARCHITECTURE.md">Architecture</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/SECURITY.md">Threat model</a></p>
+  </div>
+  <aside class="console" aria-labelledby="console-title">
+    <h2 id="console-title">Try to break it</h2>
+    <p class="console-note">Each button asks a node to run one attack against the deployed vault, by <code>eth_call</code>. You see what the node returned. Nothing is signed or sent.</p>
+    <div id="attacks-list" class="attack-buttons"></div>
+    <div id="verdict" class="verdict" role="status" aria-live="polite"><p class="verdict-idle">Choose an attack.</p></div>
+  </aside>
+</section>
+
 <p class="notice"><strong>Stage: testnet.</strong> No mainnet deployment or swap has happened. The contract is not audited, the live model call is untested, no outside user has tried it, and profit is not claimed.</p>
-<section><h2>How it works</h2><ol class="steps">
-<li><h3>Owner</h3><p>Deploys the vault, deposits funds and sets the limits. Only the owner can withdraw.</p></li>
-<li><h3>Agent</h3><p>A model turns a plain-English strategy into a typed policy. A deterministic loop then reads the pool and decides. No model runs in the trading path.</p></li>
-<li><h3>Vault</h3><p>Checks every trade on chain, separately from the agent, and refuses anything outside the limits.</p></li>
-<li><h3>Exchange</h3><p>Runs permitted swaps through a router fixed at deployment. Tested on a fork of the real HSKSwap router, and on our own test market on testnet.</p></li>
-</ol></section>
-<section><h2>What the limits do</h2><div class="split">
-<div><h3>The contract enforces</h3><ul><li>One router and two tokens, fixed at deployment</li><li>A cap per trade, an hourly budget and a lifetime cap, per token</li><li>A minimum price on every sale</li><li>An agent key that expires within 30 days</li><li>Short trade deadlines, and no replay of a trade</li><li>A pause, and no withdrawal by the agent</li></ul></div>
-<div><h3>It does not prevent</h3><ul><li>Bad trades inside the limits. A stolen key can sell at the minimum price until a limit stops it</li><li>Falling prices. There is no on-chain stop-loss; the stop-loss runs in the agent, so nothing but the owner protects a position while the agent is offline</li><li>Gas spent by the agent key, which is separate from the token caps</li></ul></div>
-</div></section>
-<section><h2>Measured so far</h2><p>Each result names where it ran. These come from the repository's evidence files, not from this server.</p><div class="scroll"><table><thead><tr><th scope="col">Result</th><th scope="col">Where it ran</th></tr></thead><tbody>
-<tr><td>120 of 120 attacks contained, 120 of 120 normal trades completed, 0 cap violations</td><td>Local fork, current contract</td></tr>
-<tr><td>Stolen key selling into a pool pushed to the minimum price: 60 HSK sold, $2.23 lost (one run)</td><td>Local fork, current contract</td></tr>
-<tr><td>Market move to receipt: P50 1,628.5 → 225.2 ms, P90 2,230.2 → 413.5 ms, polling then flashblock stream, 45 + 45 orders</td><td>Testnet, own test market, older vault</td></tr>
-<tr><td>Market read: P50 364.2 → 203.9 ms, 400 + 400 reads</td><td>Mainnet, real HSKSwap pool, read only</td></tr>
-<tr><td>Flashblock frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished</td><td>Mainnet, read only</td></tr>
-<tr><td>Real pool over 7 days: 462 swaps, one wallet made 94% of them, so no latency race exists there today</td><td>Mainnet, read only</td></tr>
-<tr><td>Simulated profit over 43 minutes: none with an assumed 20 bps outside fee; $0.42 at most acting at once without it, all within 7 minutes</td><td>Mainnet prices, simulated fills</td></tr>
-</tbody></table></div><p>Testnet vault: <a href="https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89">0x4bfc…ee89</a>. It is an older version, without the key expiry or hourly budget. Benchmark swaps are self-trades in a thin test market, not volume.</p></section>
-<section><h2>Where it could go</h2><p>A proposal: nothing here is built, and there are no customers or revenue. Autonomous trading is the first use. The larger product would be the vault itself, as security infrastructure for other teams' trading agents.</p><div class="scroll"><table><thead><tr><th scope="col">Direction</th><th scope="col">What customers could pay for</th></tr></thead><tbody>
-<tr><td>Agent security infrastructure</td><td>Vault contracts, an SDK and APIs for other trading agents</td></tr>
-<tr><td>Hosted trading</td><td>Running the agent for owners, with the vault still enforcing their limits</td></tr>
-<tr><td>Reliability tooling</td><td>Testing, monitoring and risk reports for trading agents</td></tr>
-</tbody></table></div></section>
-<p id="state" role="status">Loading run data…</p>
-<section id="lanes-section" hidden><h2>Latency and trades</h2><p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p><div id="lanes"></div></section>
-<section id="attacks-section" hidden><h2>Attack set · fork</h2><p>Fork evidence is not a mainnet run or an audit. Reentrancy is covered only in the Foundry suite with a mock.</p><div id="attacks"></div></section>
-<section id="vault-section" hidden><h2>Vault limits</h2><div id="vault"></div></section>
-<section id="chat-section" hidden><h2>Ask about the evidence</h2><p id="chat-status"></p><p>Answers are model output. Policy changes stay in the existing REPL.</p><form id="chat"><label for="question">Your question</label><textarea id="question" required maxlength="4000" placeholder="What evidence is available?"></textarea><button id="ask">Ask</button></form><p id="answer" role="status"></p></section>
-</main></body></html>
+
+<section id="enforced" class="clause">
+  <h2><span class="num">1</span>What the limits do</h2>
+  <div class="ledger-split">
+    <div>
+      <h3>The contract enforces</h3>
+      <ul>
+        <li>One router and two tokens, fixed at deployment</li>
+        <li>A cap per trade, an hourly budget, a daily budget and a lifetime cap, per token</li>
+        <li>A minimum price on every sale</li>
+        <li>A price band around the pool's own time-weighted average, checked on the price the trade leaves behind</li>
+        <li>An agent key that expires within 30 days, and can be ended at once by the owner or a guardian</li>
+        <li>Short trade deadlines, and no replay of a trade</li>
+        <li>A pause and a halt, and no withdrawal by the agent. The owner can always withdraw</li>
+        <li>A stop anyone may fire once the average price crosses the owner's trigger, whose proceeds stay in the vault</li>
+      </ul>
+    </div>
+    <div>
+      <h3>It does not prevent</h3>
+      <ul>
+        <li>Bad trades inside the limits. A stolen key can sell at the minimum price until a limit stops it</li>
+        <li>A price held away from the market for a whole averaging window. That costs an attacker real money, measured below, but it is possible, so the floor stays the backstop</li>
+        <li>Loss from a falling price before the owner or the stop acts. The stop sells in tranches and each one can still lose</li>
+        <li>Gas spent by the agent key, which is separate from the token caps</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="clause">
+  <h2><span class="num">2</span>Who can do what</h2>
+  <p>The model is outside the trust boundary. It only ever produces a policy that is checked against a schema, and no model runs in the trading path. The vault does not trust the agent either.</p>
+  <div class="arch" role="group" aria-label="Architecture, from untrusted inputs to on-chain enforcement">
+    <div class="zone zone-untrusted">
+      <h3>Not trusted</h3>
+      <div class="node"><h4>Model</h4><p>Turns a plain-English strategy into a typed policy. Prompt injection stops here: it can only yield a policy the schema accepts.</p></div>
+      <div class="node"><h4>Market data</h4><p>Pool reads and flashblock frames. A node can lie or lag, so the vault reads the price again itself.</p></div>
+    </div>
+    <div class="flow" aria-hidden="true"></div>
+    <div class="zone zone-agent">
+      <h3>Agent process</h3>
+      <div class="node"><h4>Decide</h4><p>Deterministic code: a pure function of market and policy, and no model call.</p></div>
+      <div class="node"><h4>Execute</h4><p>Write-ahead ledger, one send at a time, an optional preflight by <code>eth_call</code>, and reorg handling. Holds one key, which cannot withdraw.</p></div>
+    </div>
+    <div class="flow" aria-hidden="true"></div>
+    <div class="zone zone-chain">
+      <h3>Enforced on chain</h3>
+      <div class="node node-vault"><h4>HoldfastVault</h4><p>Checks caps, budgets, floor, band, deadline, replay and expiry. Refuses, whatever it is told.</p></div>
+      <div class="node"><h4>Router and pool</h4><p>Fixed at deployment. Tested on a fork of the real HSKSwap router, and on our own test market on testnet.</p></div>
+    </div>
+  </div>
+  <div class="roles scroll">
+    <table>
+      <caption>Who may call what. Every row is covered in the contract tests.</caption>
+      <thead><tr><th scope="col">Role</th><th scope="col">May</th><th scope="col">May not</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Owner</th><td>Withdraw, set limits, name the agent and guardian, unpause</td><td>Exceed the 30-day key limit, or change the router or tokens</td></tr>
+        <tr><th scope="row">Guardian</th><td>Pause, halt, end the agent key, disarm the stop</td><td>Withdraw, unpause, or raise any limit</td></tr>
+        <tr><th scope="row">Agent key</th><td>Trade inside the limits, pause</td><td>Withdraw, or change anything</td></tr>
+        <tr><th scope="row">Anyone</th><td>Fire an armed stop whose trigger has crossed</td><td>Choose its size, price or destination, or get paid for it</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="vault" class="clause">
+  <h2><span class="num">3</span>This server's vault</h2>
+  <p id="vault-status" role="status">Reading the vault…</p>
+  <div id="vault-body"></div>
+  <div id="wallet-panel" class="wallet" hidden>
+    <h3>Owner controls</h3>
+    <p>Your own wallet signs and shows you every transaction first. This page never holds a key, and the vault decides in the end.</p>
+    <p><button id="connect" type="button">Connect a wallet</button> <span id="wallet-state" role="status"></span></p>
+    <div id="controls" class="controls"></div>
+    <dialog id="confirm" aria-labelledby="confirm-title">
+      <form method="dialog" id="confirm-form">
+        <h3 id="confirm-title">Check this transaction</h3>
+        <div id="confirm-body"></div>
+        <p id="confirm-check" role="status"></p>
+        <div class="dialog-actions">
+          <button type="submit" value="cancel" class="quiet">Cancel</button>
+          <button type="button" id="confirm-send" disabled>Send from my wallet</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+</section>
+
+<section id="proof" class="clause">
+  <h2><span class="num">4</span>Measured, and where</h2>
+  <p>Every number here is read from the repository's evidence files by this server, and every one names where it ran. A file that is not there shows as “not yet run”.</p>
+  <div id="tiles" class="tiles"></div>
+
+  <div class="figure">
+    <h3>What the vault costs per swap</h3>
+    <p id="gas-sub" class="sub"></p>
+    <div id="chart-gas" class="chart"></div>
+    <details><summary>Gas table</summary><div id="table-gas"></div></details>
+  </div>
+
+  <div class="figure">
+    <h3>How much money it takes to push the real pool</h3>
+    <p id="push-sub" class="sub"></p>
+    <div id="chart-push" class="chart"></div>
+    <details><summary>Push cost table</summary><div id="table-push"></div></details>
+  </div>
+
+  <div class="figure">
+    <h3>From a market move to a receipt</h3>
+    <p id="latency-sub" class="sub"></p>
+    <div id="chart-latency" class="chart"></div>
+    <details><summary>Latency table</summary><div id="table-latency"></div></details>
+  </div>
+
+  <div class="figure">
+    <h3>Deployment rehearsal</h3>
+    <p id="rehearsal-sub" class="sub"></p>
+    <details><summary>Every step of the rehearsal</summary><ol id="rehearsal-steps" class="steps-list"></ol></details>
+  </div>
+
+  <div class="figure">
+    <h3>Earlier measurements</h3>
+    <div class="scroll"><table>
+      <thead><tr><th scope="col">Result</th><th scope="col">Where it ran</th></tr></thead>
+      <tbody>
+        <tr><td>Stolen key selling into a pool pushed to the minimum price: 60 HSK sold, $2.23 lost (one run)</td><td><span class="lane" data-lane="fork">Fork</span></td></tr>
+        <tr><td>Market move to receipt: P50 1,628.5 → 225.2 ms, P90 2,230.2 → 413.5 ms, polling then flashblock stream, 45 + 45 orders</td><td><span class="lane" data-lane="testnet">Testnet</span> own test market, older vault</td></tr>
+        <tr><td>Market read: P50 364.2 → 203.9 ms, 400 + 400 reads</td><td><span class="lane" data-lane="mainnet">Mainnet</span> real HSKSwap pool, read only</td></tr>
+        <tr><td>Flashblock frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished</td><td><span class="lane" data-lane="mainnet">Mainnet</span> read only</td></tr>
+        <tr><td>Real pool over 7 days: 462 swaps, one wallet made 94% of them, so no latency race exists there today</td><td><span class="lane" data-lane="mainnet">Mainnet</span> read only</td></tr>
+        <tr><td>Simulated profit over 43 minutes: none with an assumed 20 bps outside fee; $0.42 at most acting at once without it, all within 7 minutes</td><td><span class="lane" data-lane="replay">Simulated</span> mainnet prices, simulated fills</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section id="refused" class="clause">
+  <h2><span class="num">5</span>What was refused</h2>
+  <p id="tx-sub"></p>
+  <div id="tx-table"></div>
+  <h3 class="after">Attack set</h3>
+  <p id="attack-sub"></p>
+  <div id="attack-table"></div>
+</section>
+
+<section class="clause">
+  <h2><span class="num">6</span>Where it could go</h2>
+  <p>A proposal: nothing here is built, and there are no customers or revenue. Autonomous trading is the first use. The larger product would be the vault itself, as security infrastructure for other teams' trading agents.</p>
+  <div class="scroll"><table>
+    <thead><tr><th scope="col">Direction</th><th scope="col">What customers could pay for</th></tr></thead>
+    <tbody>
+      <tr><td>Agent security infrastructure</td><td>Vault contracts, an SDK and APIs for other trading agents</td></tr>
+      <tr><td>Hosted trading</td><td>Running the agent for owners, with the vault still enforcing their limits</td></tr>
+      <tr><td>Reliability tooling</td><td>Testing, monitoring and risk reports for trading agents</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="lanes-section" class="clause" hidden>
+  <h2><span class="num">7</span>Latency and trades on this server</h2>
+  <p id="state" role="status">Loading run data…</p>
+  <p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p>
+  <div id="lanes"></div>
+  <div id="attacks"></div>
+</section>
+<p id="state-public" class="server-note" role="status"></p>
+
+<section id="chat-section" class="clause" hidden>
+  <h2>Ask about the evidence</h2>
+  <p id="chat-status"></p>
+  <p>Answers are model output. Policy changes stay in the existing REPL.</p>
+  <form id="chat">
+    <label for="question">Your question</label>
+    <textarea id="question" required maxlength="4000" placeholder="What evidence is available?"></textarea>
+    <button id="ask">Ask</button>
+  </form>
+  <p id="answer" role="status"></p>
+</section>
+</main>
+<footer class="foot">
+  <p>Holdfast is a hackathon project on HSK Chain. Nothing on this page is investment advice. Source and evidence are public in the <a href="https://github.com/monickverma/holdfast">repository</a>.</p>
+</footer>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+</body>
+</html>

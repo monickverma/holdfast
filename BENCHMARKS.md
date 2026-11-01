@@ -2,6 +2,34 @@
 
 Every number here names its lane (mainnet read only, fork, or testnet), its sample size and its source file in `evidence/`. Nothing has been deployed or traded on mainnet. The testnet venue is our own test market, not HSKSwap, so its prices and P&L mean nothing.
 
+## Version 3
+
+The vault gained a price guard, a stop, a guardian and a daily budget. This is what that costs, on a fork of the real HSKSwap router, median of 20 rounds, `evidence/v3/gas-compare.json`. The tables further down are for earlier versions and are unchanged.
+
+| Arm | Sell, gas | Buy, gas | Sell, over the router alone |
+|---|---:|---:|---:|
+| Router alone, no vault | 104,740 | 104,305 | |
+| First vault | 156,500 | 156,137 | 51,760 |
+| Version 2 | 133,091 | 132,756 | 28,351 |
+| Version 3, guard off | 133,532 | 133,197 | 28,792 |
+| Version 3, guard on | 148,184 | 147,800 | 43,444 |
+| Version 3, guard, daily budget and decision hash | 154,878 | 154,494 | 50,138 |
+
+Turning on the guard costs about 14,650 gas a swap. At the assumption used below, 500 gwei and $0.0874/HSK, that is about $0.00064. The full arm comes out slightly under the first vault, with far more checks.
+
+**Deployment is much dearer:** 3,866,702 gas and 17,420 runtime bytes, against 1,707,783 and 7,562 for version 2. That is the honest cost of keeping everything in one contract. It is paid once.
+
+**What a push of the real pool costs,** fork, `evidence/v3/rehearsal-fork.json`, selling then buying straight back with no other trader acting. This is a floor. Holding a price for a whole window also pays arbitrageurs, which a fork cannot measure.
+
+| Capital | Ticks moved | Round-trip loss |
+|---:|---:|---:|
+| 30,000 WHSK, about $2,627 | 120 | about $15.69 |
+| 100,000 WHSK, about $8,758 | 396 | about $51.96 |
+| 300,000 WHSK, about $26,275 | 1,165 | about $152.98 |
+| 1,000,000 WHSK, about $87,582 | 3,645 | about $481.17 |
+
+**Measured against theoretical.** Preflight adds one `eth_call` round trip before a send. We have not measured it through the agent. The nearest measured figure is about 130 ms or more for a state read, under [Reacting to flashblocks](#reacting-to-flashblocks), and this is why preflight is skipped on stream frames. No version 3 latency has been measured on any live network, because the version 3 vault on testnet has not traded.
+
 ## Results
 
 | Benchmark | Lane | Before | After | Change |
@@ -331,6 +359,13 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/attack-results.json` | Attack set on the current source, on a fork |
 | `evidence/hardening/` | Edge replay, mark guard replay, rate limit run, policy harness, and the old vault's attack and gas results |
 | `evidence/testnet-deployment.json` | Deployed testnet addresses |
+| `evidence/public-transactions.json` | Testnet transactions the site links to, re-read from their receipts by `npm run check:transactions` |
+| `evidence/v3/verification.json`, `e2e.json` | Counts from the contract, fork, agent and end-to-end suites, written by `scripts/record-verification.mjs` |
+| `evidence/v3/gas-compare.json` | Fork gas for every vault version and guard setting |
+| `evidence/v3/rehearsal-fork.json` | 26-step deployment rehearsal, and the cost of pushing the real pool |
+| `evidence/v3/attack-results.json` | Attack set on version 3, on a fork |
+| `evidence/v3/mutation-check.json`, `slither.json` | Deliberate bugs caught by the tests, and static analysis triage |
+| `evidence/v3/llm-live.json` | Live model call. Records `BLOCKED` until a key is available |
 | `evidence/market/` | The 7-day pool activity read and the scripts behind it |
 | `evidence/shadow/` | Shadow report and every sample |
 | `evidence/frame-drift/` | Frame Drift report, the earlier run's mismatch and the Swap log check |

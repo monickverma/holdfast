@@ -38,6 +38,7 @@ const ROUTER = parseAbi([
 
 const localAnvil = "tools/foundry/anvil.exe";
 const anvil = spawn(existsSync(localAnvil) ? localAnvil : "anvil", ["--fork-url", "https://mainnet.hsk.xyz", "--port", String(PORT), "--gas-limit", "100000000", "--compute-units-per-second", "150", "--fork-retry-backoff", "2000", "--retries", "20", "--silent"], { stdio: "ignore" });
+anvil.on("exit", (code, signal) => console.error(`anvil exited: code ${code}, signal ${signal}`));
 
 function prng(seed: number): () => number {
   let a = seed >>> 0;
@@ -68,21 +69,22 @@ try {
       await probe.call("eth_chainId");
       break;
     } catch (error) {
-      if (i > 60) throw error;
+      if (i > 240) throw error;
       await sleep(500);
     }
   }
   const chain = defineChain({ id: CHAIN_ID, name: "hsk-fork", nativeCurrency: { name: "HSK", symbol: "HSK", decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } });
-  const client = createPublicClient({ chain, transport: http(RPC_URL), pollingInterval: 20 });
+  const client = createPublicClient({ chain, transport: http(RPC_URL, { timeout: 120_000 }), pollingInterval: 20 });
   const owner = privateKeyToAccount(generatePrivateKey());
   const agentAccount = privateKeyToAccount(generatePrivateKey());
   for (const who of [owner.address, agentAccount.address]) await probe.call("anvil_setBalance", [who, `0x${parseEther("5000").toString(16)}`]);
-  const ownerWallet = createWalletClient({ account: owner, chain, transport: http(RPC_URL) });
-  const agentWallet = createWalletClient({ account: agentAccount, chain, transport: http(RPC_URL) });
+  const ownerWallet = createWalletClient({ account: owner, chain, transport: http(RPC_URL, { timeout: 120_000 }) });
+  const agentWallet = createWalletClient({ account: agentAccount, chain, transport: http(RPC_URL, { timeout: 120_000 }) });
   // Polls the receipt directly. Anvil mines only on a transaction, so waitForTransactionReceipt, which checks when it
   // sees a new block, can miss a mined transaction and hang until its timeout.
   const wait = async (hash: Hex) => {
-    const deadline = Date.now() + 60_000;
+    // The fork stalls for minutes when the public RPC rate-limits it, so this waits out the stall.
+    const deadline = Date.now() + 300_000;
     while (true) {
       try {
         return await client.getTransactionReceipt({ hash });

@@ -5,6 +5,13 @@
 //   fund     --hsk 100 --usdt 10
 //   withdraw --token whsk|usdt --amount 1.5 --to <address>
 //   pause | unpause
+//   guard    --window 600 --band-ticks 100, or --window 0 to turn it off
+//   daily    --token whsk|usdt --amount 400, or --amount 0 to remove the cap
+//   guardian --address <address>, or the zero address to remove it
+//   stop     --token whsk --trigger-price 0.08 --tranche 50 --total 200 --floor-price 0.05 --band-ticks 500 --cooldown 300
+//   disarm | halt | revoke
+//   offer-ownership --to <address>, then accept-ownership signed by that address
+// On mainnet, --broadcast also needs --confirm-mainnet.
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
@@ -22,6 +29,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { assertChainForBroadcast, explorerFor } from "../chain-guard.js";
 import { CHAIN_ID, HSKSWAP, loadConfig } from "../config.js";
 import { readHead, readMarket, VAULT_ABI } from "../reader.js";
 import { RpcClient } from "../rpc.js";
@@ -39,7 +47,16 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     broadcast: { type: "boolean", default: false },
+    "confirm-mainnet": { type: "boolean", default: false },
     agent: { type: "string" },
+    window: { type: "string" },
+    "band-ticks": { type: "string" },
+    address: { type: "string" },
+    "trigger-price": { type: "string" },
+    tranche: { type: "string" },
+    total: { type: "string" },
+    "floor-price": { type: "string" },
+    cooldown: { type: "string", default: "300" },
     "max-trade-hsk": { type: "string", default: "150" },
     "lifetime-hsk": { type: "string", default: "2000" },
     "max-trade-usdt": { type: "string", default: "12" },
@@ -87,6 +104,11 @@ function vaultCall(label: string, functionName: string, args: unknown[]): Step {
 
 /** Sends in order, or in a dry run estimates each one against the live chain and sends nothing. */
 async function run(steps: Step[]): Promise<void> {
+  const rpcChainId = await client.getChainId();
+  // A dry run on the wrong chain would estimate against the wrong vault, so this holds for both.
+  if (rpcChainId !== config.chainId) throw new Error(`The RPC is chain ${rpcChainId}, but this run is configured for ${config.chainId}. Nothing was sent.`);
+  if (values.broadcast) assertChainForBroadcast(rpcChainId, config.chainId, values["confirm-mainnet"]!);
+  console.log(`chain ${rpcChainId}${rpcChainId === CHAIN_ID ? " (mainnet, real funds)" : ""}`);
   const gasPrice = await client.getGasPrice();
   const balance = await client.getBalance({ address: owner.address });
   console.log(`owner ${owner.address}, balance ${formatEther(balance)} HSK, gas price ${gasPrice} wei`);
@@ -107,11 +129,21 @@ async function run(steps: Step[]): Promise<void> {
     console.log(`${receipt.status === "success" ? "ok" : "REVERTED"}: ${step.label}, block ${receipt.blockNumber}, gas ${receipt.gasUsed}, tx ${hash}`);
     if (receipt.status !== "success") throw new Error(`${step.label} reverted`);
     if (receipt.contractAddress) {
-      console.log(`\nVAULT_ADDRESS=${receipt.contractAddress}\nPut that line in your .env. Explorer: https://hsk.blockscout.com/address/${receipt.contractAddress}`);
-      console.log(`Verify source: node scripts/forge.mjs verify-contract ${receipt.contractAddress} contracts/HoldfastVault.sol:HoldfastVault --verifier blockscout --verifier-url https://hsk.blockscout.com/api/ --chain ${config.chainId} --compiler-version 0.8.28 --num-of-optimizations 2000 --evm-version cancun --constructor-args $(tools/foundry/cast abi-encode "constructor(address,address,uint256,address,address,address,uint24)" ${owner.address} ${values.agent} ${deployExpiry} ${HSKSWAP.router} ${HSKSWAP.whsk} ${HSKSWAP.usdt} ${HSKSWAP.fee})`);
+      const explorer = explorerFor(config.chainId);
+      console.log(`\nVAULT_ADDRESS=${receipt.contractAddress}\nVAULT_GENERATION=3\nPut those lines in your .env.${explorer ? ` Explorer: ${explorer}/address/${receipt.contractAddress}` : ""}`);
+      if (explorer) console.log(`Verify source: node scripts/forge.mjs verify-contract ${receipt.contractAddress} contracts/HoldfastVault.sol:HoldfastVault --verifier blockscout --verifier-url ${explorer}/api/ --chain`);
+      if (explorer) console.log(`  ${config.chainId} --compiler-version 0.8.28 --num-of-optimizations 2000 --evm-version cancun --constructor-args $(tools/foundry/cast abi-encode "constructor(address,address,uint256,address,address,address,uint24)" ${owner.address} ${values.agent} ${deployExpiry} ${HSKSWAP.router} ${HSKSWAP.whsk} ${HSKSWAP.usdt} ${HSKSWAP.fee})`);
     }
   }
   if (!values.broadcast) console.log("\nDry run: nothing was sent. Add --broadcast to send.");
+}
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+/** USDT per HSK, as the pool's tick. WHSK is token0, and the tick counts USDT micro-units per wei. */
+function tickForPrice(price: string): number {
+  const perWei = Number(price) * 1e6 / 1e18;
+  return Math.floor(Math.log(perWei) / Math.log(1.0001));
 }
 
 const required = (name: keyof typeof values): string => {
@@ -150,9 +182,16 @@ switch (positionals[0]) {
     const sellFloor = (market.spotPriceX18 * band) / 10_000n;
     const buyFloor = ((E18 * E18) / market.spotPriceX18) * band / 10_000n;
     console.log(`spot ${market.spotPriceX18} micro-USDT per HSK. Floors: sell at ${sellFloor}, buy at ${buyFloor} (out per 1e18 in).`);
+    // Conditional on what was just read, on a vault that can do that: a trade landing first must not be overwritten.
+    const version = await client.readContract({ address: vaultAddress(), abi: VAULT_ABI, functionName: "VERSION" }).catch(() => 0n);
+    const limit = async (label: string, token: Address, args: [bigint, bigint, bigint, bigint]) => {
+      if (version < 3n) return vaultCall(label, "setLimits", [token, ...args]);
+      const expected = await client.readContract({ address: vaultAddress(), abi: VAULT_ABI, functionName: "remaining", args: [token] });
+      return vaultCall(label, "setLimitsIfRemaining", [token, ...args, expected]);
+    };
     await run([
-      vaultCall("set WHSK limits", "setLimits", [HSKSWAP.whsk, parseUnits(required("max-trade-hsk"), 18), parseUnits(required("lifetime-hsk"), 18), sellFloor, parseUnits(required("hourly-hsk"), 18)]),
-      vaultCall("set USDT limits", "setLimits", [HSKSWAP.usdt, parseUnits(required("max-trade-usdt"), 6), parseUnits(required("lifetime-usdt"), 6), buyFloor, parseUnits(required("hourly-usdt"), 6)]),
+      await limit("set WHSK limits", HSKSWAP.whsk, [parseUnits(required("max-trade-hsk"), 18), parseUnits(required("lifetime-hsk"), 18), sellFloor, parseUnits(required("hourly-hsk"), 18)]),
+      await limit("set USDT limits", HSKSWAP.usdt, [parseUnits(required("max-trade-usdt"), 6), parseUnits(required("lifetime-usdt"), 6), buyFloor, parseUnits(required("hourly-usdt"), 6)]),
     ]);
     break;
   }
@@ -183,6 +222,47 @@ switch (positionals[0]) {
   case "unpause":
     await run([vaultCall("unpause", "unpause", [])]);
     break;
+  case "guard": {
+    const window = Number(required("window"));
+    if (window === 0) {
+      await run([vaultCall("turn off the price guard, which also disarms the stop", "setPriceGuard", [ZERO, 0, 0])]);
+      break;
+    }
+    await run([vaultCall(`guard: stay within ${required("band-ticks")} ticks of the ${window} s TWAP`, "setPriceGuard", [HSKSWAP.pool, window, Number(required("band-ticks"))])]);
+    break;
+  }
+  case "daily": {
+    const isWhsk = required("token") === "whsk";
+    await run([vaultCall(`daily budget of ${required("amount")} ${values.token}`, "setDailyBudget", [isWhsk ? HSKSWAP.whsk : HSKSWAP.usdt, parseUnits(required("amount"), isWhsk ? 18 : 6)])]);
+    break;
+  }
+  case "guardian":
+    await run([vaultCall(`guardian ${required("address")}`, "setGuardian", [required("address")])]);
+    break;
+  case "stop": {
+    if (required("token") !== "whsk") throw new Error("A stop here sells WHSK. A stop on the other side has no trigger price in these units yet: call armStop directly.");
+    const trigger = tickForPrice(required("trigger-price"));
+    const floor = parseUnits(required("floor-price"), 6);
+    const total = parseUnits(required("total"), 18);
+    console.log(`trigger ${required("trigger-price")} USDT per HSK is tick ${trigger}. The worst this sells at is ${required("floor-price")}, for ${required("total")} HSK.`);
+    await run([vaultCall("arm the stop", "armStop", [HSKSWAP.whsk, trigger, parseUnits(required("tranche"), 18), total, floor, Number(required("band-ticks")), Number(required("cooldown"))])]);
+    break;
+  }
+  case "disarm":
+    await run([vaultCall("disarm the stop", "disarmStop", [])]);
+    break;
+  case "halt":
+    await run([vaultCall("halt: pause and disarm", "halt", [])]);
+    break;
+  case "revoke":
+    await run([vaultCall("end the agent key now", "revokeAgent", [])]);
+    break;
+  case "offer-ownership":
+    await run([vaultCall(`offer ownership to ${required("to")}`, "transferOwnership", [required("to")])]);
+    break;
+  case "accept-ownership":
+    await run([vaultCall("accept ownership", "acceptOwnership", [])]);
+    break;
   default:
-    throw new Error("Commands: deploy, renew, limits, fund, withdraw, pause, unpause");
+    throw new Error("Commands: deploy, renew, limits, fund, withdraw, pause, unpause, guard, daily, guardian, stop, disarm, halt, revoke, offer-ownership, accept-ownership");
 }

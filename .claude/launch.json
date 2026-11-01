@@ -4,14 +4,21 @@
     {
       "name": "viewer",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "viewer"],
+      "runtimeArgs": [
+        "run",
+        "viewer"
+      ],
       "port": 4177,
       "url": "http://127.0.0.1:4177"
     },
     {
       "name": "viewer-testnet",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "$env:NETWORK='testnet'; npm run viewer"],
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:NETWORK='testnet'; $env:TEST_MARKET_FILE='evidence/v3/testnet-deployment.json'; npm run viewer"
+      ],
       "port": 4177,
       "url": "http://127.0.0.1:4177"
     }

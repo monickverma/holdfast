@@ -1,0 +1,346 @@
+{
+  "wallTime": "2026-11-01T18:15:08.772Z",
+  "lane": "local",
+  "mutants": 37,
+  "killed": 37,
+  "didNotCompile": 0,
+  "survived": [],
+  "note": "Hand-picked mutants of the security checks, not exhaustive mutation testing.",
+  "results": [
+    {
+      "name": "agent check removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_replacedKeyLosesEverythingAtOnce",
+        "test_attack_strangerCannotTrade",
+        "testFuzz_nobodyButTheAgentTrades",
+        "test_attack_guardianHasNoOtherPower"
+      ]
+    },
+    {
+      "name": "pause ignored",
+      "outcome": "killed",
+      "killedBy": [
+        "test_guardianCanPauseAndCannotUnpause",
+        "test_haltStopsTheAgentAndTheStop",
+        "test_attack_pausedVaultRefuses"
+      ]
+    },
+    {
+      "name": "expiry ignored",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_expiredKeyCannotTrade",
+        "test_revokeEndsTheKeyInTheSameBlock"
+      ]
+    },
+    {
+      "name": "expiry off by one",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_expiredKeyCannotTrade",
+        "test_revokeEndsTheKeyInTheSameBlock"
+      ]
+    },
+    {
+      "name": "any token allowed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_agentCannotUseOtherToken"
+      ]
+    },
+    {
+      "name": "deadline upper bound removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_farFutureDeadline"
+      ]
+    },
+    {
+      "name": "intent replay allowed",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_intentBitmapHasNoCollisions",
+        "test_attack_changedPayloadSameIntent",
+        "test_attack_intentReplay",
+        "test_attack_replayInsideASharedWord"
+      ]
+    },
+    {
+      "name": "trade cap removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_noFloorMeansNoTrade",
+        "test_attack_overTradeCap"
+      ]
+    },
+    {
+      "name": "lifetime cap removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_lifetimeCapDoesNotRenew"
+      ]
+    },
+    {
+      "name": "hourly budget removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_budgetStopsABurstInOneBlock",
+        "test_attack_changingALimitDoesNotHandOutASecondBudget",
+        "test_budgetRefillsInProportionToTime",
+        "test_zeroBudgetMeansNoTrading",
+        "test_attack_stolenKeySpendingItsBudgetLeavesTheStopAllowance"
+      ]
+    },
+    {
+      "name": "daily budget removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_dailyBudgetCapsTotalBelowHourly",
+        "test_dailyBudgetRefillsContinuously"
+      ]
+    },
+    {
+      "name": "floor removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_stopSellsUnderTheAgentFloor",
+        "testFuzz_acceptsOnlyTradesAboveFloor",
+        "test_attack_oneWeiBelowFloorRejected",
+        "test_attack_zeroMinOutRejected",
+        "invariant_everyAgentSaleClearedTheFloor"
+      ]
+    },
+    {
+      "name": "floor rounds down",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_acceptsOnlyTradesAboveFloor"
+      ]
+    },
+    {
+      "name": "lifetime not charged",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_cannotSpendPastLifetimeCap",
+        "test_attack_lifetimeCapDoesNotRenew",
+        "test_lockClearsBetweenCalls",
+        "test_trade_paysVaultAndSpendsCap",
+        "test_trade_sellsTokenThatReturnsNothing",
+        "test_trade_worksTwiceWithUsdtStyleApprove"
+      ]
+    },
+    {
+      "name": "budget not charged",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_spendStaysInsideTheBudgetEnvelope",
+        "test_attack_budgetStopsABurstInOneBlock",
+        "test_attack_changingALimitDoesNotHandOutASecondBudget",
+        "test_budgetRefillsInProportionToTime",
+        "test_changingALimitKeepsTheRefillEarned",
+        "test_loweringTheBudgetKeepsWhatWasSpent"
+      ]
+    },
+    {
+      "name": "output check removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_feeOnTransferOutputIsMeasuredByBalance",
+        "testFuzz_acceptsOnlyTradesAboveFloor",
+        "test_attack_routerLiesAboutOutput",
+        "test_attack_routerShortPays",
+        "test_failedTradeSpendsNoBudget"
+      ]
+    },
+    {
+      "name": "partial pull keeps allowance",
+      "outcome": "killed",
+      "killedBy": [
+        "test_partialPullLeavesNoAllowance"
+      ]
+    },
+    {
+      "name": "agent can withdraw",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_agentNeverGainsWithdrawalPower",
+        "test_attack_guardianHasNoOtherPower",
+        "test_ownerHandoverNeedsTheNewOwnerToAccept",
+        "test_attack_agentCannotWithdraw",
+        "test_attack_routerReentersWithdraw",
+        "invariant_agentSpendStaysInsideEveryCap"
+      ]
+    },
+    {
+      "name": "anyone can set limits",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_guardianHasNoOtherPower",
+        "test_attack_agentCannotChangeLimits",
+        "invariant_agentSpendStaysInsideEveryCap",
+        "invariant_everyAgentSaleClearedTheFloor",
+        "invariant_everyStopSaleClearedItsFloorAndTotal",
+        "invariant_fundsOnlyLeaveThroughTheRouterOrTheOwner"
+      ]
+    },
+    {
+      "name": "reentrancy lock removed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_routerReentersExecute"
+      ]
+    },
+    {
+      "name": "guard skipped on trades",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_guardNeverPassesASalePastItsBand",
+        "test_attack_guardRefusesABuyIntoAPushedPool",
+        "test_attack_guardRefusesASaleIntoAPushedPool",
+        "test_attack_guardRefusesASalePastTheBand",
+        "test_guardCanBeTurnedOff",
+        "test_guardFailsClosedWhenTheOracleFails"
+      ]
+    },
+    {
+      "name": "band has the wrong sign",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_guardNeverPassesASalePastItsBand",
+        "test_attack_guardRefusesABuyIntoAPushedPool",
+        "test_attack_guardRefusesASaleIntoAPushedPool",
+        "test_attack_guardRefusesASalePastTheBand",
+        "test_attack_sandwichedStopIsRefusedByItsBand",
+        "test_failedStopSpendsNoneOfItsAllowance"
+      ]
+    },
+    {
+      "name": "band off by one",
+      "outcome": "killed",
+      "killedBy": [
+        "testFuzz_guardNeverPassesASalePastItsBand",
+        "test_guardBoundaryIsExact",
+        "test_guardHandlesPoolWithTokensTheOtherWayRound",
+        "test_guardLetsANormalTradeThrough"
+      ]
+    },
+    {
+      "name": "twap does not round down",
+      "outcome": "killed",
+      "killedBy": [
+        "test_twapRoundsTowardsNegativeInfinity"
+      ]
+    },
+    {
+      "name": "stop fires on any price",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_spotAloneCannotFireAStop",
+        "test_stopForToken1FiresOnTheTickRising",
+        "test_stopTriggerBoundaryIsExact"
+      ]
+    },
+    {
+      "name": "stop cooldown ignored",
+      "outcome": "killed",
+      "killedBy": [
+        "test_stopSellsOneTranchePerCooldownUpToTheTotal"
+      ]
+    },
+    {
+      "name": "stop allowance not charged",
+      "outcome": "killed",
+      "killedBy": [
+        "test_stopSellsOneTranchePerCooldownUpToTheTotal"
+      ]
+    },
+    {
+      "name": "stop skips its band",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_sandwichedStopIsRefusedByItsBand",
+        "test_failedStopSpendsNoneOfItsAllowance"
+      ]
+    },
+    {
+      "name": "stop ignores its floor",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_stopNeverSellsUnderItsOwnFloor",
+        "invariant_everyStopSaleClearedItsFloorAndTotal"
+      ]
+    },
+    {
+      "name": "halt leaves the stop armed",
+      "outcome": "killed",
+      "killedBy": [
+        "test_haltStopsTheAgentAndTheStop",
+        "invariant_agentSpendStaysInsideEveryCap",
+        "invariant_everyAgentSaleClearedTheFloor",
+        "invariant_everyStopSaleClearedItsFloorAndTotal",
+        "invariant_fundsOnlyLeaveThroughTheRouterOrTheOwner",
+        "invariant_lifetimeAccountingIsExact"
+      ]
+    },
+    {
+      "name": "revoke does nothing",
+      "outcome": "killed",
+      "killedBy": [
+        "test_revokeEndsTheKeyInTheSameBlock"
+      ]
+    },
+    {
+      "name": "guardian can unpause",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_agentCannotUnpauseOrReplaceItself",
+        "test_guardianCanPauseAndCannotUnpause",
+        "invariant_agentSpendStaysInsideEveryCap",
+        "invariant_everyAgentSaleClearedTheFloor",
+        "invariant_everyStopSaleClearedItsFloorAndTotal",
+        "invariant_fundsOnlyLeaveThroughTheRouterOrTheOwner"
+      ]
+    },
+    {
+      "name": "handover needs no acceptance",
+      "outcome": "killed",
+      "killedBy": [
+        "test_ownerCanCancelAHandover",
+        "test_ownerHandoverNeedsTheNewOwnerToAccept"
+      ]
+    },
+    {
+      "name": "conditional limits not checked",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_tradeBetweenReadAndWriteCannotBePapered"
+      ]
+    },
+    {
+      "name": "limits truncate",
+      "outcome": "killed",
+      "killedBy": [
+        "test_conditionalLimitsStillRefuseOversizedValues",
+        "test_attack_oversizedLimitsRefusedNotTruncated"
+      ]
+    },
+    {
+      "name": "limit change refills budget",
+      "outcome": "killed",
+      "killedBy": [
+        "test_attack_changingALimitDoesNotHandOutASecondBudget",
+        "test_changingALimitKeepsTheRefillEarned",
+        "test_loweringTheBudgetKeepsWhatWasSpent",
+        "test_raisingTheBudgetAddsOnlyTheRaise"
+      ]
+    },
+    {
+      "name": "guard accepts any pool",
+      "outcome": "killed",
+      "killedBy": [
+        "test_priceGuardValidatesThePool"
+      ]
+    }
+  ]
+}
