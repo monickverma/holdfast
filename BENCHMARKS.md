@@ -176,6 +176,26 @@ Flashblock frames arrived 199.6 ms apart at P50 and 208.7 ms at P90 (n=1,476). T
 
 **Hedged send.** The agent can send the same signed bytes to extra endpoints, set with `HEDGE_RPC_URLS`. It is off by default and covered by unit tests only. Testnet has no free second endpoint, and nothing has been sent on mainnet, so the send itself is unmeasured. Racing reads as a stand-in gains 0.9 ms at P50 and 3.3 ms at P90, so it stays off.
 
+## Where the slow sends go
+
+The six slowest stream reactions all started on frame 9. To find out why, `bench:inclusion` sends zero-value self-transfers on testnet at a chosen frame and phase, and records the first frame that holds each one. It is a small sample, 66 clean sends from 76 trials, because the run stopped when the testnet wallet ran out of gas money. Treat the counts below as direction, not as rates.
+
+| Send | n | First frame holding it | Frame to response, P50 |
+|---|---:|---|---:|
+| Frames 0–7, under 75 ms after the frame | 23 | Next frame in 22 | 213 ms |
+| Frames 0–7, 75 ms or later | 28 | Second frame after in 24 | 407 ms |
+| Frame 8, under 75 ms after the frame | 4 | Frame 9 in 4 | 209 ms |
+| Frame 8, 75 ms or later | 6 | Frame 1 of the next block in 5 | 610 ms |
+| Frame 9, any phase | 5 | Frame 1 of the next block in 5 | 404–415 ms |
+
+**The extra 200 ms is a missed frame, not a late receipt.** The response came a median 11 ms after the frame that held the transaction, and never more than 97 ms after it.
+
+**No user send landed in frame 0.** All 66 landed in frames 1–9. A send after frame 9 of a block therefore waits for frame 1 of the next block. No trial saw a frame 10 on testnet, so frame 9 was the last one. This explains the frame 9 result, and it also shows a worse case nobody had seen: a late send on frame 8 takes about 610 ms.
+
+**The cut-off is about 90–100 ms after a frame.** On frames 0–7, the next frame held 13 of 13 sends at 0–25 ms, 9 of 10 at 50–75 ms, 3 of 7 at 90–100 ms and 1 of 13 at 100–125 ms.
+
+**What this changes.** The agent finishes signing about 21 ms after a frame, inside the cut-off, so shaving the ledger write would not save a frame in the normal case. A trade that starts from the last frame of a block costs about 400 ms, and no client change seen here avoids that. Mainnet has frames 0–10, so its last frame differs and this has not been measured there.
+
 ## Hardening
 
 Measured on the current source, on a fork or locally. **None of this has run on public testnet or mainnet**, and the deployed testnet vault does not have these changes. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the reasoning and the corrected list of problems.
@@ -316,3 +336,4 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/frame-drift/` | Frame Drift report, the earlier run's mismatch and the Swap log check |
 | `evidence/hot-path/` | Local and network idle and send lane results |
 | `evidence/route/warp-on.json` | Route, second endpoint and frame gaps with WARP on |
+| `evidence/inclusion/` | First frame holding each testnet send, by trigger frame and phase |

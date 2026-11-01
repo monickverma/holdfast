@@ -17,6 +17,7 @@
     "bench:swaps": "tsx agent/src/cli/bench-swaps.ts",
     "bench:read": "tsx agent/src/cli/bench-read.ts",
     "bench:react": "tsx agent/src/cli/bench-react.ts",
+    "bench:inclusion": "tsx agent/src/cli/bench-inclusion.ts",
     "check:quotes": "tsx agent/src/cli/check-quotes.ts",
     "bench:cold": "tsx agent/src/cli/bench-cold.ts",
     "bench:route": "tsx agent/src/cli/bench-route.ts",

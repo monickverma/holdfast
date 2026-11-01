@@ -27,6 +27,9 @@ const RESEND_MS = 10_000;
 
 /** "sync" asks the node to answer with the receipt; "classic" sends and polls. */
 export type SendMode = "sync" | "classic";
+export class SubmissionBusy extends Error {}
+export class StaleDecision extends Error {}
+const submissionOwners = new Set<string>();
 
 export interface ExecutorOptions {
   rpc: RpcClient;
@@ -79,6 +82,9 @@ export class Executor {
     this.sendRpc = rpc;
   }
 
+  private get signerKey(): string { return `${this.chainId}:${this.address.toLowerCase()}`; }
+  get busy(): boolean { return submissionOwners.has(this.signerKey); }
+
   /** Runs the signer over a throwaway transaction, so the first real signature is not also the first ever. Never stored. */
   warmSigner(): Promise<Hex> {
     return this.account.signTransaction({
@@ -106,7 +112,18 @@ export class Executor {
   }
 
   /** Reserve, sign, persist, then broadcast. The signed bytes are on disk before they can reach the network. */
-  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number): Promise<Intent> {
+  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number, isCurrent: () => boolean = () => true): Promise<Intent> {
+    if (this.busy) throw new SubmissionBusy("signer already has a submission owner");
+    submissionOwners.add(this.signerKey);
+    try {
+      return await this.submitOwned(key, decision, market, trace, pendingNonce, isCurrent);
+    } finally {
+      submissionOwners.delete(this.signerKey);
+    }
+  }
+
+  private async submitOwned(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce: number | undefined, isCurrent: () => boolean): Promise<Intent> {
+    if (!isCurrent()) throw new StaleDecision("decision changed while preparing submission");
     const deadline = market.head.timestamp + INTENT_TTL_SEC;
     const intentId = this.ledger.get(key)?.intentId ?? this.ledger.nextIntentId();
     const bodyHash = keccak256(
@@ -129,7 +146,14 @@ export class Executor {
     );
     if (existing) return intent;
 
+    const check = () => {
+      if (isCurrent()) return;
+      this.ledger.update(key, { status: "cancelled" });
+      throw new StaleDecision("decision changed while preparing submission");
+    };
+    check();
     const nonce = await trace.span("nonce", () => this.nextNonce(pendingNonce));
+    check();
     const signed = await trace.span("sign", async () => {
       const data = encodeFunctionData({
         abi: VAULT_ABI,
@@ -147,8 +171,10 @@ export class Executor {
         maxPriorityFeePerGas: market.priorityFeePerGas,
         maxFeePerGas: market.head.baseFeePerGas * 2n + market.priorityFeePerGas,
       });
+      check();
       return this.ledger.update(key, { status: "signed", nonce, rawTx, txHash: keccak256(rawTx) });
     });
+    check();
     return trace.span("broadcast", () =>
       this.sendMode === "sync" ? this.broadcastSync(signed, market.head.number) : this.broadcast(signed, market.head.number),
     );

@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { brotliDecompressSync } from "node:zlib";
-import { decodeAbiParameters, parseAbiParameters, type Address, type Hex } from "viem";
+import { decodeAbiParameters, parseAbiParameters, toEventSelector, type Address, type Hex } from "viem";
 import { sameAddress, spotPriceX18, type MarketState, type Quote, type QuoteRequest } from "./reader.js";
 
 /** Uniswap V3 Swap(address,address,int256,int256,uint160,uint128,int24). */
@@ -8,6 +8,8 @@ const SWAP_TOPIC = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115f
 /** ERC-20 Transfer(address,address,uint256). */
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const SWAP_DATA = parseAbiParameters("int256, int256, uint160, uint128, int24");
+const MINT_TOPIC = toEventSelector("Mint(address,address,int24,int24,uint128,uint256,uint256)");
+const BURN_TOPIC = toEventSelector("Burn(address,int24,int24,uint128,uint256,uint256)");
 const Q96 = 2n ** 96n;
 const FEE_DENOMINATOR = 1_000_000n;
 /** Uniswap V3 tick spacing for the 0.3% fee tier. No tick can be initialized between two multiples of this. */
@@ -18,6 +20,7 @@ export interface FlashLog {
   address: Address;
   topics: Hex[];
   data: Hex;
+  logIndex?: string | number;
 }
 
 /** One flashblock. Its contents are a preconfirmation: visible about 200 ms apart, but not yet a sealed block. */
@@ -28,6 +31,7 @@ export interface Frame {
   timestamp?: bigint;
   baseFeePerGas?: bigint;
   logs: FlashLog[];
+  logsOrdered?: boolean;
   /** Monotonic time this process received the frame. Reaction latency starts here. */
   arrivedAt: number;
   /** The builder's view after this frame, for checking it against the sealed block. */
@@ -38,11 +42,25 @@ export interface Frame {
 
 export function decodeFrame(raw: string | ArrayBuffer | Uint8Array, arrivedAt: number = performance.now()): Frame {
   const message = JSON.parse(typeof raw === "string" ? raw : frameText(raw)) as RawFrame;
-  const logs: FlashLog[] = [];
+  if (!Number.isSafeInteger(message.index) || message.index < 0 || message.index > 10 || !message.metadata || message.metadata.block_number == null) throw new Error("invalid frame envelope");
+  const receipts: RawReceipt[] = [];
   for (const receipt of Object.values(message.metadata?.receipts ?? {})) {
     // Some builders wrap a receipt in an object keyed by its transaction type.
-    const body = ("logs" in receipt ? receipt : Object.values(receipt)[0]) as { logs?: FlashLog[] } | undefined;
-    logs.push(...(body?.logs ?? []));
+    const body = ("logs" in receipt ? receipt : Object.values(receipt)[0]) as RawReceipt | undefined;
+    if (body?.logs?.length) receipts.push(body);
+  }
+  let logs = receipts.flatMap((receipt) => receipt.logs!);
+  let logsOrdered = receipts.length <= 1;
+  if (!logsOrdered) {
+    if (receipts.every((receipt) => receipt.cumulativeGasUsed !== undefined)) {
+      const ordered = receipts.map((receipt) => ({ receipt, gas: BigInt(receipt.cumulativeGasUsed!) })).sort((a, b) => a.gas < b.gas ? -1 : a.gas > b.gas ? 1 : 0);
+      logsOrdered = ordered.every((entry, i) => entry.gas >= 0n && (i === 0 || entry.gas > ordered[i - 1]!.gas));
+      if (logsOrdered) logs = ordered.flatMap(({ receipt }) => receipt.logs!);
+    } else if (logs.every((log) => log.logIndex !== undefined)) {
+      const ordered = logs.map((log) => ({ log, index: BigInt(log.logIndex!) })).sort((a, b) => a.index < b.index ? -1 : a.index > b.index ? 1 : 0);
+      logsOrdered = ordered.every((entry, i) => entry.index >= 0n && (i === 0 || entry.index > ordered[i - 1]!.index));
+      if (logsOrdered) logs = ordered.map(({ log }) => log);
+    }
   }
   return {
     block: BigInt(message.metadata.block_number),
@@ -50,6 +68,7 @@ export function decodeFrame(raw: string | ArrayBuffer | Uint8Array, arrivedAt: n
     timestamp: message.base ? BigInt(message.base.timestamp) : undefined,
     baseFeePerGas: message.base ? BigInt(message.base.base_fee_per_gas) : undefined,
     logs,
+    logsOrdered,
     arrivedAt,
     payloadId: message.payload_id,
     blockHash: message.diff?.block_hash,
@@ -57,15 +76,45 @@ export function decodeFrame(raw: string | ArrayBuffer | Uint8Array, arrivedAt: n
   };
 }
 
+export type StreamBreak = "index-gap" | "repeated-index" | "payload-change" | "missing-first" | "block-gap" | "out-of-order" | "reconnect" | "malformed";
+
+/** Only the previous envelope is needed to check the next frame. */
+export class FrameContinuity {
+  private previous: Pick<Frame, "block" | "index" | "payloadId"> | null = null;
+
+  reset(): void { this.previous = null; }
+
+  observe(frame: Frame): StreamBreak | null {
+    const previous = this.previous;
+    this.previous = { block: frame.block, index: frame.index, payloadId: frame.payloadId };
+    if (!frame.payloadId) return "malformed";
+    if (!previous) return frame.index === 0 ? null : "missing-first";
+    if (frame.block < previous.block) return "out-of-order";
+    if (frame.block === previous.block) {
+      if (frame.payloadId !== previous.payloadId) return "payload-change";
+      if (frame.index <= previous.index) return "repeated-index";
+      return frame.index === previous.index + 1 ? null : "index-gap";
+    }
+    if (frame.index !== 0) return "missing-first";
+    return frame.block === previous.block + 1n ? null : "block-gap";
+  }
+}
+
 /** The price state a pool holds after this frame, for a V3 pool. Null when the frame did not touch the pool. */
 export function lastSwap(frame: Frame, pool: Address): V3PoolState | null {
+  if (frame.logsOrdered === false) return null;
   let state: V3PoolState | null = null;
   for (const log of frame.logs) {
+    if (sameAddress(log.address, pool) && (log.topics[0] === MINT_TOPIC || log.topics[0] === BURN_TOPIC)) return null;
     if (log.topics[0] !== SWAP_TOPIC || !sameAddress(log.address, pool)) continue;
     const [, , sqrtPriceX96, liquidity, tick] = decodeAbiParameters(SWAP_DATA, log.data);
     state = { kind: "v3", sqrtPriceX96, liquidity, tick };
   }
   return state;
+}
+
+export function liquidityChanged(frame: Frame, pool: Address): boolean {
+  return frame.logs.some((log) => (log.topics[0] === MINT_TOPIC || log.topics[0] === BURN_TOPIC) && sameAddress(log.address, pool));
 }
 
 /** Net token movement into a pool in this frame. The test market emits no Swap event, only token transfers. */
@@ -175,10 +224,12 @@ export class FlashblockStream {
   private socket: WebSocket | null = null;
   private closed = false;
   private retryMs = 500;
+  private retryTimer: NodeJS.Timeout | undefined;
 
   constructor(
     private readonly url: string,
     private readonly onFrame: (frame: Frame) => void,
+    private readonly onBreak: (kind: StreamBreak) => void = () => {},
   ) {}
 
   /** Resolves once connected the first time. */
@@ -194,10 +245,12 @@ export class FlashblockStream {
 
   close(): void {
     this.closed = true;
+    clearTimeout(this.retryTimer);
     this.socket?.close();
   }
 
   private connect(onOpen?: () => void): void {
+    if (this.closed) return;
     const socket = new WebSocket(this.url);
     socket.binaryType = "arraybuffer";
     this.socket = socket;
@@ -213,7 +266,7 @@ export class FlashblockStream {
         this.frames++;
         this.onFrame(frame);
       } catch {
-        // One bad frame must not stop the stream; the next frame or the next poll carries the state.
+        this.onBreak("malformed");
       }
     };
     socket.onerror = () => socket.close();
@@ -221,7 +274,8 @@ export class FlashblockStream {
       this.connected = false;
       if (this.closed) return;
       this.reconnects++;
-      setTimeout(() => this.connect(onOpen), this.retryMs);
+      this.onBreak("reconnect");
+      this.retryTimer = setTimeout(() => this.connect(onOpen), this.retryMs);
       this.retryMs = Math.min(this.retryMs * 2, 10_000);
     };
   }
@@ -247,6 +301,11 @@ function isqrt(value: bigint): bigint {
   return x;
 }
 
+interface RawReceipt {
+  logs?: FlashLog[];
+  cumulativeGasUsed?: string | number;
+}
+
 interface RawFrame {
   index: number;
   payload_id?: string;
@@ -254,6 +313,6 @@ interface RawFrame {
   base?: { timestamp: string; base_fee_per_gas: string };
   metadata: {
     block_number: number | string;
-    receipts?: Record<string, { logs?: FlashLog[] } | Record<string, { logs?: FlashLog[] }>>;
+    receipts?: Record<string, RawReceipt | Record<string, RawReceipt>>;
   };
 }
