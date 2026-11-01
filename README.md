@@ -83,7 +83,7 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Fork, current source | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
 | Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
 | Fork, current source | E2E 8/8, including crash recovery |
-| Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 237/237; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
+| Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 289/289; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
 | Fork, vault version 3 | Forge 6/6 against the real pool; E2E 8/8; attack set 120/120 contained and 120/120 benign completed, 0 cap violations; 26-step lifecycle rehearsal. `evidence/v3/` |
 | Earlier, vault version 2 | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
 | Mainnet, read only, 7 days of the real pool | 462 swaps, $8,324 volume; one wallet made 94% of them; no latency race exists there today |

@@ -5,13 +5,13 @@ import { decodeFunctionResult, encodeFunctionData, type Address, type Hex } from
 import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey } from "./breaker.js";
 import { HSKSWAP, type Config } from "./config.js";
 import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime, type TradeDecision } from "./decide.js";
-import { Executor, simulateTrade, type SendMode, type Simulation } from "./executor.js";
+import { Executor, simulateTrade, StaleDecision, SubmissionBusy, type SendMode, type Simulation } from "./executor.js";
 import { Ledger, type Intent } from "./ledger.js";
 import { isSell, type Policy } from "./policy.js";
 import { hasMulticall, poolReserves, readHead, readMarket, readTick, VAULT_ABI, type Head, type MarketState } from "./reader.js";
 import { tradingResult } from "./position.js";
 import { RpcClient, sleep } from "./rpc.js";
-import { FlashblockStream, lastSwap, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState } from "./stream.js";
+import { FlashblockStream, FrameContinuity, lastSwap, liquidityChanged, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState, type StreamBreak } from "./stream.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
 
 /** How often the send lane and signer run between trades. A warm signature takes about 0.5 ms and the first one about 5 ms. */
@@ -63,6 +63,11 @@ export class Agent {
   atomicMisses = 0;
   /** Frames that needed a full read because a local quote was not safe. */
   localQuoteMisses = 0;
+  readonly streamBreaks: Partial<Record<StreamBreak, number>> = {};
+  private readonly continuity = new FrameContinuity();
+  private warmGeneration = 0;
+  private poolGeneration = 0;
+  private lastFrameBlock = 0n;
   private multicall: boolean | null = null;
   /** The sent trade whose receipt has not been seen yet. */
   private awaiting: { intent: Intent; traceId: string; intended: number; sentAt: number } | null = null;
@@ -74,9 +79,9 @@ export class Agent {
   private streaming = false;
   private acting = false;
   /** True while a trade is on its way out. Set synchronously, so a poll and a frame cannot both pass it. */
-  private sending = false;
+  private submitting = false;
   /** Counts sends, so a decision made before one is not acted on after it. */
-  private sendEpoch = 0;
+  private submissionGeneration = 0;
   private nextReconcile = 0n;
   private lastHeartbeat = 0;
   private simulateFrom: Address | null = null;
@@ -188,6 +193,10 @@ export class Agent {
       if (!this.observeFrame(frame)) return;
       if (onActivity) onActivity(frame);
       else void this.reactTo(frame).catch((error) => this.logError(error));
+    }, (kind) => {
+      this.continuity.reset();
+      this.streamBreaks[kind] = (this.streamBreaks[kind] ?? 0) + 1;
+      this.dropWarm(this.lastFrameBlock);
     });
   }
 
@@ -211,12 +220,32 @@ export class Agent {
 
   /** Records what a frame did to the pool. Returns true if it touched the pool. */
   private observeFrame(frame: Frame): boolean {
-    if (this.options.config.poolKind === "v3") return lastSwap(frame, HSKSWAP.pool) !== null;
+    this.lastFrameBlock = frame.block;
+    const problem = this.continuity.observe(frame);
+    if (problem) this.streamBreaks[problem] = (this.streamBreaks[problem] ?? 0) + 1;
+    if (problem || frame.logsOrdered === false || (this.options.config.poolKind === "v3" && liquidityChanged(frame, HSKSWAP.pool))) {
+      this.dropWarm(frame.block);
+      return true;
+    }
+    if (this.options.config.poolKind === "v3") {
+      const touched = lastSwap(frame, HSKSWAP.pool) !== null;
+      if (touched) this.poolGeneration++;
+      return touched;
+    }
     const delta = poolTransfers(frame, HSKSWAP.pool, HSKSWAP.whsk, HSKSWAP.usdt);
     if (!delta) return false;
+    this.poolGeneration++;
     const seen = this.frameDeltas.get(frame.block) ?? { delta0: 0n, delta1: 0n };
     this.frameDeltas.set(frame.block, { delta0: seen.delta0 + delta.delta0, delta1: seen.delta1 + delta.delta1 });
     return true;
+  }
+
+  private dropWarm(block: bigint): void {
+    this.warm = null;
+    this.warmGeneration++;
+    this.minWarmBlock = block > this.minWarmBlock ? block : this.minWarmBlock;
+    this.frameDeltas.clear();
+    this.queuedFrame = null;
   }
 
   /** The last read's reserves plus every transfer seen in blocks newer than that read. */
@@ -256,6 +285,12 @@ export class Agent {
   }
 
   private async reactNow(frame: Frame): Promise<DecisionRecord | null> {
+    if (this.submitting || this.executor?.busy) return null;
+    const generation = this.submissionGeneration;
+    const poolGeneration = this.poolGeneration;
+    if (frame.logsOrdered === false || (this.options.config.poolKind === "v3" && liquidityChanged(frame, HSKSWAP.pool))) {
+      this.dropWarm(frame.block);
+    }
     this.polls++;
     const { config, lane } = this.options;
     const trace = new Trace(`f-${Date.now()}-${this.polls}`, lane, frame.arrivedAt);
@@ -270,7 +305,7 @@ export class Agent {
       this.localQuoteMisses++;
       return this.step(frame.arrivedAt, true);
     }
-    return this.act(market, market.head, policy, trace, frame.arrivedAt, quotes.length, this.warm!.pendingNonce, "stream");
+    return this.act(market, market.head, policy, trace, frame.arrivedAt, quotes.length, this.warm!.pendingNonce, "stream", generation, poolGeneration);
   }
 
   private logError(error: unknown): void {
@@ -292,6 +327,10 @@ export class Agent {
 
   /** One poll. Returns a record if this poll saw a new block, or always when `anyHead` is set. */
   async step(intended: number = performance.now(), anyHead = false): Promise<DecisionRecord | null> {
+    if (this.submitting || this.executor?.busy) return null;
+    const submissionGeneration = this.submissionGeneration;
+    const poolGeneration = this.poolGeneration;
+    const generation = this.warmGeneration;
     this.polls++;
     const { config, lane } = this.options;
     const trace = new Trace(`t-${Date.now()}-${this.polls}`, lane, intended);
@@ -317,14 +356,14 @@ export class Agent {
     await this.reconcile(head.number);
     this.writeHeartbeat(market);
     this.updateStreaks(policy, market);
-    if (this.streaming) void this.refreshWarm(market, tick?.pendingNonce).catch((error) => this.logError(error));
-    return this.act(market, head, policy, trace, intended, quotes.length, tick?.pendingNonce, tick ? "hot" : "pinned");
+    if (this.streaming) void this.refreshWarm(market, tick?.pendingNonce, generation).catch((error) => this.logError(error));
+    return this.act(market, head, policy, trace, intended, quotes.length, tick?.pendingNonce, tick ? "hot" : "pinned", submissionGeneration, poolGeneration);
   }
 
   /** Keeps the base a frame reaction builds on. Only the test market needs a second read, for its reserves. */
-  async refreshWarm(market: MarketState, pendingNonce?: number): Promise<void> {
+  async refreshWarm(market: MarketState, pendingNonce?: number, generation = this.warmGeneration): Promise<void> {
     const reserves = this.options.config.poolKind === "constant-product" ? await poolReserves(this.rpc, market.head.number) : undefined;
-    if (market.head.number < this.minWarmBlock) return;
+    if (generation !== this.warmGeneration || market.head.number < this.minWarmBlock) return;
     if (!this.warm || market.head.number >= this.warm.market.head.number) this.warm = { market, pendingNonce, reserves };
   }
 
@@ -338,9 +377,10 @@ export class Agent {
     quoteCount: number,
     pendingNonce: number | undefined,
     readMode: "hot" | "pinned" | "stream",
+    generation = this.submissionGeneration,
+    poolGeneration = this.poolGeneration,
   ): Promise<DecisionRecord> {
     const { config } = this.options;
-    const epoch = this.sendEpoch;
     const input: DecideInput = {
       market,
       policy,
@@ -354,7 +394,11 @@ export class Agent {
     };
     if (this.edgeTaken && !input.unsealed && edgeHasClosed(input)) this.edgeTaken = false;
     input.edgeTaken = this.edgeTaken;
+    const warmGeneration = this.warmGeneration;
+    const superseded = () => this.submitting || this.executor?.busy || generation !== this.submissionGeneration || warmGeneration !== this.warmGeneration || poolGeneration !== this.poolGeneration;
+    const staleState: Decision = { action: "hold", code: "stale-state", reason: "another submission or state invalidation superseded this decision" };
     let decision = this.applyBreaker(await trace.span("decide", () => decide(input)), market);
+    if (decision.action === "trade" && superseded()) decision = staleState;
     this.reportBlockedStop(decision);
 
     // A frame's trade is racing the next flashblock, and the vault still checks it, so only sealed reads ask first.
@@ -365,6 +409,8 @@ export class Agent {
       if (simulated.ok === false && this.canTrade) {
         decision = { action: "hold", code: "preflight-refused", reason: `The vault would refuse this trade: ${simulated.error}.` };
       }
+      // The vault's answer took a round trip, so check again. No await from here until `submitting` is set.
+      if (decision.action === "trade" && superseded()) decision = staleState;
     }
 
     const record: DecisionRecord = {
@@ -377,16 +423,17 @@ export class Agent {
       ...(simulated ? { simulated } : {}),
     };
 
-    // No await between these checks and setting `sending`. The epoch refuses a decision that predates a send it could not see.
-    if (decision.action === "trade" && this.canTrade && !this.sending && epoch === this.sendEpoch && !this.ledger.inFlight()) {
-      this.sending = true;
-      this.sendEpoch++;
+    if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
+      this.submitting = true;
+      this.submissionGeneration++;
       try {
         if (decision.trigger === "edge") this.edgeTaken = true;
         // Whatever happens next changes the vault's balances and limits, so the next frame must read them first.
         this.warm = null;
         this.minWarmBlock = head.number + 1n;
-        record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce);
+        record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce, () =>
+          warmGeneration === this.warmGeneration && poolGeneration === this.poolGeneration && this.options.policy().version === policy.version &&
+          (this.options.now ?? Date.now)() - Number(market.head.timestamp) * 1000 <= config.maxStateAgeMs);
         const synced = record.intent.status === "included" || record.intent.status === "reverted";
         if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
         else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
@@ -398,13 +445,18 @@ export class Agent {
         } else {
           this.awaiting = { intent: record.intent, traceId: trace.id, intended, sentAt: performance.now() };
         }
+      } catch (error) {
+        if (!(error instanceof StaleDecision) && !(error instanceof SubmissionBusy)) throw error;
+        if (decision.trigger === "edge") this.edgeTaken = false;
+        record.decision = { action: "hold", code: "stale-state", reason: error.message };
       } finally {
-        this.sending = false;
+        this.submitting = false;
+        this.submissionGeneration++;
       }
     }
 
     trace.attrs.block = head.number;
-    trace.attrs.action = decision.action;
+    trace.attrs.action = record.decision.action;
     trace.attrs.quotes = quoteCount;
     trace.attrs.modelCalls = 0;
     this.traces.append(trace.toRecord());
@@ -488,6 +540,7 @@ export class Agent {
 
   /** Settles any intent awaiting the chain, then counts its fill against its order. */
   async settleInFlight(): Promise<void> {
+    if (this.submitting || this.executor?.busy) return;
     const pending = this.ledger.inFlight();
     if (!pending || !this.executor) return;
     const settled = await this.executor.settle(pending, this.lastHead ?? undefined);
@@ -548,12 +601,15 @@ export class Agent {
       if (order.kind !== "stop-loss" || !isSell(order.kind)) continue;
       const state = this.runtime.get(order.id) ?? { filled: 0n, hitStreak: 0 };
       const hit = market.spotPriceX18 <= order.triggerPriceX18!;
+      const counted = this.pendingStreak.get(order.id) ?? new Set<string>();
+      if (!hit) counted.clear();
       // The current block counts inside decide(), so the streak here is blocks before this one.
-      const next = hit ? (this.pendingStreak.get(order.id) ?? 0) : 0;
+      const next = hit ? counted.size - (counted.has(market.head.hash) ? 1 : 0) : 0;
       this.runtime.set(order.id, { filled: state.filled, hitStreak: next });
-      this.pendingStreak.set(order.id, hit ? next + 1 : 0);
+      if (hit) counted.add(market.head.hash);
+      this.pendingStreak.set(order.id, counted);
     }
   }
 
-  private readonly pendingStreak = new Map<string, number>();
+  private readonly pendingStreak = new Map<string, Set<string>>();
 }

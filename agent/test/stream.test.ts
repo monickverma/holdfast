@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { brotliCompressSync } from "node:zlib";
 import { test } from "node:test";
-import { encodeAbiParameters, parseAbiParameters, type Address, type Hex } from "viem";
+import { encodeAbiParameters, parseAbiParameters, toEventSelector, type Address, type Hex } from "viem";
 import type { MarketState } from "../src/reader.js";
 import { constantProductQuote, decodeFrame, lastSwap, overlayMarket, poolTransfers, v3Quote, type V3PoolState } from "../src/stream.js";
 
@@ -53,6 +53,31 @@ test("the last swap in a frame wins, and other pools are ignored", () => {
   );
   assert.deepEqual(lastSwap(frame, POOL), { kind: "v3", sqrtPriceX96: 8n, liquidity: 9n, tick: -10 });
   assert.equal(lastSwap(decodeFrame(JSON.stringify(frameOf([]))), POOL), null);
+});
+
+for (const ordering of ["logIndex", "cumulativeGasUsed"] as const) {
+  test(`reverse receipt map uses ${ordering} execution order`, () => {
+    const receipt = (n: number) => ({
+      ...(ordering === "cumulativeGasUsed" ? { cumulativeGasUsed: `0x${(n * 21000).toString(16)}` } : {}),
+      logs: [{ address: POOL, topics: [SWAP], data: swapData(BigInt(n), 6n, 7), ...(ordering === "logIndex" ? { logIndex: `0x${n}` } : {}) }],
+    });
+    const frame = decodeFrame(JSON.stringify({ index: 0, metadata: { block_number: 500, receipts: { b: { Eip1559: receipt(2) }, a: receipt(1) } } }));
+    assert.equal(lastSwap(frame, POOL)?.sqrtPriceX96, 2n);
+  });
+}
+
+test("ambiguous receipt order cannot supply a local swap", () => {
+  const receipt = { logs: [{ address: POOL, topics: [SWAP], data: swapData(5n, 6n, 7) }] };
+  const frame = decodeFrame(JSON.stringify({ index: 0, metadata: { block_number: 500, receipts: { a: receipt, b: receipt } } }));
+  assert.equal(lastSwap(frame, POOL), null);
+});
+
+test("a liquidity change after a Swap invalidates that Swap's liquidity", () => {
+  const frame = decodeFrame(JSON.stringify(frameOf([
+    { address: POOL, topics: [SWAP], data: swapData(5n, 6n, 7) },
+    { address: POOL, topics: [toEventSelector("Burn(address,int24,int24,uint128,uint256,uint256)")], data: "0x" },
+  ])));
+  assert.equal(lastSwap(frame, POOL), null);
 });
 
 test("pool transfers net out by token, and unrelated transfers are ignored", () => {

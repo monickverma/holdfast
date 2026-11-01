@@ -1,5 +1,5 @@
 {
-  "wallTime": "2026-11-01T18:29:06.315Z",
+  "wallTime": "2026-11-01T19:16:26.441Z",
   "lane": "fork",
   "chainId": 177,
   "note": "A local Anvil fork of HSK mainnet. Hashes exist only on the fork. Nothing was broadcast to any public network.",
@@ -12,38 +12,38 @@
         "tick": -300677,
         "observationCardinality": 240,
         "liquidity": "1475831005908433993",
-        "poolWhsk": "4987140772381440390380826",
-        "poolUsdt": "436795751018",
-        "forkBlock": "29605306"
+        "poolWhsk": "4987140749524206830793149",
+        "poolUsdt": "436795759037",
+        "forkBlock": "29606726"
       }
     },
     {
       "name": "deploy",
-      "tx": "0x03d3ac66c57096376982671a2d17d633ebf1298f2eb81a1f02cfe14618ad88ac",
+      "tx": "0xe06898281526e47e4fd763a0949574bb52b459f898e7ba0b2e6e6de92d6739fa",
       "gasUsed": "3866702",
       "detail": {
-        "vault": "0xbd679a1a6455ae1e648d153bceecf2073f3a5409",
+        "vault": "0x1165d4aae703ef835d09a987b80738a966c8bc0a",
         "runtimeBytes": 17420
       }
     },
     {
       "name": "limits, conditional on what was read: 10 HSK a trade, 20 an hour, 40 a day, 60 ever, floor 0.05",
-      "tx": "0x3f3406daeef9cb009a28d692d653c2813bffb588c231e1c381fb9356f99283da",
+      "tx": "0x87bd69449cbb6aa4206d802cf7767ef59b588f9fdd3b8ae3018c721e104d3dc8",
       "gasUsed": "75863"
     },
     {
       "name": "the daily budget",
-      "tx": "0x471c146db6fe776452fc8346a4052ffeb8ff04f73445fb3aa60cc7a9f52db945",
+      "tx": "0x742940cb3f1141717e886e9fa5e176d1c9da4b94087b2c87c08555984f42f8dc",
       "gasUsed": "53774"
     },
     {
       "name": "a guardian, which can stop things and nothing else",
-      "tx": "0x0fd0db357c4c3a65de54995286d78bcc8d7a86a12bd040e6c2f85618e3e26efb",
+      "tx": "0x11ecb122c33875869148daa91cfa4cc2b3a951419c809d7fe4f738c8719adfb4",
       "gasUsed": "47272"
     },
     {
       "name": "the price guard: within 100 ticks of a 600 s TWAP",
-      "tx": "0xfac3fe5a7700dc9b57ebd7db1cac2adc7573f10573fe21cc80d3cf7bd09b706c",
+      "tx": "0x7bb8275d410552af1bae3b99273fa96ae4ba9276f46e86e5e2bb390b36105cba",
       "gasUsed": "72768"
     },
     {
@@ -53,19 +53,19 @@
       "name": "simulate mode: the vault's real answer, by eth_call, with no key loaded and no funds moved",
       "detail": {
         "amountOut": "436624",
-        "latencyMsToLocalFork": 95.97309999999925
+        "latencyMsToLocalFork": 94.47810000000027
       }
     },
     {
       "name": "live: a market sell through the real router, preflighted, whose calldata carries its decision's hash",
-      "tx": "0x5b2e9b8901ac1af17216de04a50c36b96ecfbf88cc654217ea0800dfca6201b3",
-      "gasUsed": "189110",
+      "tx": "0x7fd5c9937a3026daedf1472ccbfa38273b3e0ec19448678912ee06e82490c846",
+      "gasUsed": "189098",
       "detail": {
         "amountOut": "436624",
         "audit": "matches",
         "decision": {
-          "block": "29605321",
-          "blockHash": "0xea016b0ba6ca55b0c401561aa788c7a0ec0ba8bd9ed28c0e290d86cd27fd285c",
+          "block": "29606741",
+          "blockHash": "0x051cd1d5cd26c20d10272195c90f6241b5305e6cb8306817a5621aaaa4436577",
           "spotPriceX18": "87587",
           "trigger": "market",
           "orderId": "sell",
@@ -82,21 +82,21 @@
       "detail": {
         "ticksPushed": 1165,
         "ownCheck": "Market order into-push: spot is 1165 bps from TWAP, over 200.",
-        "vaultBand": "Order into-push: this trade would leave the pool 1163 ticks from its TWAP, past the vault's band of 100."
+        "vaultBand": "Order into-push: this trade would leave the pool 1161 ticks from its TWAP, past the vault's band of 100."
       }
     },
     {
       "name": "attack: a thief with the agent key skips the agent and goes straight to the vault, which refuses on chain",
-      "tx": "0x78165ce01dca6b30873b435e0577af5c8f8cb1c944ac5e979ba6c017eec1cc96",
+      "tx": "0xdec567a1d31eabf42306601ce713810c6f5040210c73930d4f906eb61fa5cbd5",
       "gasUsed": "223792"
     },
     {
       "name": "attack: the agent key cannot withdraw",
-      "tx": "0xbe4977b4f63cf4d28daae4d2298e263bc5f4c944da30c89de66249b34de39d40"
+      "tx": "0xa26edcd390d1d1ffc7b1b37bbaef36ceb19501ed7433d20db894f97e33c517ef"
     },
     {
       "name": "arm the stop: 200 ticks down, 10 HSK a tranche, 30 in all, floor 0.03",
-      "tx": "0xa46783813738cd487f5b16917dc9fe07f6cd76e68268a6203825dccc36609640",
+      "tx": "0xcac42159a68f813de99d5e2b25ffe9443fbb95d1608ac5ab8b903920078de354",
       "gasUsed": "78061"
     },
     {
@@ -105,7 +105,7 @@
     {
       "name": "the keeper's dry run reports what it would do, and moves nothing",
       "detail": {
-        "wallTime": "2026-11-01T18:29:39.212Z",
+        "wallTime": "2026-11-01T19:17:03.686Z",
         "network": "mainnet",
         "action": "would-fire",
         "amountOut": "777216",
@@ -117,7 +117,7 @@
     },
     {
       "name": "after the price held for the window, a stranger's key fired the stop and the vault kept the proceeds",
-      "tx": "0x57a6e27925b4b9722169ad4603c8cb7509d362d7a5dcfc39357ac71e8f402201",
+      "tx": "0x1e1f9fc618a72cc9a75f98e96ec7ae7d49fe3ddcb8744225ae39546f0b58f3a8",
       "gasUsed": "142108"
     },
     {
@@ -125,21 +125,21 @@
     },
     {
       "name": "rotate the agent key",
-      "tx": "0xb38dd9e1ce7768f8c73858a529d265eda2ec2adf3c4d4b66dfd1caf4ac38c13f",
+      "tx": "0x7d7e39eeb9fc7a53336fdbcea92ed91ffeb95581e43e7158842052ba6126a028",
       "gasUsed": "30837"
     },
     {
       "name": "the old agent key no longer does anything, not even pause",
-      "tx": "0x6ce46332b00fd65aaed20958593aca5fbb869ce2cdecc28d7c66e8ba23f3a864"
+      "tx": "0x91d98a855934706091d5fd86e2ad8036add88d54afefe8003843ec62f346ad74"
     },
     {
       "name": "the guardian ends the agent key",
-      "tx": "0xfb3557371accebffc93956768dff513cae02b10f70c4f35bd357745476a23348",
+      "tx": "0xbd18641064330de9225745ee344e36fe9254c1489d80072c28184888277e99f0",
       "gasUsed": "32136"
     },
     {
       "name": "the guardian halts: trading and the stop both end",
-      "tx": "0x5ef2bb528cb5c66716626866baf52c3f8e8708cd33df4e246ab9ebe65fa0409e",
+      "tx": "0x846822d689f7dfe8b1f4c4b7174d631c9ac48f81a4b8bfa6299a810af245cea5",
       "gasUsed": "38250"
     },
     {
@@ -147,7 +147,7 @@
     },
     {
       "name": "the owner withdraws everything, from a halted vault with a revoked key",
-      "tx": "0x31ea6c85159dba1fd1fe5af3fe4d135418e5f4bcef21ede859929efbd75afaa2",
+      "tx": "0x578088601171df86f0315d41239d56a1251ddb865ce834da65bb69a62ad0fd5f",
       "gasUsed": "55358",
       "detail": {
         "whsk": "285000000000000000000",
@@ -165,12 +165,12 @@
         {
           "name": "head",
           "severity": "ok",
-          "detail": "Latest block is -596 s old."
+          "detail": "Latest block is -593 s old."
         },
         {
           "name": "rpc",
           "severity": "ok",
-          "detail": "RPC answered in 52 ms."
+          "detail": "RPC answered in 55 ms."
         },
         {
           "name": "paused",

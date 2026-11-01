@@ -1,0 +1,16 @@
+{
+  "phases": [
+    0,
+    50,
+    90,
+    110,
+    150
+  ],
+  "perCell": 10,
+  "seed": 42,
+  "timeoutMs": 15000,
+  "chainId": 133,
+  "startedAt": "2026-11-01T18:57:10.557Z",
+  "clock": "performance.now milliseconds",
+  "minimumSendGapMs": 2000
+}

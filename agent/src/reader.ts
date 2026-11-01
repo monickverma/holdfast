@@ -316,7 +316,7 @@ function buildMarket(
   const [sqrtPriceX96, tick] = values[0] as readonly [bigint, number];
   const [tickCumulatives] = values[2] as readonly [readonly bigint[], readonly bigint[]];
   const elapsed = BigInt(config.twapWindowSec);
-  const twapTick = Number((tickCumulatives[1]! - tickCumulatives[0]!) / elapsed);
+  const twapTick = arithmeticMeanTick(tickCumulatives[1]! - tickCumulatives[0]!, elapsed);
 
   const quotes: Quote[] = quoteRequests.map((request, i) => {
     const [amountOut, sqrtPriceAfter, ticksCrossed] = values[4 + i] as readonly [bigint, bigint, number, bigint];
@@ -373,6 +373,13 @@ function buildMarket(
 export function tickAtSqrtPrice(sqrtPriceX96: bigint): number {
   const ratio = Number(sqrtPriceX96) / 2 ** 96;
   return Math.floor(Math.log(ratio * ratio) / Math.log(1.0001));
+}
+
+/** Uniswap rounds a negative fractional mean tick toward negative infinity. */
+export function arithmeticMeanTick(delta: bigint, elapsed: bigint): number {
+  let tick = delta / elapsed;
+  if (delta < 0n && delta % elapsed !== 0n) tick--;
+  return Number(tick);
 }
 
 /** Output per 1e18 input base units for WHSK to USDT, where WHSK is token0 of the pool. */

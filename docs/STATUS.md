@@ -31,7 +31,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Whole lifecycle | Deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps | `evidence/v3/rehearsal-fork.json` |
 | Agent to receipt | Observe, sell, buy, stop-loss, crash recovery, on-chain refusals | Fork | 8 of 8 | `evidence/v3/e2e.json` |
 | Agent to receipt | The same loop on our own market contracts | Local | 7 of 7 | `evidence/v3/e2e.json` |
-| Agent | Modes, preflight, reconciliation, decision hash, position report, heartbeat, SDK, explanations, MCP | Local | 237 of 237 | `agent/test/` |
+| Agent | Modes, preflight, reconciliation, decision hash, position report, heartbeat, SDK, explanations, MCP | Local | 289 of 289 | `agent/test/` |
 | Gas | Every version and guard setting, 20 rounds | Fork | [Table](../BENCHMARKS.md#version-3) | `evidence/v3/gas-compare.json` |
 | Site | Refusal demo, vault status, charts from evidence, owner controls, phone layout, both themes | Browser, against testnet reads | Six attacks answered by the real testnet vault | Tests in `viewer.test.ts`, manual browser check |
 | Owner controls | Connect, role check, preview, `eth_call` check, send | Browser, **mock wallet** | Calldata matches viem byte for byte | `viewer.test.ts` |

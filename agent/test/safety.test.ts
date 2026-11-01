@@ -182,6 +182,61 @@ test("each trade carries the hash of its decision, and the same hash is in the l
   agent.close();
 });
 
+function preflightAgent() {
+  return new Agent({
+    config: { rpcUrl: url, chainId: 177, live: true, mode: "live", preflight: true, pollMs: 650, dataDir: mkdtempSync(join(tmpdir(), "holdfast-")), twapWindowSec: 300, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000, poolKind: "v3", agentKey: AGENT_KEY, vault: HSKSWAP.router },
+    lane: "fork",
+    policy: () => policy,
+    mark: () => null,
+    now: () => 100_000,
+  });
+}
+const AMOUNT_OUT = `0x${(8_700_000n).toString(16).padStart(64, "0")}`;
+
+test("a send that finishes during another decision's preflight supersedes that decision", async () => {
+  const sent: string[] = [];
+  let preflights = 0;
+  handle = async (call) => {
+    if (call.method === "eth_call") {
+      // The second decision is still waiting for the vault's answer when the first one has sent and finished.
+      if (++preflights === 2) await new Promise((resolve) => setTimeout(resolve, 150));
+      return AMOUNT_OUT;
+    }
+    if (call.method === "eth_getTransactionCount") return "0x7";
+    if (call.method === "eth_sendRawTransactionSync") {
+      sent.push(call.params[0]);
+      return { status: "0x1", blockNumber: "0x65", blockHash: BLOCK_A, gasUsed: "0x5", effectiveGasPrice: "0x1", logs: [] };
+    }
+    return new Error(`unexpected ${call.method}`);
+  };
+  const agent = preflightAgent();
+  const [first, second] = await Promise.all([act(agent, market), act(agent, market)]);
+  assert.equal(sent.length, 1);
+  assert.equal(first.intent?.status, "included");
+  assert.equal(second.decision.code, "stale-state");
+  assert.equal(second.intent, undefined);
+  agent.close();
+});
+
+test("a pool change during preflight stops the trade before anything is signed", async () => {
+  const methods: string[] = [];
+  let agent: Agent;
+  handle = (call) => {
+    methods.push(call.method);
+    if (call.method === "eth_call") {
+      (agent as any).poolGeneration++;
+      return AMOUNT_OUT;
+    }
+    return new Error(`unexpected ${call.method}`);
+  };
+  agent = preflightAgent();
+  const record = await act(agent, market);
+  assert.equal(record.decision.code, "stale-state");
+  assert.deepEqual(methods, ["eth_call"]);
+  assert.deepEqual(agent.ledger.all(), [], "nothing is reserved for a trade that never started");
+  agent.close();
+});
+
 test("a preflight the vault refuses sends nothing and costs no gas", async () => {
   const sent: string[] = [];
   handle = (call) => {

@@ -45,7 +45,8 @@ if (process.argv[1]?.replace(/\\/g, "/").endsWith("cli/audit.ts") || process.arg
   const rpc = new RpcClient(config.rpcUrl);
   const results: AuditResult[] = [];
   for (const intent of ledger.all()) {
-    if (!intent.txHash) continue;
+    // A cancelled intent was dropped before it was sent, so the chain has nothing to compare it with.
+    if (!intent.txHash || intent.status === "cancelled") continue;
     const tx = await rpc.call<{ input: Hex } | null>("eth_getTransactionByHash", [intent.txHash]);
     results.push(auditIntent(intent, tx?.input ?? null));
   }

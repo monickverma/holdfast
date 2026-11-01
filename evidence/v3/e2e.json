@@ -1,5 +1,5 @@
 {
-  "wallTime": "2026-11-01T19:04:08.657Z",
+  "wallTime": "2026-11-01T19:16:04.537Z",
   "runs": [
     {
       "name": "fork end to end",
@@ -7,7 +7,7 @@
       "command": "npm run -s e2e:fork",
       "passed": 8,
       "failed": 0,
-      "seconds": 29
+      "seconds": 28
     },
     {
       "name": "test market end to end",
@@ -15,7 +15,7 @@
       "command": "npm run -s e2e:testmarket",
       "passed": 7,
       "failed": 0,
-      "seconds": 38
+      "seconds": 40
     }
   ]
 }

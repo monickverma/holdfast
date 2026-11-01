@@ -5,7 +5,8 @@ import type { Address, Hex } from "viem";
 import { toJson } from "./trace.js";
 
 /** "expired" means its deadline passed and the vault shows it never ran, so it can never move funds. */
-export type IntentStatus = "reserved" | "signed" | "broadcast" | "included" | "reverted" | "expired";
+/** "cancelled" means the agent dropped it before sending, because the state it was decided on changed. It is not a failed trade. */
+export type IntentStatus = "reserved" | "signed" | "broadcast" | "included" | "reverted" | "expired" | "cancelled";
 
 export interface Intent {
   /** Stable logical name: the same work always has the same key. */
@@ -75,7 +76,7 @@ export class Ledger {
   lastNonce(): number | null {
     let last: number | null = null;
     for (const intent of this.intents.values()) {
-      if (intent.status !== "expired" && intent.nonce !== undefined && (last === null || intent.nonce > last)) last = intent.nonce;
+      if (intent.status !== "expired" && intent.status !== "cancelled" && intent.nonce !== undefined && (last === null || intent.nonce > last)) last = intent.nonce;
     }
     return last;
   }
