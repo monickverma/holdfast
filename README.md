@@ -4,6 +4,46 @@ Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turn
 
 No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). The real LLM call is not yet tested. Profitability is not claimed.
 
+## Who this is for
+
+Holdfast is for a person or small team that wants an agent to trade their funds but will not give it a wallet key that can empty them. With Holdfast, a stolen or misbehaving agent key can only make swaps inside limits that the owner set on chain. It cannot withdraw. It can still spend the remaining allowance badly, so the owner sets the limit to the amount they accept to risk.
+
+No outside user has tried Holdfast. This is our target user, not a validated market.
+
+## How it could earn money (proposal, not built)
+
+- **A small fee on each swap through the vault.** The fee would be set in the contract and shown to the owner before deposit. The current vault charges no fee.
+- **Paid hosting of the agent, for owners who do not want to run it.** The vault would still enforce the limits, so the host does not get custody.
+
+There is no revenue and there are no customers. The fee level is not decided.
+
+## What comes next
+
+1. Deploy the vault on HSK Chain mainnet with small caps, and trade through the real HSKSwap router.
+2. Test the live model call for chat and for strategy changes.
+3. Measure net result on HSKSwap: fill price against the price at the signal, after gas. Latency alone does not show that a trade was good.
+4. Add a stop-loss that anyone can trigger on chain, so protection does not depend on the agent being online.
+5. Log a hash of each decision, so an owner can check why the agent traded.
+6. Host the viewer publicly with read-only access.
+7. Get an external audit before the caps go up.
+
+## How this meets the hackathon criteria
+
+The India rules name completeness, technical maturity and innovation, and publish no weights. The other rows come from the track text and the Mumbai pitch outline, or from earlier Horizon events, which may not apply here.
+
+| Criterion | Source | Where it stands | Evidence |
+|---|---|---|---|
+| Completeness | India rules | Monitor, decide and execute work on testnet. Live chat is untested. The viewer is local only | [Evidence](#evidence) |
+| Technical maturity | India rules | Tests, an attack set and benchmarks with sample sizes and stated flaws | [BENCHMARKS.md](BENCHMARKS.md) |
+| Innovation | India rules | The vault enforces the limits, not the model. The agent reacts to flashblocks: market move to receipt P50 225.2 ms on testnet | `evidence/event-to-receipt/` |
+| Mainnet deployment | India rules | **Not met.** Testnet only | [Addresses](#addresses) |
+| Trading loop with no manual steps | Track text | Done on testnet, on our own market | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
+| Risk control and stop-loss | Track text | Vault caps are enforced on chain. The stop-loss is in the agent, and is tested end to end | `evidence/attack-results.json`, [Evidence](#evidence) |
+| Sustained profitability | Track text | **Not shown.** No result on a real market | [Known limits](#known-limits) |
+| Chat for positions, P&L and strategy | Track text | Built. Not tested with a live model | `agent/src/nl.ts` |
+| Whether it works, real problem | Hong Kong event | Refusals are public testnet transactions. The problem has no user evidence yet | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
+| Commercial potential, user experience | Japan event, Mumbai outline | Proposal above. Early interface | This section and the viewer |
+
 ## Run locally
 
 Install the locked packages with `npm ci`. Use Node with TypeScript tooling from this project. Install Foundry, including Forge and Anvil, for contract and fork tests.
