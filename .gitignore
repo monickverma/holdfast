@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.*
+!.env.example
+out/
+cache/
+broadcast/
+data/
+*.log
+__pycache__/
+tools/
+
+.test-build/
+# Local test market addresses (never mainnet)
+data/testnet-market.json
+.test-tmp/
+# Private working notes
+codex/
+ENGINEERING_BRIEF.md
+COMMAND_AUDIT.md
+SUBMISSION_DRAFTS.md

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdfast evidence</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<header><div><p class="eyebrow">AI Agent Trading</p><h1>Holdfast</h1><p>Evidence for trading inside contract-enforced limits.</p></div><button id="theme" type="button">Switch theme</button></header>
+<p class="notice">Profitability is not claimed. Benchmark swaps are self-trades in a thin pool, not volume.</p>
+<p id="state" role="status">Loading evidence…</p>
+<section><h2>Latency and trades</h2><p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p><div id="lanes"></div></section>
+<section><h2>Attack set · fork</h2><p>Fork evidence is not a mainnet run or an audit. Reentrancy is covered only in the Foundry suite with a mock.</p><div id="attacks"></div></section>
+<section><h2>Vault limits</h2><div id="vault"></div></section>
+<section><h2>Ask about the evidence</h2><p id="chat-status"></p><p>Answers are model output. Policy changes stay in the existing REPL.</p><form id="chat"><label for="question">Your question</label><textarea id="question" required maxlength="4000" placeholder="What evidence is available?"></textarea><button id="ask">Ask</button></form><p id="answer" role="status"></p></section>
+</main></body></html>

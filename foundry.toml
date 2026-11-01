@@ -1,0 +1,16 @@
+[profile.default]
+src = "contracts"
+test = "contracts/test"
+script = "contracts/script"
+out = "out"
+libs = []
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 2000
+
+[fuzz]
+runs = 1000
+
+[rpc_endpoints]
+hsk = "https://mainnet.hsk.xyz"

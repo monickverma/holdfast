@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "viewer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "viewer"],
+      "port": 4177,
+      "url": "http://127.0.0.1:4177"
+    },
+    {
+      "name": "viewer-testnet",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:NETWORK='testnet'; npm run viewer"],
+      "port": 4177,
+      "url": "http://127.0.0.1:4177"
+    }
+  ]
+}

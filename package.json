@@ -1,0 +1,36 @@
+{
+  "name": "holdfast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Autonomous HSKSwap trading agent inside a contract-enforced loss limit",
+  "scripts": {
+    "test:contracts": "node scripts/forge.mjs test -vv",
+    "test:agent": "node --import tsx --test agent/test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "e2e:fork": "tsx agent/test/e2e-fork.ts",
+    "agent": "tsx agent/src/main.ts",
+    "preflight": "tsx agent/src/cli/preflight.ts",
+    "swap:once": "tsx agent/src/cli/swap-once.ts",
+    "admin": "tsx agent/src/cli/admin.ts",
+    "setup": "tsx agent/src/cli/setup.ts",
+    "bench:swaps": "tsx agent/src/cli/bench-swaps.ts",
+    "report": "tsx agent/src/cli/report.ts",
+    "attack-set": "tsx agent/test/attack-set.ts",
+    "refusals": "tsx agent/src/cli/refusals.ts",
+    "viewer": "tsx agent/src/cli/viewer.ts",
+    "e2e:testmarket": "node scripts/forge.mjs build --offline && npm run build:agent && node .test-build/test/e2e-testmarket.js",
+    "deploy:testmarket": "node scripts/forge.mjs build --offline && npm run build:agent && node .test-build/src/cli/deploy-test-market.js",
+    "build:agent": "tsc --noEmit false --rootDir agent --outDir .test-build",
+    "test:agent:local": "npm run build:agent && node --test --test-isolation=none .test-build/test/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "viem": "^2.57.13"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
