@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createPublicClient, createWalletClient, defineChain, encodeFunctionData, http, parseAbi, parseEther, stringToHex, keccak256, type Abi, type Address, type Hex } from "viem";
+import { createPublicClient, createWalletClient, defineChain, encodeFunctionData, http, parseAbi, parseEther, stringToHex, keccak256, TransactionReceiptNotFoundError, type Abi, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { CHAIN_ID, HSKSWAP } from "../src/config.js";
 import { VAULT_ABI } from "../src/reader.js";
@@ -35,7 +35,7 @@ const ROUTER = parseAbi([
 ]);
 
 const localAnvil = "tools/foundry/anvil.exe";
-const anvil = spawn(existsSync(localAnvil) ? localAnvil : "anvil", ["--fork-url", "https://mainnet.hsk.xyz", "--port", String(PORT), "--gas-limit", "100000000", "--silent"], { stdio: "ignore" });
+const anvil = spawn(existsSync(localAnvil) ? localAnvil : "anvil", ["--fork-url", "https://mainnet.hsk.xyz", "--port", String(PORT), "--gas-limit", "100000000", "--compute-units-per-second", "150", "--fork-retry-backoff", "2000", "--retries", "20", "--silent"], { stdio: "ignore" });
 
 function prng(seed: number): () => number {
   let a = seed >>> 0;
@@ -77,7 +77,19 @@ try {
   for (const who of [owner.address, agentAccount.address]) await probe.call("anvil_setBalance", [who, `0x${parseEther("5000").toString(16)}`]);
   const ownerWallet = createWalletClient({ account: owner, chain, transport: http(RPC_URL) });
   const agentWallet = createWalletClient({ account: agentAccount, chain, transport: http(RPC_URL) });
-  const wait = (hash: Hex) => client.waitForTransactionReceipt({ hash, timeout: 30_000 });
+  // Polls the receipt directly. Anvil mines only on a transaction, so waitForTransactionReceipt, which checks when it
+  // sees a new block, can miss a mined transaction and hang until its timeout.
+  const wait = async (hash: Hex) => {
+    const deadline = Date.now() + 60_000;
+    while (true) {
+      try {
+        return await client.getTransactionReceipt({ hash });
+      } catch (error) {
+        if (!(error instanceof TransactionReceiptNotFoundError) || Date.now() > deadline) throw error;
+      }
+      await sleep(20);
+    }
+  };
 
   const artifact = JSON.parse(readFileSync("out/HoldfastVault.sol/HoldfastVault.json", "utf8"));
   const deployed = await wait(await ownerWallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: [owner.address, agentAccount.address, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] }));
