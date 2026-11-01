@@ -1,0 +1,12 @@
+{
+  "generation": 3,
+  "chainId": 133,
+  "whsk": "0x7389e33c68e21fe417a045f2283d333e62f6e8fb",
+  "usdt": "0xf2c1543ff2227251c8e26af99624f374d270450f",
+  "pool": "0x8d3bb691cdb90d871ef0adf9fa4d82004e6909c2",
+  "router": "0xd66c592e3f7b1fae6170da8664170f60a172cee6",
+  "quoter": "0x166bbd18d7b0ed761b50fdd257d0b35d92364d04",
+  "vault": "0x9b31aeda4839747a4251d623ddfee4152c961b28",
+  "gasUsed": "7886252",
+  "feeWei": "7894138252000000"
+}

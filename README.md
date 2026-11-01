@@ -1,8 +1,10 @@
 # Holdfast
 
-Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turns a plain-English strategy into a typed policy. A deterministic loop reads the pool, checks the policy and decides whether to trade. The LLM stays outside that hot path. The vault enforces token, per-trade, lifetime, output and expiry limits. The agent cannot withdraw funds.
+Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turns a plain-English strategy into a typed policy. A deterministic loop reads the pool, checks the policy and decides whether to trade. The LLM stays outside that hot path. The vault enforces token, per-trade, hourly, daily, lifetime, output, price-band and expiry limits. The agent cannot withdraw funds.
 
-No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). The real LLM call is not yet tested. Profitability is not claimed.
+No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). **Version 3 of the vault is deployed on testnet with its price guard off, and has not traded there yet. Its stop, guard and swaps have only run on local tests and forks.** The real LLM call is not yet tested. Profitability is not claimed.
+
+Start with [docs/STATUS.md](docs/STATUS.md), which says what is done, tested, blocked and left for later. [docs/SECURITY.md](docs/SECURITY.md) has the threat model and [docs/READINESS.md](docs/READINESS.md) the deployment checklist.
 
 ## Who this is for
 
@@ -22,10 +24,9 @@ There is no revenue and there are no customers. The fee level is not decided.
 1. Deploy the vault on HSK Chain mainnet with small caps, and trade through the real HSKSwap router.
 2. Test the live model call for chat and for strategy changes.
 3. Measure net result on HSKSwap: fill price against the price at the signal, after gas. Latency alone does not show that a trade was good.
-4. Add a stop-loss that anyone can trigger on chain, so protection does not depend on the agent being online.
-5. Log a hash of each decision, so an owner can check why the agent traded.
-6. Host the viewer publicly with read-only access.
-7. Get an external audit before the caps go up.
+4. Turn on the version 3 guard on testnet, set a guardian, and trade through it, so these run on a public chain. They have only run on forks so far.
+5. Run a keeper for the on-chain stop. The stop exists, and it fires only when someone calls it.
+6. Get an external audit before the caps go up.
 
 ## How this meets the hackathon criteria
 
@@ -33,16 +34,16 @@ The India rules name completeness, technical maturity and innovation, and publis
 
 | Criterion | Source | Where it stands | Evidence |
 |---|---|---|---|
-| Completeness | India rules | Monitor, decide and execute work on testnet. Live chat is untested. The viewer is local only | [Evidence](#evidence) |
+| Completeness | India rules | Monitor, decide and execute work on testnet. Live chat is untested. `render.yaml` hosts the read-only site | [Evidence](#evidence) |
 | Technical maturity | India rules | Tests, an attack set and benchmarks with sample sizes and stated flaws | [BENCHMARKS.md](BENCHMARKS.md) |
 | Innovation | India rules | The vault enforces the limits, not the model. The agent reacts to flashblocks: market move to receipt P50 225.2 ms on testnet | `evidence/event-to-receipt/` |
 | Mainnet deployment | India rules | **Not met.** Testnet only | [Addresses](#addresses) |
 | Trading loop with no manual steps | Track text | Done on testnet, on our own market | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
-| Risk control and stop-loss | Track text | Vault caps are enforced on chain. The stop-loss is in the agent, and is tested end to end | `evidence/attack-results.json`, [Evidence](#evidence) |
+| Risk control and stop-loss | Track text | Vault caps are enforced on chain. The agent has a stop-loss, and version 3 adds one on chain that anyone can fire, so far on forks only | `evidence/v3/rehearsal-fork.json`, [Evidence](#evidence) |
 | Sustained profitability | Track text | **Not shown.** No result on a real market | [Known limits](#known-limits) |
 | Chat for positions, P&L and strategy | Track text | Built. Not tested with a live model | `agent/src/nl.ts` |
 | Whether it works, real problem | Hong Kong event | Refusals are public testnet transactions. The problem has no user evidence yet | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
-| Commercial potential, user experience | Japan event, Mumbai outline | Proposal above. Early interface | This section and the viewer |
+| Commercial potential, user experience | Japan event, Mumbai outline | Proposal above. A public site with a refusal demo, vault status and owner controls | This section and the viewer |
 
 ## Run locally
 
@@ -58,9 +59,13 @@ npm run attack-set
 npm run viewer
 ```
 
+Other tools: `npm run monitor` (health, exits 0, 1 or 2), `npm run keeper` (fires an armed stop, dry run by default), `npm run audit` (ties each on-chain trade to the decision that made it), `npm run mcp` (read and simulate over MCP, with no key), `npm run rehearse` (the whole lifecycle on a fork), `MODE=observe|simulate|live npm run agent`. `agent/src/sdk.ts` is the reusable client.
+
 Setup creates local wallet configuration if none exists and checks funding. Keep that configuration private. The fork commands start local Anvil and need access to the mainnet RPC. Contract tests build the artifact used by the fork commands.
 
-Open `http://127.0.0.1:4177`. `PORT` changes the port. The viewer binds only to the loopback address. Set `ANTHROPIC_API_KEY` in the server environment to enable questions. Without it, the viewer still starts. It reads only `VAULT_ADDRESS`, `ANTHROPIC_API_KEY` and `LLM_MODEL` from `.env`, so wallet keys never enter its process. `VAULT_ADDRESS` enables pinned, read-only mainnet vault queries. No vault is queried otherwise. Environment values are not displayed.
+Open `http://127.0.0.1:4177`. `PORT` changes the port. The viewer binds to the loopback address unless `HOST` says otherwise, as `render.yaml` does. Set `ANTHROPIC_API_KEY` in the server environment to enable questions on this machine. Without it, the viewer still starts. Each answer costs money, so off this machine a caller must also send `CHAT_TOKEN`, and without one public chat does not exist. `CHAT_DAILY_LIMIT` caps the total, 200 by default. It reads only `VAULT_ADDRESS`, `ANTHROPIC_API_KEY`, `LLM_MODEL`, `CHAT_TOKEN` and `CHAT_DAILY_LIMIT` from `.env`, so wallet keys never enter its process. `VAULT_ADDRESS` enables pinned, read-only mainnet vault queries. No vault is queried otherwise. Environment values are not displayed.
+
+The site's "Try to break it" panel runs named attacks by `eth_call` against the configured vault: nothing is signed or sent, and a visitor supplies no input but the name. Owner controls use the visitor's own wallet. The page's measured results come from named fields of named files under `evidence/`, by `/api/proof`.
 
 The viewer uses plain HTML, CSS and JavaScript from `web/`, without a CDN. It reads named evidence files under `data/`, including run subdirectories. It does not expose a file download route. Symlinked evidence is skipped. Mainnet, fork and replay stay separate. Within a lane it pools every saved run, so it does not compare before and after; use [BENCHMARKS.md](BENCHMARKS.md) for that. Its revert count includes deliberate refusals. Each quantile shows its sample size. Unsupported quantiles are hidden with the reason from the shared statistics code.
 
@@ -78,7 +83,9 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Fork, current source | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
 | Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
 | Fork, current source | E2E 8/8, including crash recovery |
-| Local, current source | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
+| Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 237/237; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
+| Fork, vault version 3 | Forge 6/6 against the real pool; E2E 8/8; attack set 120/120 contained and 120/120 benign completed, 0 cap violations; 26-step lifecycle rehearsal. `evidence/v3/` |
+| Earlier, vault version 2 | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
 | Mainnet, read only, 7 days of the real pool | 462 swaps, $8,324 volume; one wallet made 94% of them; no latency race exists there today |
 | Mainnet, read only, 43 minutes, simulated fills | With an assumed 20 bps outside fee: 0 opportunities. Without it: 13, all within 7 minutes, $0.42 acting at once at $150 |
 | Mainnet, read only | Frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished; real Swap logs decoded correctly in 284 of 284 blocks |
@@ -98,15 +105,17 @@ Mainnet deployment transaction: **not yet run**.
 
 Mainnet swap transaction: **not yet run**.
 
-Testnet (chain 133) Holdfast vault: [`0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89`](https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89). It is the old vault and does not match the current source: it has no key expiry or hourly budget. The agent reads it in a legacy mode.
+Testnet (chain 133) Holdfast vault, version 3: [`0x9b31aeda4839747a4251d623ddfee4152c961b28`](https://testnet-explorer.hskchain.net/address/0x9b31aeda4839747a4251d623ddfee4152c961b28). Its runtime code matches the current build. Price guard off, no guardian, no stop armed. Addresses are in `evidence/v3/testnet-deployment.json`.
+
+Older testnet vault, where the public swaps and refusals below happened: [`0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89`](https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89). It has no key expiry or hourly budget, and the agent reads it in a legacy mode.
 
 ## Known limits
 
-The contract has not been audited. Limits stop at 72 bits, about 4,722 tokens with 18 decimals; larger values are refused. A stolen agent key can sell at the floor inside its limits until it expires, up to the hourly budget. Under the floor, stop-losses are blocked too, and the agent can only raise an alert. Nothing protects a position while the agent is offline, other than the owner withdrawing. Gas exposure is separate from token caps. Fork results do not establish mainnet execution or profit.
+The contract has not been audited. Limits stop at 72 bits, about 4,722 tokens with 18 decimals; larger values are refused. A stolen agent key can sell at the floor inside its limits until it expires, up to the hourly budget. Under the floor, the agent's stop-loss is blocked too, and it can only raise an alert. The on-chain stop in version 3 fires only when someone calls it, sells only above its own floor, and can be fired by a price held off the market for a whole window: the pool is thin enough that this is cheap, as [measured](BENCHMARKS.md#version-3). It is deployed on testnet but not armed. Gas exposure is separate from token caps. Fork results do not establish mainnet execution or profit.
 
 Benchmark swaps are self-trades in a thin pool. They are not volume or traction. No sustained profitability is claimed. Sparse samples cannot support tail claims. Order-statistic intervals assume independent observations; RPC delays may be correlated.
 
-The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It is a local evidence tool, not an authenticated public service. Refresh to reload saved evidence. No live model check has run: the chat layer is tested with scripted replies only.
+The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It has no accounts: everything it serves is public, and its one paid endpoint is closed off this machine. Refresh to reload saved evidence. No live model check has run: the chat layer is tested with scripted replies only.
 
 ## HSK testnet: our own test market
 

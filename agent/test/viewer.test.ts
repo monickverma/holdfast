@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
 import { request } from "node:http";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
+import { decodeFunctionData, encodeFunctionData, getAddress, keccak256, toFunctionSelector, toHex, type Hex } from "viem";
 import { createViewer } from "../src/cli/viewer.js";
 import { HSKSWAP } from "../src/config.js";
+import { DEMO_ATTACKS, runDemo } from "../src/demo.js";
+import { readProof } from "../src/proof.js";
+import { VAULT_ABI } from "../src/reader.js";
 import { quantileReport } from "../src/stats.js";
 
 async function fixture(work: (get: (path: string, body?: unknown) => Promise<{ status: number; text: string }>, dir: string) => Promise<void>, assistant: Parameters<typeof createViewer>[0] = {}) {
   // Outside data/, so a crashed test can never show its made-up rows as evidence.
   const dir = mkdtempSync(join(tmpdir(), "holdfast-viewer-"));
-  const server = createViewer({ dataDir: dir, assistant: null, vaultAddress: "", ...assistant });
+  const server = createViewer({ dataDir: dir, assistant: null, vaultAddress: "", evidenceDir: dir, ...assistant });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
   const get = (path: string, body?: unknown) => new Promise<{ status: number; text: string }>((resolve, reject) => {
@@ -22,11 +27,29 @@ async function fixture(work: (get: (path: string, body?: unknown) => Promise<{ s
   });
   try { await work(get, dir); }
   finally {
+    server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     rmSync(dir, { recursive: true, force: true });
   }
 }
 const jsonl = (dir: string, name: string, rows: unknown[]) => writeFileSync(join(dir, name), rows.map((r) => JSON.stringify(r)).join("\n"));
+const rawGet = (port: number, path: string, headers: Record<string, string> = {}, body?: string) => new Promise<{ status: number; text: string; headers: Record<string, unknown> }>((resolve, reject) => {
+  const req = request({ hostname: "127.0.0.1", port, path, method: body === undefined ? "GET" : "POST", headers: { Host: `127.0.0.1:${port}`, ...headers } }, (res) => {
+    let text = ""; res.on("data", (chunk) => { text += chunk; }); res.on("end", () => resolve({ status: res.statusCode!, text, headers: res.headers }));
+  });
+  req.on("error", reject); req.end(body);
+});
+const withServer = async (options: Parameters<typeof createViewer>[0], work: (port: number) => Promise<void>) => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-viewer-"));
+  const server = createViewer({ dataDir: dir, assistant: null, vaultAddress: "", evidenceDir: dir, ...options });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try { await work((server.address() as { port: number }).port); }
+  finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
 const trace = (lane: string, ms: number, i: number) => ({ id: `${lane}-${i}`, lane, wallTime: "saved-time", attrs: { decisionToBroadcastMs: ms }, spans: [{ stage: "state", startMs: 0, endMs: ms, ok: true }] });
 
 test("viewer refuses raw, encoded and Windows path traversal", async () => fixture(async (get) => {
@@ -113,3 +136,166 @@ test("viewer withholds an unlinked row when its directory mixes lanes", async ()
   for (const lane of data.lanes) assert.equal(lane.trades.length, 0);
   assert.equal(data.incomplete, true);
 }));
+
+test("every response carries the security headers and the health check says nothing", async () => withServer({}, async (port) => {
+  const health = await rawGet(port, "/healthz");
+  assert.equal(health.status, 200); assert.deepEqual(JSON.parse(health.text), { ok: true });
+  const page = await rawGet(port, "/");
+  assert.match(String(page.headers["content-security-policy"]), /script-src 'self'; style-src 'self'/);
+  assert.doesNotMatch(String(page.headers["content-security-policy"]), /unsafe|https?:/);
+  assert.equal(page.headers["x-content-type-options"], "nosniff"); assert.equal(page.headers["x-frame-options"], "DENY"); assert.equal(page.headers["referrer-policy"], "no-referrer");
+}));
+
+test("the paid model cannot be reached from off this machine without the token", async () => {
+  let calls = 0;
+  const assistant = { handle: async () => { calls++; return { kind: "answer" as const, text: "Paid answer" }; } };
+  const question = JSON.stringify({ message: "What happened?" });
+  const asProxied = (port: number) => ({ Origin: `http://127.0.0.1:${port}`, "Content-Type": "application/json", "X-Forwarded-For": "203.0.113.9" });
+  await withServer({ assistant, chatToken: "" }, async (port) => {
+    assert.equal((await rawGet(port, "/api/chat", asProxied(port), question)).status, 403);
+    assert.equal(JSON.parse((await rawGet(port, "/api/evidence", { "X-Forwarded-For": "203.0.113.9" })).text).chatOpen, false);
+    assert.equal(calls, 0);
+  });
+  await withServer({ assistant, chatToken: "right-token" }, async (port) => {
+    assert.equal((await rawGet(port, "/api/chat", { ...asProxied(port), Authorization: "Bearer wrong-token" }, question)).status, 403);
+    assert.equal((await rawGet(port, "/api/chat", asProxied(port), question)).status, 403);
+    assert.equal(calls, 0);
+    assert.equal((await rawGet(port, "/api/chat", { ...asProxied(port), Authorization: "Bearer right-token" }, question)).status, 200);
+    assert.equal(calls, 1);
+  });
+});
+
+test("chat has a per-client limit and a daily budget, and refuses before calling the model", async () => {
+  let calls = 0;
+  const assistant = { handle: async () => { calls++; return { kind: "answer" as const, text: "Answer" }; } };
+  const headers = (port: number) => ({ Origin: `http://127.0.0.1:${port}`, "Content-Type": "application/json" });
+  const question = JSON.stringify({ message: "Why?" });
+  await withServer({ assistant, limits: { chat: 2 } }, async (port) => {
+    const codes = [];
+    for (let i = 0; i < 3; i++) codes.push((await rawGet(port, "/api/chat", headers(port), question)).status);
+    assert.deepEqual(codes, [200, 200, 429]); assert.equal(calls, 2);
+  });
+  calls = 0;
+  await withServer({ assistant, chatDailyLimit: 1 }, async (port) => {
+    const codes = [];
+    for (let i = 0; i < 2; i++) codes.push((await rawGet(port, "/api/chat", headers(port), question)).status);
+    assert.deepEqual(codes, [200, 429]); assert.equal(calls, 1);
+  });
+});
+
+test("the API is rate limited per client, using the address the proxy saw", async () => withServer({ limits: { api: 2 } }, async (port) => {
+  const hit = (forwarded: string) => rawGet(port, "/api/proof", { "X-Forwarded-For": forwarded });
+  assert.equal((await hit("198.51.100.1")).status, 200);
+  assert.equal((await hit("198.51.100.1")).status, 200);
+  assert.equal((await hit("198.51.100.1")).status, 429);
+  // A client cannot escape by adding its own entry, because the proxy's entry is last.
+  assert.equal((await hit("1.2.3.4, 198.51.100.1")).status, 429);
+  assert.equal((await hit("198.51.100.2")).status, 200);
+}));
+
+test("repeat requests within the cache window do not walk the disk again", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-viewer-"));
+  const server = createViewer({ dataDir: dir, assistant: null, vaultAddress: "", evidenceDir: dir, cacheMs: 60_000 });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as { port: number }).port;
+  try {
+    assert.equal(JSON.parse((await rawGet(port, "/api/evidence")).text).empty, true);
+    jsonl(dir, "traces.jsonl", [trace("fork", 10, 0)]);
+    assert.equal(JSON.parse((await rawGet(port, "/api/evidence")).text).empty, true);
+  } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("the proof digest passes only named fields, and an absent file is null", async () => withServer({}, async (port) => {
+  const empty = JSON.parse((await rawGet(port, "/api/proof")).text);
+  assert.equal(empty.gas, null); assert.equal(empty.mutation, null); assert.equal(empty.llm, null);
+}));
+
+test("the proof digest drops everything it was not told to pass", () => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-proof-"));
+  try {
+    mkdirSync(join(dir, "v3"));
+    writeFileSync(join(dir, "v3/mutation-check.json"), JSON.stringify({ wallTime: "t", lane: "local", mutants: 3, killed: 3, survived: [], didNotCompile: [], privateKey: "SECRET_SENTINEL", results: ["SECRET_SENTINEL"] }));
+    writeFileSync(join(dir, "v3/rehearsal-fork.json"), JSON.stringify({ lane: "fork", result: "ok", ownerKey: "SECRET_SENTINEL", steps: [{ name: "deploy", gasUsed: "1", detail: "SECRET_SENTINEL" }] }));
+    writeFileSync(join(dir, "public-transactions.json"), JSON.stringify({ lane: "testnet", rows: [{ hash: "not a hash", label: "SECRET_SENTINEL" }, { hash: `0x${"a".repeat(64)}`, label: "ok", raw: "SECRET_SENTINEL" }] }));
+    const proof = readProof(dir);
+    assert.ok(!JSON.stringify(proof).includes("SECRET_SENTINEL"));
+    assert.deepEqual(proof.mutation, { wallTime: "t", lane: "local", mutants: 3, killed: 3, survived: 0, didNotCompile: 0 });
+    assert.equal(proof.transactions!.rows.length, 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+const context = { vault: "0x1111111111111111111111111111111111111111", agent: "0x2222222222222222222222222222222222222222", owner: "0x3333333333333333333333333333333333333333", tokenIn: "0x4444444444444444444444444444444444444444", maxTrade: 10n ** 19n, spendable: 10n ** 18n, timestamp: 1_000n } as const;
+const selectorOf = (name: string) => toFunctionSelector(`${name}()`);
+
+test("a demo reports the error the node returned, not the one it expected", async () => {
+  const reply = await runDemo("agent-withdraw", context, 5n, async () => ({ error: { message: "execution reverted", data: selectorOf("IsPaused") } }));
+  assert.equal(reply.refused, true); assert.equal(reply.error, "IsPaused"); assert.equal(reply.expected, "NotOwner"); assert.equal(reply.matchedExpected, false);
+  const right = await runDemo("agent-withdraw", context, 5n, async () => ({ error: { message: "execution reverted", data: selectorOf("NotOwner") } }));
+  assert.equal(right.matchedExpected, true); assert.equal(right.from, context.agent); assert.match(right.meaning!, /owner/i);
+});
+
+test("a demo that does not revert says so, and a dead node is not a refusal", async () => {
+  const passed = await runDemo("stranger-withdraw", context, 5n, async () => ({ result: "0x" }));
+  assert.equal(passed.refused, false); assert.equal(passed.error, null);
+  await assert.rejects(runDemo("stranger-withdraw", context, 5n, async () => ({ error: { message: "upstream unavailable" } })));
+  const silent = await runDemo("stranger-withdraw", context, 5n, async () => ({ error: { message: "execution reverted" } }));
+  assert.equal(silent.refused, true); assert.equal(silent.error, null); assert.equal(silent.matchedExpected, false);
+});
+
+test("the demo sends each attack's own call, pinned to the block, and takes no input from the visitor", async () => {
+  const seen: unknown[][] = [];
+  await runDemo("over-cap", context, 255n, async (method, params) => { seen.push([method, params]); return { error: { message: "revert", data: selectorOf("OverTradeCap") } }; });
+  const [method, params] = seen[0] as [string, [{ from: string; to: string; data: string }, string]];
+  assert.equal(method, "eth_call"); assert.equal(params[1], "0xff"); assert.equal(params[0].from, context.agent); assert.equal(params[0].to, context.vault);
+  const decoded = decodeFunctionData({ abi: VAULT_ABI, data: params[0].data as Hex });
+  assert.equal(decoded.functionName, "execute"); assert.equal((decoded.args as readonly unknown[])[1], context.maxTrade + 1n);
+});
+
+test("an unknown attack is not found, and a demo with no vault runs nothing", async () => withServer({}, async (port) => {
+  assert.equal((await rawGet(port, "/api/demo/drop-tables")).status, 404);
+  const list = JSON.parse((await rawGet(port, "/api/demo")).text);
+  assert.equal(list.available, false); assert.equal(list.attacks.length, Object.keys(DEMO_ATTACKS).length);
+  assert.equal((await rawGet(port, "/api/demo/agent-withdraw")).status, 503);
+}));
+
+test("the wallet module's calldata matches viem, byte for byte", async () => {
+  const wallet = await import(pathToFileURL(join(process.cwd(), "web/wallet.js")).href);
+  const a = getAddress("0x1234567890abcdef1234567890abcdef12345678");
+  const b = getAddress("0xabcdef0123456789abcdef0123456789abcdef01");
+  for (const name of ["pause", "unpause", "halt", "revokeAgent", "disarmStop"] as const) assert.equal(wallet.encodeCall(name, []), encodeFunctionData({ abi: VAULT_ABI, functionName: name }));
+  assert.equal(wallet.encodeCall("withdraw", [a, b, 123456789012345678901234567890n]), encodeFunctionData({ abi: VAULT_ABI, functionName: "withdraw", args: [a, b, 123456789012345678901234567890n] }));
+  assert.equal(wallet.encodeCall("setAgent", [a, 1_800_000_000n]), encodeFunctionData({ abi: VAULT_ABI, functionName: "setAgent", args: [a, 1_800_000_000n] }));
+  assert.throws(() => wallet.encodeCall("withdraw", ["not an address", b, 1n]));
+  // The checksum is the only thing between a typo and a real withdrawal, so it is checked against viem across many addresses.
+  for (let i = 1; i < 300; i++) {
+    const address = getAddress(keccak256(toHex(i)).slice(0, 42));
+    assert.equal(wallet.checksumOk(address), true, address);
+    const body = address.slice(2);
+    const at = [...body].findIndex((ch) => /[a-fA-F]/.test(ch));
+    const flipped = `0x${body.slice(0, at)}${body[at] === body[at]!.toUpperCase() ? body[at]!.toLowerCase() : body[at]!.toUpperCase()}${body.slice(at + 1)}`;
+    if (flipped !== flipped.toLowerCase() && flipped.slice(2) !== flipped.slice(2).toUpperCase()) assert.equal(wallet.checksumOk(flipped), false, flipped);
+  }
+  assert.equal(wallet.checksumOk(a.toLowerCase()), true);
+  assert.throws(() => wallet.encodeCall("withdraw", [`0x${"aB".repeat(20)}`, b, 1n]), /checksum/);
+  assert.throws(() => wallet.encodeCall("withdraw", [a, b, -1n]));
+  assert.throws(() => wallet.encodeCall("execute", []));
+  assert.equal(wallet.parseAmount("1.5", 18), 1_500_000_000_000_000_000n);
+  assert.equal(wallet.parseAmount("0.000001", 6), 1n);
+  assert.throws(() => wallet.parseAmount("0.0000001", 6));
+  assert.throws(() => wallet.parseAmount("1e5", 18));
+});
+
+test("the wallet module knows every role's controls and offers an agent none", async () => {
+  const wallet = await import(pathToFileURL(join(process.cwd(), "web/wallet.js")).href);
+  const vault = { version: 3, owner: "0xAA00000000000000000000000000000000000000", guardian: "0xbb00000000000000000000000000000000000000", agent: "0xcc00000000000000000000000000000000000000" };
+  assert.equal(wallet.roleOf("0xaa00000000000000000000000000000000000000", vault), "owner");
+  assert.equal(wallet.roleOf("0xBB00000000000000000000000000000000000000", vault), "guardian");
+  assert.equal(wallet.roleOf("0xCC00000000000000000000000000000000000000", vault), "agent");
+  assert.equal(wallet.roleOf("0xdd00000000000000000000000000000000000000", vault), "none");
+  assert.ok(wallet.controlsFor("owner", 3).some((c: { id: string }) => c.id === "withdraw"));
+  assert.ok(!wallet.controlsFor("guardian", 3).some((c: { id: string }) => ["withdraw", "unpause", "renew"].includes(c.id)));
+  assert.deepEqual(wallet.controlsFor("agent", 3).map((c: { id: string }) => c.id), ["pause"]);
+  assert.deepEqual(wallet.controlsFor("none", 3), []);
+  // An older vault has no halt or revoke, so the page does not offer them.
+  assert.ok(!wallet.controlsFor("owner", null).some((c: { id: string }) => ["halt", "revoke", "disarm"].includes(c.id)));
+});

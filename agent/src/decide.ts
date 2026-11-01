@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 import { HSKSWAP } from "./config.js";
 import { isSell, type Order, type Policy } from "./policy.js";
-import type { MarketState, QuoteRequest, TokenLimits, VaultState } from "./reader.js";
+import { tickAtSqrtPrice, type MarketState, type Quote, type QuoteRequest, type TokenLimits, type VaultState } from "./reader.js";
 
 const E18 = 10n ** 18n;
 const BPS = 10_000n;
@@ -52,7 +52,10 @@ export type HoldCode =
   | "below-floor"
   | "uneconomic"
   | "stop-unconfirmed"
-  | "requote";
+  | "requote"
+  | "price-band"
+  | "oracle-unavailable"
+  | "preflight-refused";
 
 export interface CostLedger {
   /** Value given up, in USDT micro-units at the conservative mark. Null when no mark exists. */
@@ -114,6 +117,7 @@ export function decide(input: DecideInput): Decision {
   if (ageMs > input.maxStateAgeMs) {
     return hold("stale-state", `State from block ${market.head.number} is ${ageMs} ms old, over the ${input.maxStateAgeMs} ms limit.`);
   }
+  if (vault.guard && !vault.guard.oracleOk) return hold("oracle-unavailable", "The pool's price oracle did not answer, so the vault would refuse every trade. The owner can still withdraw.");
 
   // Stop-losses come first: protecting the position outranks every other reason to act.
   const first: Decision[] = [];
@@ -157,13 +161,32 @@ export function trancheSize(order: Order, state: OrderRuntime | undefined, vault
   if (left <= 0n) return 0n;
   if (!vault) return left;
   const limits = isSell(order.kind) ? vault.whsk : vault.usdt;
-  return min(left, limits.maxTrade, limits.remaining, limits.balance, budgetNow(limits));
+  return min(left, limits.maxTrade, limits.remaining, limits.balance, budgetNow(limits), dailyNow(limits));
 }
 
 function budgetNow(limits: TokenLimits): bigint {
-  const step = limits.hourlyBudget / BUDGET_STEPS;
-  if (step === 0n || limits.available === limits.hourlyBudget) return limits.available;
-  return (limits.available / step) * step;
+  return onGrid(limits.available, limits.hourlyBudget);
+}
+
+/** The daily cap on the same kind of grid, for the same reason. With no cap, no limit at all. */
+function dailyNow(limits: TokenLimits): bigint {
+  if (!limits.dailyBudget || limits.dailyAvailable === undefined) return limits.balance;
+  return onGrid(limits.dailyAvailable, limits.dailyBudget);
+}
+
+function onGrid(available: bigint, budget: bigint): bigint {
+  const step = budget / BUDGET_STEPS;
+  if (step === 0n || available === budget) return available;
+  return (available / step) * step;
+}
+
+/** The vault's price guard, asked ahead of time from the quote's post-swap price, so a refusal costs no gas. */
+function bandProblem(id: string, tokenIn: Address, quote: Quote, vault: VaultState, ledger: CostLedger): HoldDecision | null {
+  if (!vault.guard || quote.sqrtPriceAfter === undefined) return null;
+  const gap = tickAtSqrtPrice(quote.sqrtPriceAfter) - vault.guard.twapTick;
+  const selling = tokenIn.toLowerCase() === HSKSWAP.whsk.toLowerCase();
+  if (selling ? gap >= -vault.guard.bandTicks : gap <= vault.guard.bandTicks) return null;
+  return hold("price-band", `${id}: this trade would leave the pool ${Math.abs(gap)} ticks from its TWAP, past the vault's band of ${vault.guard.bandTicks}.`, ledger);
 }
 
 /**
@@ -284,6 +307,8 @@ function decideOrder(order: Order, input: DecideInput, state: OrderRuntime | und
     }
   }
 
+  const outOfBand = bandProblem(`Order ${order.id}`, tokenIn, quote, vault, ledger);
+  if (outOfBand) return outOfBand;
   const decision = trade(trigger, order.id, tokenIn, amountIn, quote.amountOut, limits, policy, ledger, reason, limitOut);
   if (order.kind === "stop-loss" && decision.action === "hold" && decision.code === "below-floor") {
     return hold("stop-blocked", `Stop ${order.id} cannot sell: the price is under the owner's floor, so the vault would refuse. Only the owner can act now, by lowering the floor or withdrawing.`, ledger);
@@ -308,12 +333,12 @@ function decideEdge(input: DecideInput, vault: VaultState): Decision {
     { tokenIn: HSKSWAP.usdt, amountIn: policy.edge.sizeUsdt, limits: vault.usdt },
   ];
 
-  let best: { tokenIn: Address; amountIn: bigint; out: bigint; limits: TokenLimits; ledger: CostLedger } | null = null;
+  let best: { tokenIn: Address; amountIn: bigint; out: bigint; limits: TokenLimits; ledger: CostLedger; quote: Quote } | null = null;
   for (const side of sides) {
     const quote = market.quotes.find((q) => q.amountIn === side.amountIn && q.tokenIn.toLowerCase() === side.tokenIn.toLowerCase());
     if (!quote) continue;
     const ledger = costLedger(side.tokenIn, side.amountIn, quote.amountOut, market, mark);
-    if (!best || ledger.net! > best.ledger.net!) best = { ...side, out: quote.amountOut, ledger };
+    if (!best || ledger.net! > best.ledger.net!) best = { ...side, out: quote.amountOut, ledger, quote };
   }
   if (!best) return hold("requote", "No quote for the edge size at this block.");
 
@@ -331,6 +356,9 @@ function decideEdge(input: DecideInput, vault: VaultState): Decision {
     return hold("cap-exhausted", "The profitable side exceeds a vault cap.", best.ledger);
   }
   if (best.amountIn > best.limits.available) return hold("over-budget", "The profitable side exceeds what the hourly budget allows now.", best.ledger);
+  if (best.limits.dailyBudget && best.amountIn > dailyNow(best.limits)) return hold("over-budget", "The profitable side exceeds what the daily budget allows now.", best.ledger);
+  const outOfBand = bandProblem("Edge", best.tokenIn, best.quote, vault, best.ledger);
+  if (outOfBand) return outOfBand;
   const reason = `Edge: conservative net ${best.ledger.net} micro-USDT after fees and gas.`;
   return trade("edge", null, best.tokenIn, best.amountIn, best.out, best.limits, policy, best.ledger, reason);
 }
@@ -361,6 +389,7 @@ function limitProblem(order: Order, limits: TokenLimits, amountIn: bigint): Hold
   if (limits.remaining === 0n) return hold("cap-exhausted", `Order ${order.id}: the lifetime cap is spent.`);
   if (limits.maxTrade === 0n) return hold("no-limits", `Order ${order.id}: the owner has set no trade cap for this token.`);
   if (limits.balance === 0n) return hold("no-balance", `Order ${order.id}: the vault holds none of the input token.`);
+  if (limits.dailyBudget && dailyNow(limits) === 0n) return hold("over-budget", `Order ${order.id}: the daily budget has no room yet.`);
   return hold("over-budget", `Order ${order.id}: the hourly budget has no room yet.`);
 }
 

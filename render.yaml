@@ -1,0 +1,16 @@
+# The public read-only site. It holds no wallet key. Chat stays off unless CHAT_TOKEN and ANTHROPIC_API_KEY are both set.
+services:
+  - type: web
+    name: holdfast
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build:agent
+    startCommand: node .test-build/src/cli/viewer.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NETWORK
+        value: testnet
+      - key: TEST_MARKET_FILE
+        value: evidence/v3/testnet-deployment.json

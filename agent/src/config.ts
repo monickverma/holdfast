@@ -40,6 +40,17 @@ export const HSKSWAP = new Proxy(MAINNET_MARKET, {
   },
 });
 
+export type AgentMode = "observe" | "simulate" | "live";
+
+/** MODE names the mode. LIVE=true is the older spelling of MODE=live, and the two may not disagree. */
+export function agentMode(env: Record<string, string | undefined>): AgentMode {
+  const mode = env.MODE;
+  if (mode === undefined || mode === "") return env.LIVE === "true" ? "live" : "observe";
+  if (mode !== "observe" && mode !== "simulate" && mode !== "live") throw new Error("MODE must be observe, simulate or live");
+  if (env.LIVE === "true" && mode !== "live") throw new Error(`LIVE=true and MODE=${mode} disagree. Set one.`);
+  return mode;
+}
+
 export interface Config {
   rpcUrl: string;
   chainId: number;
@@ -48,6 +59,12 @@ export interface Config {
   agentKey?: Hex;
   /** Real transactions go out only when this is true. */
   live: boolean;
+  /** "observe" reads and decides. "simulate" also asks the vault what it would do, by eth_call. "live" sends. */
+  mode?: AgentMode;
+  /** Asks the vault by eth_call before signing a trade decided from a sealed block. A refusal then costs no gas. */
+  preflight?: boolean;
+  /** Who a simulation calls the vault as, when no key is loaded. */
+  agentAddress?: Address;
   pollMs: number;
   dataDir: string;
   twapWindowSec: number;
@@ -63,6 +80,8 @@ export interface Config {
   maxMarkAgeMs: number;
   /** True for a vault deployed before key expiry and the hourly budget, which has neither to read. */
   legacyVault?: boolean;
+  /** True for a v3 vault, which has a price guard and a daily budget to read. */
+  guardedVault?: boolean;
   /** The agent's own stops, inside the vault's. Defaults to BREAKER_DEFAULTS. */
   breaker?: BreakerLimits;
 }
@@ -71,10 +90,14 @@ type Env = Record<string, string | undefined>;
 
 export function loadConfig(env: Env = process.env): Config {
   const profile = networkProfile(env);
+  const mode = agentMode(env);
   const config: Config = {
     rpcUrl: env.RPC_URL ?? profile.rpcUrl,
     chainId: Number(env.CHAIN_ID ?? profile.chainId),
-    live: env.LIVE === "true",
+    live: mode === "live",
+    mode,
+    preflight: env.PREFLIGHT !== "false",
+    guardedVault: env.VAULT_GENERATION !== undefined && Number(env.VAULT_GENERATION) >= 3,
     pollMs: Number(env.POLL_MS ?? 650),
     dataDir: env.DATA_DIR ?? (profile.network === "testnet" ? "data/testnet" : "data"),
     twapWindowSec: Number(env.TWAP_WINDOW_SEC ?? 300),
@@ -90,8 +113,9 @@ export function loadConfig(env: Env = process.env): Config {
     const market = testMarket();
     if (market.chainId !== config.chainId) throw new Error("Test market manifest chain does not match profile; deploy on the selected chain first");
     config.vault = market.vault;
-    // The vault on public testnet predates the expiry and budget. A redeployment writes generation 2.
+    // The vault on public testnet predates the expiry and budget. A redeployment writes generation 3.
     config.legacyVault = (market.generation ?? 1) < 2;
+    config.guardedVault = (market.generation ?? 1) >= 3;
   }
   if (env.VAULT_ADDRESS) config.vault = env.VAULT_ADDRESS as Address;
   if (env.AGENT_PRIVATE_KEY) config.agentKey = env.AGENT_PRIVATE_KEY as Hex;

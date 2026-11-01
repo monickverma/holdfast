@@ -1,0 +1,64 @@
+{
+  "lane": "testnet",
+  "chainId": 133,
+  "explorer": "https://testnet-explorer.hskchain.net",
+  "checkedAt": "2026-11-01T18:44:20.541Z",
+  "vault": "0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89",
+  "note": "Sent to the older testnet vault in our own test market. Self-trades with free test tokens, not volume, and nothing about HSKSwap or mainnet.",
+  "rows": [
+    {
+      "kind": "swap",
+      "label": "A benchmark swap through the vault",
+      "expected": "success",
+      "hash": "0xdfecf966a18aece26398932a56fa65a839486ac7eeee76c739526ae7e360bf2f",
+      "status": "success",
+      "block": "35171205",
+      "gasUsed": "152156"
+    },
+    {
+      "kind": "swap",
+      "label": "The next benchmark swap",
+      "expected": "success",
+      "hash": "0x223e00b5b1d7d2e1ca0308243bd0724ead0f8b947e1db36e667eb33989927986",
+      "status": "success",
+      "block": "35171205",
+      "gasUsed": "139291"
+    },
+    {
+      "kind": "refusal",
+      "label": "Zero minimum output: BelowFloor",
+      "expected": "reverted",
+      "hash": "0x9eba7bf0d3721c8f64f6c6d926871fb5432d85c1fcab6b6c78f606d4c6bfb7a0",
+      "status": "reverted",
+      "block": "35172079",
+      "gasUsed": "30728"
+    },
+    {
+      "kind": "refusal",
+      "label": "11 tWHSK, over the trade cap: OverTradeCap",
+      "expected": "reverted",
+      "hash": "0x7d41dda69fccbcf61382a40767287cbb41895b789668826c6dc7740f0aa03792",
+      "status": "reverted",
+      "block": "35172080",
+      "gasUsed": "30333"
+    },
+    {
+      "kind": "refusal",
+      "label": "The agent key withdrawing",
+      "expected": "reverted",
+      "hash": "0x276712cd2d682fa6dface8ea5bcb7273f164c5d796be58dcc2b0842ddf175b67",
+      "status": "reverted",
+      "block": "35172080",
+      "gasUsed": "23350"
+    },
+    {
+      "kind": "refusal",
+      "label": "10 tWHSK once the lifetime budget was mostly used: OverLifetimeCap",
+      "expected": "reverted",
+      "hash": "0xd660206d33904df0af39ed4d9c9fd6f0f0a914e128184b52170fbd245d062b1e",
+      "status": "reverted",
+      "block": "35172065",
+      "gasUsed": "30346"
+    }
+  ]
+}

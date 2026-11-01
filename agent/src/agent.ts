@@ -1,13 +1,14 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { decodeFunctionResult, encodeFunctionData, type Address, type Hex } from "viem";
 import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey } from "./breaker.js";
 import { HSKSWAP, type Config } from "./config.js";
-import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime } from "./decide.js";
-import { Executor, type SendMode } from "./executor.js";
+import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime, type TradeDecision } from "./decide.js";
+import { Executor, simulateTrade, type SendMode, type Simulation } from "./executor.js";
 import { Ledger, type Intent } from "./ledger.js";
 import { isSell, type Policy } from "./policy.js";
-import { hasMulticall, poolReserves, readHead, readMarket, readTick, type Head, type MarketState } from "./reader.js";
+import { hasMulticall, poolReserves, readHead, readMarket, readTick, VAULT_ABI, type Head, type MarketState } from "./reader.js";
 import { tradingResult } from "./position.js";
 import { RpcClient, sleep } from "./rpc.js";
 import { FlashblockStream, lastSwap, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState } from "./stream.js";
@@ -15,6 +16,10 @@ import { JsonlLog, Trace, type Lane } from "./trace.js";
 
 /** How often the send lane and signer run between trades. A warm signature takes about 0.5 ms and the first one about 5 ms. */
 const KEEP_WARM_MS = 5_000;
+/** How often young receipts are checked against the chain, in blocks. Costs one call per unsettled receipt. */
+const RECONCILE_EVERY_BLOCKS = 10n;
+/** How often the health file is rewritten. */
+const HEARTBEAT_MS = 5_000;
 
 export interface AgentOptions {
   config: Config;
@@ -33,6 +38,8 @@ export interface DecisionRecord {
   decision: Decision;
   policyVersion: number;
   intent?: Intent;
+  /** What the vault said when asked by eth_call, on a simulate run or a live preflight. */
+  simulated?: Simulation;
   observeOnly: boolean;
   traceId: string;
 }
@@ -66,6 +73,13 @@ export class Agent {
   private readonly frameDeltas = new Map<bigint, { delta0: bigint; delta1: bigint }>();
   private streaming = false;
   private acting = false;
+  /** True while a trade is on its way out. Set synchronously, so a poll and a frame cannot both pass it. */
+  private sending = false;
+  /** Counts sends, so a decision made before one is not acted on after it. */
+  private sendEpoch = 0;
+  private nextReconcile = 0n;
+  private lastHeartbeat = 0;
+  private simulateFrom: Address | null = null;
   private queuedFrame: Frame | null = null;
   private stopping = false;
   private hedgeRpcs: RpcClient[] = [];
@@ -300,6 +314,8 @@ export class Agent {
 
     const market = tick ? tick.market : await trace.span("state", () => readMarket(this.rpc, config, head, quotes));
     this.lastMarket = market;
+    await this.reconcile(head.number);
+    this.writeHeartbeat(market);
     this.updateStreaks(policy, market);
     if (this.streaming) void this.refreshWarm(market, tick?.pendingNonce).catch((error) => this.logError(error));
     return this.act(market, head, policy, trace, intended, quotes.length, tick?.pendingNonce, tick ? "hot" : "pinned");
@@ -324,6 +340,7 @@ export class Agent {
     readMode: "hot" | "pinned" | "stream",
   ): Promise<DecisionRecord> {
     const { config } = this.options;
+    const epoch = this.sendEpoch;
     const input: DecideInput = {
       market,
       policy,
@@ -337,8 +354,18 @@ export class Agent {
     };
     if (this.edgeTaken && !input.unsealed && edgeHasClosed(input)) this.edgeTaken = false;
     input.edgeTaken = this.edgeTaken;
-    const decision = this.applyBreaker(await trace.span("decide", () => decide(input)), market);
+    let decision = this.applyBreaker(await trace.span("decide", () => decide(input)), market);
     this.reportBlockedStop(decision);
+
+    // A frame's trade is racing the next flashblock, and the vault still checks it, so only sealed reads ask first.
+    const asks = decision.action === "trade" && (config.mode === "simulate" || (this.canTrade && config.preflight === true && readMode !== "stream"));
+    let simulated: Simulation | undefined;
+    if (asks) {
+      simulated = await trace.span("preflight", () => this.simulate(decision as TradeDecision, market));
+      if (simulated.ok === false && this.canTrade) {
+        decision = { action: "hold", code: "preflight-refused", reason: `The vault would refuse this trade: ${simulated.error}.` };
+      }
+    }
 
     const record: DecisionRecord = {
       block: head.number,
@@ -347,24 +374,32 @@ export class Agent {
       policyVersion: policy.version,
       observeOnly: !this.canTrade,
       traceId: trace.id,
+      ...(simulated ? { simulated } : {}),
     };
 
-    if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
-      if (decision.trigger === "edge") this.edgeTaken = true;
-      // Whatever happens next changes the vault's balances and limits, so the next frame must read them first.
-      this.warm = null;
-      this.minWarmBlock = head.number + 1n;
-      record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce);
-      const synced = record.intent.status === "included" || record.intent.status === "reverted";
-      if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
-      else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
-      trace.attrs.sendMode = this.executor!.sendMode;
-      trace.attrs.readMode = readMode;
-      if (synced) {
-        this.confirmed(record.intent, trace.id, intended, performance.now(), undefined, readMode);
-        this.rebuildRuntime();
-      } else {
-        this.awaiting = { intent: record.intent, traceId: trace.id, intended, sentAt: performance.now() };
+    // No await between these checks and setting `sending`. The epoch refuses a decision that predates a send it could not see.
+    if (decision.action === "trade" && this.canTrade && !this.sending && epoch === this.sendEpoch && !this.ledger.inFlight()) {
+      this.sending = true;
+      this.sendEpoch++;
+      try {
+        if (decision.trigger === "edge") this.edgeTaken = true;
+        // Whatever happens next changes the vault's balances and limits, so the next frame must read them first.
+        this.warm = null;
+        this.minWarmBlock = head.number + 1n;
+        record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce);
+        const synced = record.intent.status === "included" || record.intent.status === "reverted";
+        if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
+        else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
+        trace.attrs.sendMode = this.executor!.sendMode;
+        trace.attrs.readMode = readMode;
+        if (synced) {
+          this.confirmed(record.intent, trace.id, intended, performance.now(), undefined, readMode);
+          this.rebuildRuntime();
+        } else {
+          this.awaiting = { intent: record.intent, traceId: trace.id, intended, sentAt: performance.now() };
+        }
+      } finally {
+        this.sending = false;
       }
     }
 
@@ -377,6 +412,63 @@ export class Agent {
     this.lastDecision = record;
     this.options.onDecision?.(record);
     return record;
+  }
+
+  /** Asks the vault as the agent, which works with no key loaded. */
+  private async simulate(decision: TradeDecision, market: MarketState): Promise<Simulation> {
+    const { config } = this.options;
+    if (!config.vault) return { ok: null, error: "no vault configured", latencyMs: 0 };
+    this.simulateFrom ??= this.executor?.address ?? config.agentAddress ?? (await this.readAgentAddress(config.vault));
+    return simulateTrade(this.rpc, config.vault, this.simulateFrom, decision, market.head);
+  }
+
+  private async readAgentAddress(vault: Address): Promise<Address> {
+    const raw = await this.rpc.call<Hex>("eth_call", [{ to: vault, data: encodeFunctionData({ abi: VAULT_ABI, functionName: "agent" }) }, "latest"]);
+    return decodeFunctionResult({ abi: VAULT_ABI, functionName: "agent", data: raw });
+  }
+
+  /** A receipt a reorg took back must stop counting as a fill. A failed check changes nothing and runs again. */
+  private async reconcile(headNumber: bigint): Promise<void> {
+    if (!this.executor || headNumber < this.nextReconcile) return;
+    this.nextReconcile = headNumber + RECONCILE_EVERY_BLOCKS;
+    try {
+      const changed = await this.executor.reconcile(headNumber);
+      if (changed.length) {
+        console.error(`ALERT: a reorg changed ${changed.length} receipt(s): ${changed.map((i) => i.key).join(", ")}`);
+        this.rebuildRuntime();
+      }
+    } catch (error) {
+      this.logError(error);
+      this.nextReconcile = headNumber + 1n;
+    }
+  }
+
+  /** What `monitor` reads. Replaced atomically, so a reader never sees half a file. */
+  private writeHeartbeat(market: MarketState): void {
+    const now = Date.now();
+    if (now - this.lastHeartbeat < HEARTBEAT_MS) return;
+    this.lastHeartbeat = now;
+    const { dataDir, mode, live } = this.options.config;
+    const path = join(dataDir, "heartbeat.json");
+    try {
+      mkdirSync(dataDir, { recursive: true });
+      writeFileSync(`${path}.tmp`, JSON.stringify({
+        wallTime: new Date(now).toISOString(),
+        mode: mode ?? (live ? "live" : "observe"),
+        block: market.head.number.toString(),
+        polls: this.polls,
+        errors: this.errors,
+        missedBlocks: this.missedBlocks,
+        skippedTicks: this.skippedTicks,
+        atomicMisses: this.atomicMisses,
+        inFlight: this.ledger.inFlight()?.key ?? null,
+        lastAction: this.lastDecision?.decision.action ?? null,
+        lastHoldCode: this.lastDecision?.decision.action === "hold" ? this.lastDecision.decision.code : null,
+      }));
+      renameSync(`${path}.tmp`, path);
+    } catch (error) {
+      this.logError(error);
+    }
   }
 
   /** The agent's own stops. The vault still checks every trade that gets past them. */
@@ -444,6 +536,10 @@ export class Agent {
     for (const [id, amount] of filled) {
       const state = this.runtime.get(id);
       this.runtime.set(id, { filled: amount, hitStreak: state?.hitStreak ?? 0 });
+    }
+    // The ledger decides. A fill a reorg took back is gone from it, and so must leave here too.
+    for (const [id, state] of this.runtime) {
+      if (!filled.has(id)) this.runtime.set(id, { filled: 0n, hitStreak: state.hitStreak });
     }
   }
 

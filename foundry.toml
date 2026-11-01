@@ -12,5 +12,10 @@ optimizer_runs = 2000
 [fuzz]
 runs = 1000
 
+[invariant]
+runs = 256
+depth = 100
+fail_on_revert = true
+
 [rpc_endpoints]
 hsk = "https://mainnet.hsk.xyz"

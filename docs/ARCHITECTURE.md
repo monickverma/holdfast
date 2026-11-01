@@ -2,7 +2,9 @@
 
 Holdfast trades WHSK/USDT on HSKSwap from a vault that limits what its agent key can do. This document covers what it defends against, what each layer promises, how each layer fails, what was wrong, and what was built, in what order and why.
 
-The contract is not audited. Nothing here claims profit. The deployed testnet vault was built from the source before these changes.
+The contract is not audited. Nothing here claims profit. Version 3 is deployed on testnet with its price guard off and has not traded there. The public swaps came from an older vault.
+
+**This document describes vault version 2 and its layers, and much of it still applies. Version 3 adds a guardian, a two-step owner handover, a daily budget, a price guard, a stop anyone can fire, and a halt.** Where they differ, trust these instead: [SECURITY.md](SECURITY.md) has the current threat model, [READINESS.md](READINESS.md) the deployment checklist and [STATUS.md](STATUS.md) what was done, tested and left open. Line numbers below refer to version 2 and are kept in `contracts/baseline/HoldfastVaultV2.sol`.
 
 Each number names its lane and sample size: **local** (no network), **fork** (anvil over a mainnet read), **mainnet read** (no transactions), **testnet** (the old deployed vault).
 
@@ -24,7 +26,7 @@ Each number names its lane and sample size: **local** (no network), **fork** (an
 
 **The agent can always lose money inside its limits.** A thief selling at the floor loses the owner `input × (market − floor)`. The vault limits how fast and how much, and it cannot tell a bad sale from a good one above the floor.
 
-**Not defended:** nothing protects a position while the agent is offline, except the owner withdrawing. A price under the floor blocks stop-losses as well as thieves. Both are in [Open problems](#open-problems).
+**Not defended, in version 2:** nothing protects a position while the agent is offline, except the owner withdrawing. A price under the floor blocks stop-losses as well as thieves. Both are in [Open problems](#open-problems). Version 3 adds an on-chain stop with its own floor, which only helps once someone calls it.
 
 ## Layers
 
@@ -172,8 +174,8 @@ It found nothing in truncating casts, refill overflow, bricking through `setLimi
 
 | Problem | Why open |
 |---|---|
-| No keeper for stops while the agent is offline | Needs another always-on service and key |
-| A stop can be blocked by the floor in a crash | Needs a price the vault can trust, which this thin pool cannot give |
+| No keeper is running for stops while the agent is offline | Version 3 adds the stop and `npm run keeper`, but someone still has to run it |
+| A stop can be blocked by its own floor in a crash | Deliberate: the floor is the backstop, because this thin pool's price cannot be fully trusted |
 | No closing leg for edge trades | No exchange code; would need exchange keys |
 | One outside price source | A second venue would only help after a real disagreement is seen |
 | A replaced-underpriced transaction only clears at its deadline | No fee-bump cancel |
@@ -205,6 +207,10 @@ npm run attack-set
 npm run bench:gas
 npm run replay:edge
 npm run bench:limit -- --run rate-limit
+node scripts/record-verification.mjs --e2e
+npm run rehearse
+npm run check:mutation
+npm run check:slither
 ```
 
-Evidence is in `evidence/hardening/`, `evidence/attack-results.json` and `evidence/gas-compare.json`.
+Evidence is in `evidence/v3/` for version 3. `evidence/hardening/`, `evidence/attack-results.json` and `evidence/gas-compare.json` hold the results for version 2 and are kept as they were.
