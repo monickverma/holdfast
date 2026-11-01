@@ -165,7 +165,8 @@ try {
   for (const [name, change, expected] of attacks) {
     const key = `attack:${name}`;
     const intent = await restarted.executor!.submit(key, { ...rogue, ...change }, market, new Trace(key, "testnet"));
-    assert.equal(intent.status, "broadcast");
+    // A sync send already knows the outcome; a classic one is still waiting for it.
+    assert.ok(intent.status === "broadcast" || intent.status === "reverted");
     await stepUntil(restarted, settled(restarted, key));
     const outcome = restarted.ledger.get(key)!;
     assert.equal(outcome.status, "reverted");
@@ -182,8 +183,8 @@ try {
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line))
-    .flatMap((t) => (t.attrs.decisionToBroadcastMs ? [t.attrs.decisionToBroadcastMs as number] : []));
-  console.log(`local test-market decision-to-broadcast: n=${ms.length} P50=${nearestRank(ms, 0.5).toFixed(1)}ms max=${Math.max(...ms).toFixed(1)}ms (local Anvil testnet lane, not public-network latency)`);
+    .flatMap((t) => { const ms = t.attrs.decisionToBroadcastMs ?? t.attrs.decisionToReceiptMs; return ms ? [ms as number] : []; });
+  console.log(`local test-market decision to send or receipt: n=${ms.length} P50=${nearestRank(ms, 0.5).toFixed(1)}ms max=${Math.max(...ms).toFixed(1)}ms (local Anvil testnet lane, not public-network latency)`);
   console.log(`Trading/refusal gas total: ${restarted.ledger.all().reduce((n, i) => n + (i.gasUsed ?? 0n), 0n)}`);
   restarted.close();
   probe.close();

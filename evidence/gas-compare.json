@@ -1,0 +1,24 @@
+{
+  "lane": "fork",
+  "note": "Local fork of mainnet through the real HSKSwap router. Median gas per swap, including 21,000 intrinsic and calldata; L1 data fee excluded because a fork has no oracle state to charge it.",
+  "rounds": 20,
+  "wallTime": "2026-11-01T10:06:07.919Z",
+  "deployGas": {
+    "v1": "1269450",
+    "v2": "1368813"
+  },
+  "medianGas": {
+    "plain": {
+      "sell": "105710",
+      "buy": "105275"
+    },
+    "v1": {
+      "sell": "157470",
+      "buy": "157107"
+    },
+    "v2": {
+      "sell": "130807",
+      "buy": "130462"
+    }
+  }
+}

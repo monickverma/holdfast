@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Address, Hex } from "viem";
@@ -67,6 +68,18 @@ export class Ledger {
       if (intent.nonce !== undefined && (last === null || intent.nonce > last)) last = intent.nonce;
     }
     return last;
+  }
+
+  /**
+   * An unused intent ID that shares the vault's bitmap word with the last one, so marking it costs 5,000 gas rather
+   * than 22,100. A fresh random word every 256 intents, and for each new ledger, so separate runs cannot collide.
+   */
+  nextIntentId(): Hex {
+    const last = [...this.intents.values()].at(-1)?.intentId;
+    if (last && /^0x[0-9a-f]{64}$/.test(last) && !last.endsWith("ff")) {
+      return `0x${(BigInt(last) + 1n).toString(16).padStart(64, "0")}`;
+    }
+    return `0x${randomBytes(31).toString("hex")}00`;
   }
 
   /**

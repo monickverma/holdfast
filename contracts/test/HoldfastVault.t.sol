@@ -56,6 +56,7 @@ contract MockRouter {
         Honest,
         ShortPay,
         LiesAboutOutput,
+        PartialPull,
         ReenterExecute,
         ReenterWithdraw
     }
@@ -70,7 +71,8 @@ contract MockRouter {
     }
 
     function exactInputSingle(ISwapRouter02.ExactInputSingleParams calldata p) external payable returns (uint256) {
-        _call(p.tokenIn, abi.encodeCall(MockToken.transferFrom, (msg.sender, address(this), p.amountIn)));
+        uint256 pulled = mode == Mode.PartialPull ? p.amountIn / 2 : p.amountIn;
+        _call(p.tokenIn, abi.encodeCall(MockToken.transferFrom, (msg.sender, address(this), pulled)));
         uint256 out = (p.amountIn * rateX18) / 1e18;
         if (mode == Mode.ReenterExecute) {
             vault.execute(p.tokenIn, p.amountIn, p.amountOutMinimum, block.timestamp, keccak256("reenter"));
@@ -312,6 +314,66 @@ contract HoldfastVaultTest {
         vm.prank(AGENT);
         vm.expectRevert(HoldfastVault.NotOwner.selector);
         vault.execute(address(a), 10e18, 9e18, block.timestamp + 60, "x");
+    }
+
+    function test_partialPullLeavesNoAllowance() public {
+        router.setMode(MockRouter.Mode.PartialPull, vault);
+        _trade(10e18, 9e18, "partial");
+        _eq(a.allowance(address(vault), address(router)), 0);
+    }
+
+    // Packed limits and the intent bitmap
+
+    function test_attack_oversizedLimitsRefusedNotTruncated() public {
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
+        vault.setLimits(address(a), uint256(type(uint72).max) + 1, 1, 1);
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
+        vault.setLimits(address(a), 1, uint256(type(uint72).max) + 1, 1);
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
+        vault.setLimits(address(a), 1, 1, uint256(type(uint112).max) + 1);
+        _eq(vault.maxTrade(address(a)), MAX_TRADE);
+    }
+
+    function test_limitsKeepTheirLargestValues() public {
+        vm.prank(OWNER);
+        vault.setLimits(address(a), type(uint72).max, type(uint72).max - 1, type(uint112).max);
+        _eq(vault.maxTrade(address(a)), type(uint72).max);
+        _eq(vault.remaining(address(a)), type(uint72).max - 1);
+        _eq(vault.floorPriceX18(address(a)), type(uint112).max);
+    }
+
+    function test_attack_replayInsideASharedWord() public {
+        bytes32 first = bytes32(uint256(0xabc00));
+        bytes32 next = bytes32(uint256(0xabc01));
+        _trade(1e18, 0.9e18, first);
+        require(vault.usedIntent(first), "first not marked");
+        require(!vault.usedIntent(next), "neighbour marked");
+        _trade(1e18, 0.9e18, next);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.IntentUsed.selector);
+        vault.execute(address(a), 1e18, 0.9e18, block.timestamp + 60, first);
+    }
+
+    /// Any two distinct IDs are independent, including ones that differ only in the bit index or only in the word.
+    function testFuzz_intentBitmapHasNoCollisions(bytes32 one, bytes32 two) public {
+        vm.assume(one != two);
+        _trade(1e18, 0.9e18, one);
+        require(vault.usedIntent(one), "not marked");
+        require(!vault.usedIntent(two), "collision");
+        _trade(1e18, 0.9e18, two);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.IntentUsed.selector);
+        vault.execute(address(a), 1e18, 0.9e18, block.timestamp + 60, two);
+    }
+
+    /// The lock must not outlive its call: two trades in one transaction are not reentrancy.
+    function test_lockClearsBetweenCalls() public {
+        _trade(1e18, 0.9e18, "a");
+        _trade(1e18, 0.9e18, "b");
+        _eq(vault.remaining(address(a)), LIFETIME - 2e18);
     }
 
     // Properties

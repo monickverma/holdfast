@@ -15,6 +15,8 @@
     "admin": "tsx agent/src/cli/admin.ts",
     "setup": "tsx agent/src/cli/setup.ts",
     "bench:swaps": "tsx agent/src/cli/bench-swaps.ts",
+    "bench:read": "tsx agent/src/cli/bench-read.ts",
+    "bench:gas": "node scripts/forge.mjs build --offline && npm run build:agent && node .test-build/test/bench-gas.js",
     "report": "tsx agent/src/cli/report.ts",
     "attack-set": "tsx agent/test/attack-set.ts",
     "refusals": "tsx agent/src/cli/refusals.ts",

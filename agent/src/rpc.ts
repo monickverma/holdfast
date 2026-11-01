@@ -67,8 +67,8 @@ export class RpcClient {
   }
 
   /** Sends once with no retry, for calls with effects. */
-  async callOnce<T = unknown>(method: string, params: unknown[] = []): Promise<T> {
-    const [result] = await this.attempt([{ method, params }]);
+  async callOnce<T = unknown>(method: string, params: unknown[] = [], timeoutMs?: number): Promise<T> {
+    const [result] = await this.attempt([{ method, params }], timeoutMs);
     return result as T;
   }
 
@@ -90,12 +90,12 @@ export class RpcClient {
     this.agent.destroy();
   }
 
-  private async attempt(calls: RpcCall[]): Promise<unknown[]> {
+  private async attempt(calls: RpcCall[], timeoutMs: number = this.timeoutMs): Promise<unknown[]> {
     const ids = calls.map(() => this.nextId++);
     const body = calls.map((call, i) => ({ jsonrpc: "2.0", id: ids[i], ...call }));
     this.stats.httpRequests++;
     this.stats.logicalCalls += calls.length;
-    const parsed = await this.post(JSON.stringify(body.length === 1 ? body[0] : body));
+    const parsed = await this.post(JSON.stringify(body.length === 1 ? body[0] : body), timeoutMs);
     const replies = Array.isArray(parsed) ? parsed : [parsed];
 
     const byId = new Map<number, { result?: unknown; error?: { code?: number; message?: string; data?: string } }>();
@@ -113,7 +113,7 @@ export class RpcClient {
     });
   }
 
-  private post(payload: string): Promise<any> {
+  private post(payload: string, timeoutMs: number): Promise<any> {
     const request = this.url.protocol === "https:" ? https.request : http.request;
     return new Promise((resolve, reject) => {
       const req = request(
@@ -121,7 +121,7 @@ export class RpcClient {
         {
           method: "POST",
           agent: this.agent,
-          timeout: this.timeoutMs,
+          timeout: timeoutMs,
           headers: {
             "content-type": "application/json",
             "content-length": Buffer.byteLength(payload),

@@ -35,15 +35,18 @@ contract HoldfastVault {
     address public agent;
     bool public paused;
 
-    /// @notice Largest input for one trade, per input token.
-    mapping(address token => uint256) public maxTrade;
-    /// @notice Input the agent may still spend, per token. Only the owner can raise it; nothing renews it.
-    mapping(address token => uint256) public remaining;
-    /// @notice Minimum output per 1e18 base units of input, per input token. Set only by the owner.
-    mapping(address token => uint256) public floorPriceX18;
-    mapping(bytes32 intentId => bool) public usedIntent;
+    /// @dev One storage slot per token, so a trade pays for one cold read instead of three.
+    struct Limits {
+        uint72 maxTrade;
+        uint72 remaining;
+        uint112 floorPriceX18;
+    }
 
-    uint256 private lock = 1;
+    mapping(address token => Limits) private limits;
+    /// @dev Bitmap keyed by the top 248 bits of an intent ID. IDs sharing a word cost 5,000 gas to mark, not 22,100.
+    mapping(uint256 word => uint256 bits) private usedIntentBits;
+
+    uint256 private transient lock;
 
     event Traded(
         bytes32 indexed intentId, address indexed tokenIn, uint256 amountIn, uint256 amountOut, uint256 remainingAfter
@@ -69,6 +72,7 @@ contract HoldfastVault {
     error Overspent();
     error TokenCallFailed();
     error ZeroAddress();
+    error LimitTooLarge();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -76,10 +80,10 @@ contract HoldfastVault {
     }
 
     modifier nonReentrant() {
-        if (lock != 1) revert Reentered();
-        lock = 2;
-        _;
+        if (lock != 0) revert Reentered();
         lock = 1;
+        _;
+        lock = 0;
     }
 
     constructor(address owner_, address agent_, address router_, address tokenA_, address tokenB_, uint24 poolFee_) {
@@ -100,24 +104,7 @@ contract HoldfastVault {
         nonReentrant
         returns (uint256 amountOut)
     {
-        if (msg.sender != agent) revert NotAgent();
-        if (paused) revert IsPaused();
-        if (tokenIn != tokenA && tokenIn != tokenB) revert BadToken();
-        if (amountIn == 0) revert BadAmount();
-        if (deadline < block.timestamp || deadline > block.timestamp + MAX_INTENT_TTL) revert BadDeadline();
-        if (usedIntent[intentId]) revert IntentUsed();
-        if (amountIn > maxTrade[tokenIn]) revert OverTradeCap();
-        uint256 left = remaining[tokenIn];
-        if (amountIn > left) revert OverLifetimeCap();
-
-        // Round the floor up so the bound cannot be shaved by truncation.
-        uint256 floorPrice = floorPriceX18[tokenIn];
-        if (floorPrice == 0) revert BelowFloor();
-        uint256 floorOut = (amountIn * floorPrice + 1e18 - 1) / 1e18;
-        if (minOut < floorOut) revert BelowFloor();
-
-        usedIntent[intentId] = true;
-        remaining[tokenIn] = left - amountIn;
+        uint256 left = _admit(tokenIn, amountIn, minOut, deadline, intentId);
 
         address tokenOut = tokenIn == tokenA ? tokenB : tokenA;
         uint256 inBefore = IERC20(tokenIn).balanceOf(address(this));
@@ -135,14 +122,65 @@ contract HoldfastVault {
                 sqrtPriceLimitX96: 0
             })
         );
-        _approve(tokenIn, 0);
 
         // Trust balances, not the router's return value.
-        if (inBefore - IERC20(tokenIn).balanceOf(address(this)) > amountIn) revert Overspent();
+        uint256 spent = inBefore - IERC20(tokenIn).balanceOf(address(this));
+        if (spent > amountIn) revert Overspent();
+        // A full pull already consumed the exact allowance. Only a partial pull leaves one to clear.
+        if (spent != amountIn) _approve(tokenIn, 0);
         amountOut = IERC20(tokenOut).balanceOf(address(this)) - outBefore;
         if (amountOut < minOut) revert InsufficientOutput();
 
         emit Traded(intentId, tokenIn, amountIn, amountOut, left - amountIn);
+    }
+
+    /// @dev Every limit check, then the state change that spends against it, all before any external call.
+    function _admit(address tokenIn, uint256 amountIn, uint256 minOut, uint256 deadline, bytes32 intentId)
+        private
+        returns (uint256 left)
+    {
+        if (msg.sender != agent) revert NotAgent();
+        if (paused) revert IsPaused();
+        if (tokenIn != tokenA && tokenIn != tokenB) revert BadToken();
+        if (amountIn == 0) revert BadAmount();
+        if (deadline < block.timestamp || deadline > block.timestamp + MAX_INTENT_TTL) revert BadDeadline();
+        uint256 word = uint256(intentId) >> 8;
+        uint256 bit = 1 << (uint256(intentId) & 0xff);
+        uint256 usedBits = usedIntentBits[word];
+        if (usedBits & bit != 0) revert IntentUsed();
+        Limits memory limit = limits[tokenIn];
+        if (amountIn > limit.maxTrade) revert OverTradeCap();
+        left = limit.remaining;
+        if (amountIn > left) revert OverLifetimeCap();
+
+        // Round the floor up so the bound cannot be shaved by truncation.
+        uint256 floorPrice = limit.floorPriceX18;
+        if (floorPrice == 0) revert BelowFloor();
+        uint256 floorOut = (amountIn * floorPrice + 1e18 - 1) / 1e18;
+        if (minOut < floorOut) revert BelowFloor();
+
+        usedIntentBits[word] = usedBits | bit;
+        // Fits: it only shrinks a value that was already a uint72.
+        limits[tokenIn].remaining = uint72(left - amountIn);
+    }
+
+    /// @notice Largest input for one trade, per input token.
+    function maxTrade(address token) external view returns (uint256) {
+        return limits[token].maxTrade;
+    }
+
+    /// @notice Input the agent may still spend, per token. Only the owner can raise it; nothing renews it.
+    function remaining(address token) external view returns (uint256) {
+        return limits[token].remaining;
+    }
+
+    /// @notice Minimum output per 1e18 base units of input, per input token. Set only by the owner.
+    function floorPriceX18(address token) external view returns (uint256) {
+        return limits[token].floorPriceX18;
+    }
+
+    function usedIntent(bytes32 intentId) external view returns (bool) {
+        return usedIntentBits[uint256(intentId) >> 8] & (1 << (uint256(intentId) & 0xff)) != 0;
     }
 
     /// @notice Stop trading. The agent may stop but never restart.
@@ -168,9 +206,11 @@ contract HoldfastVault {
         onlyOwner
     {
         if (token != tokenA && token != tokenB) revert BadToken();
-        maxTrade[token] = maxTrade_;
-        remaining[token] = remaining_;
-        floorPriceX18[token] = floorPriceX18_;
+        // Refuse rather than truncate: a silently smaller cap or floor would change what the owner approved.
+        if (maxTrade_ > type(uint72).max || remaining_ > type(uint72).max || floorPriceX18_ > type(uint112).max) {
+            revert LimitTooLarge();
+        }
+        limits[token] = Limits(uint72(maxTrade_), uint72(remaining_), uint112(floorPriceX18_));
         emit LimitsSet(token, maxTrade_, remaining_, floorPriceX18_);
     }
 

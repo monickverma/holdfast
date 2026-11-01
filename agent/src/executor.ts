@@ -4,7 +4,6 @@ import {
   encodeFunctionData,
   keccak256,
   parseEventLogs,
-  stringToHex,
   type Address,
   type Hex,
 } from "viem";
@@ -18,6 +17,11 @@ import type { Trace } from "./trace.js";
 /** Well above the measured use of one swap, and cheap: unused gas is not charged. */
 export const GAS_LIMIT = 500_000n;
 export const INTENT_TTL_SEC = 90n;
+/** How long the node may hold a sync send open before the agent falls back to polling for the receipt. */
+export const SYNC_SEND_TIMEOUT_MS = 6_000;
+
+/** "sync" asks the node to answer with the receipt; "classic" sends and polls. */
+export type SendMode = "sync" | "classic";
 
 export interface ExecutorOptions {
   rpc: RpcClient;
@@ -25,6 +29,7 @@ export interface ExecutorOptions {
   agentKey: Hex;
   vault: Address;
   chainId: number;
+  sendMode?: SendMode;
 }
 
 export interface RawReceipt {
@@ -37,6 +42,7 @@ export interface RawReceipt {
 }
 
 export class Executor {
+  sendMode: SendMode;
   readonly address: Address;
   private readonly account: PrivateKeyAccount;
   private readonly rpc: RpcClient;
@@ -51,12 +57,13 @@ export class Executor {
     this.ledger = options.ledger;
     this.vault = options.vault;
     this.chainId = options.chainId;
+    this.sendMode = options.sendMode ?? "classic";
   }
 
   /** Reserve, sign, persist, then broadcast. The signed bytes are on disk before they can reach the network. */
-  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace): Promise<Intent> {
+  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number): Promise<Intent> {
     const deadline = market.head.timestamp + INTENT_TTL_SEC;
-    const intentId = keccak256(stringToHex(key));
+    const intentId = this.ledger.get(key)?.intentId ?? this.ledger.nextIntentId();
     const bodyHash = keccak256(
       encodeAbiParameters(
         [{ type: "address" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes32" }],
@@ -77,7 +84,7 @@ export class Executor {
     );
     if (existing) return intent;
 
-    const nonce = await trace.span("nonce", () => this.nextNonce());
+    const nonce = await trace.span("nonce", () => this.nextNonce(pendingNonce));
     const signed = await trace.span("sign", async () => {
       const data = encodeFunctionData({
         abi: VAULT_ABI,
@@ -97,7 +104,26 @@ export class Executor {
       });
       return this.ledger.update(key, { status: "signed", nonce, rawTx, txHash: keccak256(rawTx) });
     });
-    return trace.span("broadcast", () => this.broadcast(signed, market.head.number));
+    return trace.span("broadcast", () =>
+      this.sendMode === "sync" ? this.broadcastSync(signed, market.head.number) : this.broadcast(signed, market.head.number),
+    );
+  }
+
+  /**
+   * Sends the stored bytes and waits for the node to return the receipt. On any failure the same bytes go out the
+   * classic way, which is always safe, and the normal receipt polling takes over.
+   */
+  private async broadcastSync(intent: Intent, headNumber: bigint): Promise<Intent> {
+    let receipt: RawReceipt | null = null;
+    try {
+      receipt = await this.rpc.callOnce<RawReceipt>("eth_sendRawTransactionSync", [intent.rawTx], SYNC_SEND_TIMEOUT_MS);
+    } catch (error) {
+      if (!(error instanceof RpcError)) throw error;
+      if (error.code === -32601) this.sendMode = "classic";
+      return this.broadcast(intent, headNumber);
+    }
+    const sent = this.ledger.update(intent.key, { status: "broadcast", broadcastBlock: headNumber });
+    return receipt ? this.record(sent, receipt) : sent;
   }
 
   /**
@@ -118,7 +144,10 @@ export class Executor {
   /** Records the outcome if the chain has one. Returns the updated intent, or null while it is pending. */
   async settle(intent: Intent): Promise<Intent | null> {
     const receipt = await this.rpc.call<RawReceipt | null>("eth_getTransactionReceipt", [intent.txHash]);
-    if (!receipt) return null;
+    return receipt && this.record(intent, receipt);
+  }
+
+  private async record(intent: Intent, receipt: RawReceipt): Promise<Intent> {
     const blockNumber = BigInt(receipt.blockNumber);
     const gasUsed = BigInt(receipt.gasUsed);
     const feeWei = gasUsed * BigInt(receipt.effectiveGasPrice) + BigInt(receipt.l1Fee ?? 0);
@@ -148,8 +177,8 @@ export class Executor {
   }
 
   /** Whichever is higher: what the chain has seen, or what this agent has already signed. */
-  private async nextNonce(): Promise<number> {
-    const chain = Number(await this.rpc.call<string>("eth_getTransactionCount", [this.address, "pending"]));
+  private async nextNonce(pendingNonce?: number): Promise<number> {
+    const chain = pendingNonce ?? Number(await this.rpc.call<string>("eth_getTransactionCount", [this.address, "pending"]));
     const last = this.ledger.lastNonce();
     return last === null ? chain : Math.max(chain, last + 1);
   }

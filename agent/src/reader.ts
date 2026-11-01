@@ -44,6 +44,16 @@ export const VAULT_ABI = parseAbi([
   "error Overspent()",
   "error TokenCallFailed()",
   "error ZeroAddress()",
+  "error LimitTooLarge()",
+]);
+
+const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL_ABI = parseAbi([
+  "struct Call3 { address target; bool allowFailure; bytes callData; }",
+  "struct Result { bool success; bytes returnData; }",
+  "function aggregate3(Call3[] calls) payable returns (Result[] returnData)",
+  "function getBlockNumber() view returns (uint256 blockNumber)",
+  "function getLastBlockHash() view returns (bytes32 blockHash)",
 ]);
 
 /** A representative signed execute() for the L1 data fee estimate. */
@@ -111,60 +121,119 @@ export async function readMarket(
   quoteRequests: QuoteRequest[],
 ): Promise<MarketState> {
   const pin = { blockHash: head.hash };
+  const reads = marketReads(config, quoteRequests);
+  const calls: RpcCall[] = reads.map((read) => read.call ?? ethCall(read.target!, read.data!, pin));
+  calls.push({ method: "eth_maxPriorityFeePerGas", params: [] });
+  const raw = await rpc.batch(calls);
+  const values = reads.map((read, i) => read.decode(raw[i]));
+  return buildMarket(config, head, quoteRequests, values, BigInt(raw[reads.length] as string));
+}
+
+export function hasMulticall(rpc: RpcClient): Promise<boolean> {
+  return rpc.call<string>("eth_getCode", [MULTICALL3, "latest"]).then((code) => code !== "0x");
+}
+
+export interface Tick {
+  market: MarketState;
+  /** The chain's pending nonce for `nonceOf`, read in the same round trip. */
+  pendingNonce?: number;
+}
+
+/**
+ * The head, every state read and the nonce in one round trip. One Multicall3 eth_call executes against a single
+ * state, so its reads cannot straddle two blocks. The block returned beside it is accepted only when that call proves
+ * it ran on that block; otherwise this returns null and the caller falls back to the pinned read.
+ */
+export async function readTick(
+  rpc: RpcClient,
+  config: Pick<Config, "vault" | "twapWindowSec">,
+  quoteRequests: QuoteRequest[],
+  nonceOf?: Address,
+): Promise<Tick | null> {
+  const reads = marketReads(config, quoteRequests).filter((read) => read.target);
+  const proof = [
+    { target: MULTICALL3, allowFailure: false, callData: encodeFunctionData({ abi: MULTICALL_ABI, functionName: "getBlockNumber" }) },
+    { target: MULTICALL3, allowFailure: false, callData: encodeFunctionData({ abi: MULTICALL_ABI, functionName: "getLastBlockHash" }) },
+  ];
+  const data = encodeFunctionData({
+    abi: MULTICALL_ABI,
+    functionName: "aggregate3",
+    args: [[...proof, ...reads.map((read) => ({ target: read.target!, allowFailure: false, callData: read.data! }))]],
+  });
+  const [block, aggregate, priorityFee, nonce] = await rpc.batch([
+    { method: "eth_getBlockByNumber", params: ["latest", false] },
+    ethCall(MULTICALL3, data, "latest"),
+    { method: "eth_maxPriorityFeePerGas", params: [] },
+    ...(nonceOf ? [{ method: "eth_getTransactionCount", params: [nonceOf, "pending"] }] : []),
+  ]);
+  const rawBlock = block as RawBlock | null;
+  const head = parseHead(rawBlock);
+  const results = decodeFunctionResult({ abi: MULTICALL_ABI, functionName: "aggregate3", data: aggregate as Hex });
+  const ranOn = decodeFunctionResult({ abi: MULTICALL_ABI, functionName: "getBlockNumber", data: results[0]!.returnData });
+  const ranAfter = decodeFunctionResult({ abi: MULTICALL_ABI, functionName: "getLastBlockHash", data: results[1]!.returnData });
+  if (ranOn !== head.number || ranAfter !== rawBlock!.parentHash) return null;
+
+  const values: unknown[] = [];
+  let next = 2;
+  for (const read of marketReads(config, quoteRequests)) values.push(read.target ? read.decode(results[next++]!.returnData) : read.decode(undefined));
+  const market = buildMarket(config, head, quoteRequests, values, BigInt(priorityFee as string));
+  return nonceOf ? { market, pendingNonce: Number(nonce as string) } : { market };
+}
+
+/** Every value a decision needs, in the fixed order buildMarket expects. */
+function marketReads(config: Pick<Config, "vault" | "twapWindowSec">, quoteRequests: QuoteRequest[]): MarketRead[] {
   const pool = HSKSWAP.pool;
-  const calls: Decoder[] = [
-    contractCall(pool, POOL_ABI, "slot0", [], pin),
-    contractCall(pool, POOL_ABI, "liquidity", [], pin),
-    contractCall(pool, POOL_ABI, "observe", [[config.twapWindowSec, 0]], pin),
+  const reads: MarketRead[] = [
+    contractRead(pool, POOL_ABI, "slot0", []),
+    contractRead(pool, POOL_ABI, "liquidity", []),
+    contractRead(pool, POOL_ABI, "observe", [[config.twapWindowSec, 0]]),
     // Local Anvil has no fee oracle. Public testnet has the same predeploy as mainnet.
     process.env.TEST_MARKET_LOCAL === "1"
       ? { call: { method: "eth_chainId", params: [] }, decode: () => 0n }
-      : contractCall(HSKSWAP.gasOracle, ORACLE_ABI, "getL1Fee", [SAMPLE_TX], pin),
-    { call: { method: "eth_maxPriorityFeePerGas", params: [] }, decode: (raw) => BigInt(raw as string) },
+      : contractRead(HSKSWAP.gasOracle, ORACLE_ABI, "getL1Fee", [SAMPLE_TX]),
   ];
   for (const request of quoteRequests) {
-    calls.push(
-      contractCall(
-        HSKSWAP.quoter,
-        QUOTER_ABI,
-        "quoteExactInputSingle",
-        [
-          {
-            tokenIn: request.tokenIn,
-            tokenOut: otherToken(request.tokenIn),
-            amountIn: request.amountIn,
-            fee: HSKSWAP.fee,
-            sqrtPriceLimitX96: 0n,
-          },
-        ],
-        pin,
-      ),
+    reads.push(
+      contractRead(HSKSWAP.quoter, QUOTER_ABI, "quoteExactInputSingle", [
+        {
+          tokenIn: request.tokenIn,
+          tokenOut: otherToken(request.tokenIn),
+          amountIn: request.amountIn,
+          fee: HSKSWAP.fee,
+          sqrtPriceLimitX96: 0n,
+        },
+      ]),
     );
   }
-  const vaultStart = calls.length;
   if (config.vault) {
     const vault = config.vault;
-    calls.push(contractCall(vault, VAULT_ABI, "paused", [], pin));
+    reads.push(contractRead(vault, VAULT_ABI, "paused", []));
     for (const token of [HSKSWAP.whsk, HSKSWAP.usdt]) {
-      calls.push(
-        contractCall(token, ERC20_ABI, "balanceOf", [vault], pin),
-        contractCall(vault, VAULT_ABI, "maxTrade", [token], pin),
-        contractCall(vault, VAULT_ABI, "remaining", [token], pin),
-        contractCall(vault, VAULT_ABI, "floorPriceX18", [token], pin),
+      reads.push(
+        contractRead(token, ERC20_ABI, "balanceOf", [vault]),
+        contractRead(vault, VAULT_ABI, "maxTrade", [token]),
+        contractRead(vault, VAULT_ABI, "remaining", [token]),
+        contractRead(vault, VAULT_ABI, "floorPriceX18", [token]),
       );
     }
   }
+  return reads;
+}
 
-  const raw = await rpc.batch(calls.map((c) => c.call));
-  const values = raw.map((value, i) => calls[i]!.decode(value));
-
+function buildMarket(
+  config: Pick<Config, "vault" | "twapWindowSec">,
+  head: Head,
+  quoteRequests: QuoteRequest[],
+  values: unknown[],
+  priorityFeePerGas: bigint,
+): MarketState {
   const [sqrtPriceX96, tick] = values[0] as readonly [bigint, number];
   const [tickCumulatives] = values[2] as readonly [readonly bigint[], readonly bigint[]];
   const elapsed = BigInt(config.twapWindowSec);
   const twapTick = Number((tickCumulatives[1]! - tickCumulatives[0]!) / elapsed);
 
   const quotes: Quote[] = quoteRequests.map((request, i) => {
-    const [amountOut, , ticksCrossed] = values[5 + i] as readonly [bigint, bigint, number, bigint];
+    const [amountOut, , ticksCrossed] = values[4 + i] as readonly [bigint, bigint, number, bigint];
     return { ...request, amountOut, ticksCrossed };
   });
 
@@ -177,9 +246,10 @@ export async function readMarket(
     spotPriceX18: spotPriceX18(sqrtPriceX96),
     quotes,
     l1FeeWei: values[3] as bigint,
-    priorityFeePerGas: values[4] as bigint,
+    priorityFeePerGas,
   };
   if (config.vault) {
+    const vaultStart = 4 + quoteRequests.length;
     const limits = (start: number): TokenLimits => ({
       balance: values[start] as bigint,
       maxTrade: values[start + 1] as bigint,
@@ -211,12 +281,16 @@ export function sameAddress(a: Address, b: Address): boolean {
 interface RawBlock {
   number: Hex;
   hash: Hex;
+  parentHash: Hex;
   timestamp: Hex;
   baseFeePerGas?: Hex;
 }
 
-interface Decoder {
-  call: RpcCall;
+interface MarketRead {
+  /** A contract read, or a plain RPC call when there is no contract to ask. */
+  target?: Address;
+  data?: Hex;
+  call?: RpcCall;
   decode: (raw: unknown) => unknown;
 }
 
@@ -230,10 +304,14 @@ function parseHead(block: RawBlock | null): Head {
   };
 }
 
-function contractCall(to: Address, abi: Abi, functionName: string, args: unknown[], pin: { blockHash: Hex }): Decoder {
-  const data = encodeFunctionData({ abi, functionName, args });
+function ethCall(to: Address, data: Hex, block: { blockHash: Hex } | "latest"): RpcCall {
+  return { method: "eth_call", params: [{ to, data }, block] };
+}
+
+function contractRead(target: Address, abi: Abi, functionName: string, args: unknown[]): MarketRead {
   return {
-    call: { method: "eth_call", params: [{ to, data }, pin] },
+    target,
+    data: encodeFunctionData({ abi, functionName, args }),
     decode: (raw) => decodeFunctionResult({ abi, functionName, data: raw as Hex }),
   };
 }

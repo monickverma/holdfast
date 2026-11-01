@@ -1,0 +1,407 @@
+{
+  "lane": [
+    "testnet"
+  ],
+  "window": {
+    "first": "2026-11-01T10:31:01.261Z",
+    "last": "2026-11-01T10:52:59.279Z"
+  },
+  "decisionToBroadcastMs": {
+    "n": 72,
+    "p50": {
+      "n": 72,
+      "value": 517.0766185341636,
+      "low": 507.13721397833433,
+      "high": 521.4706678100338
+    },
+    "p95": {
+      "n": 72,
+      "value": 646.6331916496856,
+      "low": 598.4796203622245,
+      "high": 751.0603332829778
+    },
+    "p99": {
+      "n": 72,
+      "value": null,
+      "low": null,
+      "high": null,
+      "withheld": "n=72 is below 299 for P99"
+    }
+  },
+  "arms": {
+    "hot-sync": {
+      "trades": 368,
+      "decisionToBroadcastMs": {
+        "n": 0,
+        "p50": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 5 for P50"
+        },
+        "p95": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 59 for P95"
+        },
+        "p99": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 299 for P99"
+        }
+      },
+      "decisionToReceiptMs": {
+        "n": 368,
+        "p50": {
+          "n": 368,
+          "value": 467.4222225557314,
+          "low": 456.68004344333895,
+          "high": 483.54095509904437
+        },
+        "p95": {
+          "n": 368,
+          "value": 660.9836734717246,
+          "low": 632.5362166250125,
+          "high": 728.665758797375
+        },
+        "p99": {
+          "n": 368,
+          "value": 858.4335909822257,
+          "low": 754.3446372414182,
+          "high": 1124.7595086743822
+        }
+      },
+      "broadcastToReceiptMs": {
+        "n": 0,
+        "p50": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 5 for P50"
+        },
+        "p95": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 59 for P95"
+        },
+        "p99": {
+          "n": 0,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=0 is below 299 for P99"
+        }
+      },
+      "stageP50Ms": {
+        "read": 183.32500000006985,
+        "decide": 1.013399999937974,
+        "reserve": 3.0981000000610948,
+        "nonce": 0.03780000004917383,
+        "sign": 3.816499999957159,
+        "broadcast": 263.596700000111
+      },
+      "reverted": 0
+    },
+    "pinned-classic": {
+      "trades": 72,
+      "decisionToBroadcastMs": {
+        "n": 72,
+        "p50": {
+          "n": 72,
+          "value": 517.0766185341636,
+          "low": 507.13721397833433,
+          "high": 521.4706678100338
+        },
+        "p95": {
+          "n": 72,
+          "value": 646.6331916496856,
+          "low": 598.4796203622245,
+          "high": 751.0603332829778
+        },
+        "p99": {
+          "n": 72,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=72 is below 299 for P99"
+        }
+      },
+      "decisionToReceiptMs": {
+        "n": 72,
+        "p50": {
+          "n": 72,
+          "value": 794.9564697060923,
+          "low": 756.5012203622027,
+          "high": 871.3797468589328
+        },
+        "p95": {
+          "n": 72,
+          "value": 1025.889391649689,
+          "low": 936.0335909038404,
+          "high": 1174.1075178330648
+        },
+        "p99": {
+          "n": 72,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=72 is below 299 for P99"
+        }
+      },
+      "broadcastToReceiptMs": {
+        "n": 72,
+        "p50": {
+          "n": 72,
+          "value": 187.59990000000107,
+          "low": 170.87859999999637,
+          "high": 363.05799999999
+        },
+        "p95": {
+          "n": 72,
+          "value": 455.1587999999756,
+          "low": 387.95669999998063,
+          "high": 592.553899999999
+        },
+        "p99": {
+          "n": 72,
+          "value": null,
+          "low": null,
+          "high": null,
+          "withheld": "n=72 is below 299 for P99"
+        }
+      },
+      "stageP50Ms": {
+        "head": 127.24610000001849,
+        "state": 139.56849999999395,
+        "decide": 1.5273000000161119,
+        "reserve": 6.768100000044797,
+        "nonce": 108.25219999998808,
+        "sign": 4.094700000001467,
+        "broadcast": 112.55580000000191
+      },
+      "reverted": 0
+    }
+  },
+  "preconfirmation": {
+    "checked": 440,
+    "changed": 0,
+    "checkedAt": "2026-11-01T10:54:44.009Z",
+    "changedWilson95": {
+      "low": 0,
+      "high": 0.008655024775487168
+    }
+  },
+  "stageServiceMs": {
+    "head": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 127.24610000001849,
+        "low": 125.01039999999921,
+        "high": 128.7212999999756
+      },
+      "p95": {
+        "n": 72,
+        "value": 203.79019999998854,
+        "low": 137.00530000000435,
+        "high": 217.60409999999683
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "state": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 139.56849999999395,
+        "low": 137.6871000000101,
+        "high": 142.72159999998985
+      },
+      "p95": {
+        "n": 72,
+        "value": 214.47859999997308,
+        "low": 165.550900000002,
+        "high": 231.21909999998752
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "decide": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 1.5273000000161119,
+        "low": 1.3977000000013504,
+        "high": 1.6336000000010245
+      },
+      "p95": {
+        "n": 72,
+        "value": 2.0907999999981257,
+        "low": 1.9177999999956228,
+        "high": 2.6449000000138767
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "reserve": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 6.768100000044797,
+        "low": 3.036099999997532,
+        "high": 6.943300000013551
+      },
+      "p95": {
+        "n": 72,
+        "value": 7.634200000000419,
+        "low": 7.237699999997858,
+        "high": 7.783799999999246
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "nonce": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 108.25219999998808,
+        "low": 107.55589999999984,
+        "high": 108.63550000000032
+      },
+      "p95": {
+        "n": 72,
+        "value": 178.37940000000526,
+        "low": 110.26429999998072,
+        "high": 189.3706999999995
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "sign": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 4.094700000001467,
+        "low": 3.9857000000192784,
+        "high": 4.306500000006054
+      },
+      "p95": {
+        "n": 72,
+        "value": 6.093800000031479,
+        "low": 4.967499999998836,
+        "high": 9.255500000000211
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    },
+    "broadcast": {
+      "n": 72,
+      "p50": {
+        "n": 72,
+        "value": 112.55580000000191,
+        "low": 111.77609999999913,
+        "high": 113.33090000000084
+      },
+      "p95": {
+        "n": 72,
+        "value": 188.58060000000114,
+        "low": 120.90790000002016,
+        "high": 201.55499999999302
+      },
+      "p99": {
+        "n": 72,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=72 is below 299 for P99"
+      }
+    }
+  },
+  "inclusionBlocks": {
+    "n": 440,
+    "p50": {
+      "n": 440,
+      "value": 1,
+      "low": 1,
+      "high": 1
+    },
+    "p95": {
+      "n": 440,
+      "value": 2,
+      "low": 2,
+      "high": 2
+    },
+    "p99": {
+      "n": 440,
+      "value": 2,
+      "low": 2,
+      "high": 2
+    }
+  },
+  "fills": 440,
+  "reverts": 0,
+  "revertRate": {
+    "count": 0,
+    "of": 440,
+    "wilson95": {
+      "low": 0,
+      "high": 0.008655024775487168
+    }
+  },
+  "scheduleOutcomes": {
+    "sent": 440
+  },
+  "modelCallsInExecutionPath": 0,
+  "networkCost": {
+    "totalHsk": 0.06119935822013618,
+    "totalUsdAtAssumedPrice": 0.005348823908439903,
+    "perFillUsd": 0.000012156417973727052,
+    "hskUsdAssumed": 0.0874
+  },
+  "llmOutsideExecutionPath": {
+    "calls": 0,
+    "costUsd": 0
+  },
+  "holdsByCode": {
+    "no-signal": 1
+  },
+  "decisions": 441
+}

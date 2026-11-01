@@ -35,6 +35,15 @@ beforeEach(() => {
   handler = (body, res) => reply(res, Array.isArray(body) ? body.map(echo) : echo(body));
 });
 
+test("callOnce honours its own timeout", async () => {
+  handler = () => {};
+  const client = new RpcClient(url, { timeoutMs: 60_000 });
+  const started = Date.now();
+  await assert.rejects(client.callOnce("slow", [], 50), RpcError);
+  assert.ok(Date.now() - started < 5_000);
+  client.close();
+});
+
 const calls = [
   { method: "a", params: [] },
   { method: "b", params: [] },

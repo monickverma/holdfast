@@ -1,0 +1,76 @@
+{
+  "lane": "mainnet",
+  "venue": "HSKSwap WHSK/USDT, read only",
+  "loadModel": "open loop, one slot every 2000 ms plus up to 1900 ms random offset, arms alternating",
+  "window": {
+    "end": "2026-11-01T10:57:41.475Z"
+  },
+  "pinned": {
+    "n": 400,
+    "p50": {
+      "n": 400,
+      "value": 364.212370479072,
+      "low": 361.5068872794509,
+      "high": 368.064042197424
+    },
+    "p95": {
+      "n": 400,
+      "value": 453.6645376739325,
+      "low": 444.54245400079526,
+      "high": 466.64978575363057
+    },
+    "p99": {
+      "n": 400,
+      "value": 513.5599756485317,
+      "low": 475.05590150039643,
+      "high": 790.4410911886953
+    },
+    "failures": 0
+  },
+  "atomic": {
+    "n": 400,
+    "p50": {
+      "n": 400,
+      "value": 203.91671398235485,
+      "low": 202.59489206352737,
+      "high": 205.18322168011218
+    },
+    "p95": {
+      "n": 400,
+      "value": 217.96024632049375,
+      "low": 216.52310399618,
+      "high": 221.41019484691788
+    },
+    "p99": {
+      "n": 400,
+      "value": 244.91061815875582,
+      "low": 225.90866757225012,
+      "high": 284.33973050978966
+    },
+    "failures": 0
+  },
+  "atomicMisses": {
+    "count": 0,
+    "of": 400,
+    "wilson95": {
+      "low": 0,
+      "high": 0.009512294338718552
+    }
+  },
+  "equivalence": {
+    "blocksCompared": 80,
+    "mismatches": 0,
+    "wilson95": {
+      "low": 0,
+      "high": 0.04581812955604615
+    }
+  },
+  "rpc": {
+    "httpRequests": 1681,
+    "logicalCalls": 5281,
+    "newSockets": 2,
+    "reusedSockets": 1679,
+    "rateLimited": 0,
+    "retries": 0
+  }
+}

@@ -33,10 +33,34 @@ const sent = traces.filter((t) => typeof t.attrs.decisionToBroadcastMs === "numb
 const quantiles = (samples: number[]) => ({ n: samples.length, p50: quantileReport(samples, 0.5), p95: quantileReport(samples, 0.95), p99: quantileReport(samples, 0.99) });
 const fmt = (q: QuantileReport) => (q.value === null ? `withheld (${q.withheld})` : `${q.value.toFixed(1)} [${q.low?.toFixed(1) ?? "-inf"}, ${q.high?.toFixed(1) ?? "+inf"}]`);
 
+const traded = traces.filter((t) => t.attrs.action === "trade" && t.attrs.sendMode !== undefined);
 const stages: Record<string, ReturnType<typeof quantiles>> = {};
 for (const stage of [...new Set(sent.flatMap((t) => t.spans.map((s) => s.stage)))]) {
   stages[stage] = quantiles(sent.flatMap((t) => t.spans.filter((s) => s.stage === stage && s.ok).map((s) => s.endMs - s.startMs)));
 }
+
+// One entry per measured arm of a paired run. Arms alternate in one window, so the network is the same for each.
+const confirmations = jsonl<{ traceId: string; readMode: string; sendMode: string; status: string; decisionToReceiptMs: number; broadcastToReceiptMs?: number }>("confirmations.jsonl");
+const armOf = (t: TraceRecord) => `${t.attrs.readMode}-${t.attrs.sendMode}`;
+const arms: Record<string, unknown> = {};
+for (const arm of [...new Set(traded.map(armOf))].sort()) {
+  const inArm = traded.filter((t) => armOf(t) === arm);
+  const ids = new Set(inArm.map((t) => t.id));
+  const confirmed = confirmations.filter((c) => ids.has(c.traceId));
+  const stagesOfArm: Record<string, number | null> = {};
+  for (const stage of [...new Set(inArm.flatMap((t) => t.spans.map((s) => s.stage)))]) {
+    stagesOfArm[stage] = quantileReport(inArm.flatMap((t) => t.spans.filter((s) => s.stage === stage && s.ok).map((s) => s.endMs - s.startMs)), 0.5).value;
+  }
+  arms[arm] = {
+    trades: inArm.length,
+    decisionToBroadcastMs: quantiles(inArm.flatMap((t) => (typeof t.attrs.decisionToBroadcastMs === "number" ? [t.attrs.decisionToBroadcastMs] : []))),
+    decisionToReceiptMs: quantiles(confirmed.map((c) => c.decisionToReceiptMs)),
+    broadcastToReceiptMs: quantiles(confirmed.flatMap((c) => (typeof c.broadcastToReceiptMs === "number" ? [c.broadcastToReceiptMs] : []))),
+    stageP50Ms: stagesOfArm,
+    reverted: confirmed.filter((c) => c.status === "reverted").length,
+  };
+}
+const preconfirmation = existsSync(join(dir, "preconfirmation-check.json")) ? JSON.parse(readFileSync(join(dir, "preconfirmation-check.json"), "utf8")) : null;
 
 const filled = intents.filter((i) => i.status === "included");
 const reverted = intents.filter((i) => i.status === "reverted");
@@ -59,6 +83,8 @@ const report = {
   lane: [...new Set(traces.map((t) => t.lane))],
   window: { first: traces[0]?.wallTime, last: traces.at(-1)?.wallTime },
   decisionToBroadcastMs: quantiles(sent.map((t) => t.attrs.decisionToBroadcastMs as number)),
+  arms,
+  preconfirmation: preconfirmation && { ...preconfirmation, changedWilson95: wilson(preconfirmation.changed, preconfirmation.checked) },
   stageServiceMs: stages,
   inclusionBlocks: quantiles(inclusionBlocks),
   fills: filled.length,
@@ -83,6 +109,13 @@ console.log(`decision-to-broadcast ms, nearest rank [95% interval], n=${report.d
 console.log(`  P50 ${fmt(report.decisionToBroadcastMs.p50)}\n  P95 ${fmt(report.decisionToBroadcastMs.p95)}\n  P99 ${fmt(report.decisionToBroadcastMs.p99)}`);
 for (const [stage, q] of Object.entries(stages)) console.log(`  stage ${stage.padEnd(10)} P50 ${fmt(q.p50)}`);
 console.log(`inclusion blocks n=${report.inclusionBlocks.n}: P50 ${fmt(report.inclusionBlocks.p50)}, P95 ${fmt(report.inclusionBlocks.p95)}`);
+for (const [arm, a] of Object.entries(arms) as [string, { trades: number; decisionToReceiptMs: ReturnType<typeof quantiles>; decisionToBroadcastMs: ReturnType<typeof quantiles>; stageP50Ms: Record<string, number | null> }][]) {
+  console.log(`arm ${arm}: ${a.trades} trades`);
+  if (a.decisionToBroadcastMs.n) console.log(`  decision-to-broadcast n=${a.decisionToBroadcastMs.n} P50 ${fmt(a.decisionToBroadcastMs.p50)}, P95 ${fmt(a.decisionToBroadcastMs.p95)}, P99 ${fmt(a.decisionToBroadcastMs.p99)}`);
+  console.log(`  decision-to-receipt   n=${a.decisionToReceiptMs.n} P50 ${fmt(a.decisionToReceiptMs.p50)}, P95 ${fmt(a.decisionToReceiptMs.p95)}, P99 ${fmt(a.decisionToReceiptMs.p99)}`);
+  console.log(`  stage P50 ms: ${Object.entries(a.stageP50Ms).map(([s, v]) => `${s} ${v?.toFixed(1)}`).join(", ")}`);
+}
+if (report.preconfirmation) console.log(`preconfirmation check: ${report.preconfirmation.changed} of ${report.preconfirmation.checked} receipts changed after sealing`);
 console.log(`fills ${report.fills}, reverts ${report.reverts}, schedule ${JSON.stringify(outcomes)}`);
 console.log(`network cost ${feeHsk} HSK, about $${report.networkCost.totalUsdAtAssumedPrice.toFixed(4)} at an assumed $${hskUsd}/HSK. Model calls on the execution path: ${report.modelCallsInExecutionPath}.`);
 

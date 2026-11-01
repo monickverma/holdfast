@@ -2,10 +2,10 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import type { Config } from "./config.js";
 import { decide, plannedQuotes, type Decision, type Mark, type OrderRuntime } from "./decide.js";
-import { Executor } from "./executor.js";
+import { Executor, type SendMode } from "./executor.js";
 import { Ledger, type Intent } from "./ledger.js";
 import { isSell, type Policy } from "./policy.js";
-import { readHead, readMarket, type Head, type MarketState } from "./reader.js";
+import { hasMulticall, readHead, readMarket, readTick, type Head, type MarketState } from "./reader.js";
 import { RpcClient, sleep } from "./rpc.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
 
@@ -17,6 +17,7 @@ export interface AgentOptions {
   /** Clock for state-age checks. A fork's blocks are older than real time, so tests pass the chain's. */
   now?: () => number;
   onDecision?: (record: DecisionRecord) => void;
+  sendMode?: SendMode;
 }
 
 export interface DecisionRecord {
@@ -40,10 +41,18 @@ export class Agent {
   polls = 0;
   missedBlocks = 0;
   errors = 0;
+  /** "hot" reads everything in one round trip; "pinned" is the three-round-trip path it replaced. */
+  readMode: "hot" | "pinned" = "hot";
+  /** Ticks where the atomic read's block did not match, so the pinned read ran instead. */
+  atomicMisses = 0;
+  private multicall: boolean | null = null;
+  /** The sent trade whose receipt has not been seen yet. */
+  private awaiting: { intent: Intent; traceId: string; intended: number; sentAt: number } | null = null;
   private lastHead: Head | null = null;
   private stopping = false;
   private readonly traces: JsonlLog;
   private readonly decisions: JsonlLog;
+  private readonly confirmations: JsonlLog;
 
   constructor(private readonly options: AgentOptions) {
     const { config } = options;
@@ -51,6 +60,7 @@ export class Agent {
     this.ledger = new Ledger(join(config.dataDir, "ledger.jsonl"));
     this.traces = new JsonlLog(join(config.dataDir, "traces.jsonl"));
     this.decisions = new JsonlLog(join(config.dataDir, "decisions.jsonl"));
+    this.confirmations = new JsonlLog(join(config.dataDir, "confirmations.jsonl"));
     if (config.agentKey && config.vault) {
       this.executor = new Executor({
         rpc: this.rpc,
@@ -58,6 +68,7 @@ export class Agent {
         agentKey: config.agentKey,
         vault: config.vault,
         chainId: config.chainId,
+        sendMode: options.sendMode ?? "sync",
       });
     }
     this.rebuildRuntime();
@@ -105,14 +116,21 @@ export class Agent {
 
     await this.settleInFlight();
 
-    const head = await trace.span("head", () => readHead(this.rpc));
+    const policy = this.options.policy();
+    const quotes = plannedQuotes(policy, this.lastMarket, this.runtime);
+    this.multicall ??= await hasMulticall(this.rpc);
+    const tick =
+      this.readMode === "hot" && this.multicall
+        ? await trace.span("read", () => readTick(this.rpc, config, quotes, this.canTrade ? this.executor!.address : undefined))
+        : null;
+    if (this.readMode === "hot" && this.multicall && !tick) this.atomicMisses++;
+
+    const head = tick ? tick.market.head : await trace.span("head", () => readHead(this.rpc));
     if (!anyHead && this.lastHead && head.number <= this.lastHead.number && head.hash === this.lastHead.hash) return null;
     if (this.lastHead && head.number > this.lastHead.number + 1n) this.missedBlocks += Number(head.number - this.lastHead.number - 1n);
     this.lastHead = head;
 
-    const policy = this.options.policy();
-    const quotes = plannedQuotes(policy, this.lastMarket, this.runtime);
-    const market = await trace.span("state", () => readMarket(this.rpc, config, head, quotes));
+    const market = tick ? tick.market : await trace.span("state", () => readMarket(this.rpc, config, head, quotes));
     this.lastMarket = market;
     this.updateStreaks(policy, market);
 
@@ -138,8 +156,18 @@ export class Agent {
     };
 
     if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
-      record.intent = await this.executor!.submit(this.intentKey(decision, policy, head), decision, market, trace);
-      trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
+      record.intent = await this.executor!.submit(this.intentKey(decision, policy, head), decision, market, trace, tick?.pendingNonce);
+      const synced = record.intent.status === "included" || record.intent.status === "reverted";
+      if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
+      else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
+      trace.attrs.sendMode = this.executor!.sendMode;
+      trace.attrs.readMode = tick ? "hot" : "pinned";
+      if (synced) {
+        this.confirmed(record.intent, trace.id, intended, performance.now());
+        this.rebuildRuntime();
+      } else {
+        this.awaiting = { intent: record.intent, traceId: trace.id, intended, sentAt: performance.now() };
+      }
     }
 
     trace.attrs.block = head.number;
@@ -158,7 +186,28 @@ export class Agent {
     const pending = this.ledger.inFlight();
     if (!pending || !this.executor) return;
     const settled = await this.executor.settle(pending);
-    if (settled) this.rebuildRuntime();
+    if (settled) {
+      if (this.awaiting?.intent.key === settled.key) {
+        this.confirmed(settled, this.awaiting.traceId, this.awaiting.intended, performance.now(), this.awaiting.sentAt);
+        this.awaiting = null;
+      }
+      this.rebuildRuntime();
+    }
+  }
+
+  /** When the agent learned the outcome, measured from the intended time so waiting stays visible. */
+  private confirmed(intent: Intent, traceId: string, intended: number, at: number, sentAt?: number): void {
+    this.confirmations.append({
+      traceId,
+      key: intent.key,
+      txHash: intent.txHash,
+      status: intent.status,
+      blockNumber: intent.blockNumber,
+      readMode: this.readMode,
+      sendMode: sentAt === undefined ? "sync" : "classic",
+      decisionToReceiptMs: at - intended,
+      broadcastToReceiptMs: sentAt === undefined ? undefined : at - sentAt,
+    });
   }
 
   /**

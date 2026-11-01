@@ -93,6 +93,7 @@ export function readEvidence(dataDir = join(root, "data")) {
       }
     }
     return { lane, latency: { decisionToBroadcastMs: quantiles(sent.map((t) => t.attrs.decisionToBroadcastMs)),
+      decisionToReceiptMs: quantiles(traces.flatMap((t) => (finite(t.attrs?.decisionToReceiptMs) ? [t.attrs.decisionToReceiptMs] : []))),
       ...Object.fromEntries(stages.map((stage) => [`${stage} service ms`, quantiles(sent.flatMap((t) => (Array.isArray(t.spans) ? t.spans : []).filter((s: Row) => s.stage === stage && s.ok && finite(s.endMs) && finite(s.startMs)).map((s: Row) => s.endMs - s.startMs)))])),
       inclusionBlocks: quantiles(inclusion) }, trades,
       totals: { fills: trades.filter((t) => t.status === "included").length, reverts: trades.filter((t) => t.status === "reverted").length,

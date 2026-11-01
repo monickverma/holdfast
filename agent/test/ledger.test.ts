@@ -20,6 +20,28 @@ const body = (key = "k1", bodyHash: `0x${string}` = "0x01"): Omit<Intent, "statu
   deadline: 123n,
 });
 
+test("intent IDs stay in one bitmap word, then move to a fresh one", () => {
+  const ledger = new Ledger(path());
+  const first = ledger.nextIntentId();
+  assert.match(first, /^0x[0-9a-f]{62}00$/);
+  ledger.reserve({ ...body("a"), intentId: first });
+  const second = ledger.nextIntentId();
+  assert.equal(BigInt(second), BigInt(first) + 1n);
+  ledger.reserve({ ...body("b"), intentId: `${first.slice(0, 64)}ff` as `0x${string}` });
+  const fresh = ledger.nextIntentId();
+  assert.notEqual(fresh.slice(0, 64), first.slice(0, 64));
+  assert.match(fresh, /00$/);
+  ledger.close();
+});
+
+test("separate ledgers never share an intent word", () => {
+  const one = new Ledger(path());
+  const two = new Ledger(path());
+  assert.notEqual(one.nextIntentId(), two.nextIntentId());
+  one.close();
+  two.close();
+});
+
 test("same key and same body returns the earlier record", () => {
   const ledger = new Ledger(path());
   assert.equal(ledger.reserve(body()).existing, false);

@@ -37,7 +37,7 @@ try {
     trigger: "market" as const,
     orderId: null,
     tokenIn: HSKSWAP.whsk as Address,
-    amountIn: 10n * HSK,
+    amountIn: 1n * HSK,
     quotedOut: 0n,
     minOut: 0n,
     ledger: { inputValue: null, outputValue: null, networkCost: 0n, net: null },
