@@ -77,7 +77,10 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Fork, real HSKSwap router | Gas per sell 157,470 → 130,807 (−16.9%); gas above a plain router swap 51,760 → 25,097 (−51.5%) |
 | Fork | Attack set: 100/100 contained and 100/100 benign completed; 0 cap violations; maximum drained about 59.99 HSK against a 60 HSK cap |
 | Fork | E2E 8/8, including crash recovery |
-| Local | Forge 34/34, plus a separate fork test; agent 99/99; test-market E2E 7/7 |
+| Local | Forge 34/34, plus a separate fork test; agent 115/115; test-market E2E 7/7 |
+| Mainnet, read only, 7 days of the real pool | 462 swaps, $8,324 volume; one wallet made 94% of them; no latency race exists there today |
+| Mainnet, read only, 43 minutes, simulated fills | With an assumed 20 bps outside fee: 0 opportunities. Without it: 13, all within 7 minutes, $0.42 acting at once at $150 |
+| Mainnet, read only | Frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished; real Swap logs decoded correctly in 284 of 284 blocks |
 | Testnet, own test market | 1,050 benchmark swaps on the current vault, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
 
 Set `STREAM=true` to make the agent react to flashblocks as well as poll. It is off by default. The reaction has run on testnet only, and no mainnet transaction has been sent.

@@ -1,0 +1,107 @@
+{
+ "head": 29594090,
+ "windowBlocks": 300000,
+ "windowHours": 166.66666666666666,
+ "chunkErrors": 0,
+ "swaps": 462,
+ "swapsPerHour": 2.7720000000000002,
+ "firstBlock": 29295422,
+ "lastBlock": 29593548,
+ "gapSec": {
+  "p10": 2,
+  "p50": 6,
+  "p90": 2002
+ },
+ "swapsInSameBlockAsPrevious": 4,
+ "usdtSize": {
+  "p50": 14.999301,
+  "p90": 39.956354,
+  "max": 149.999801,
+  "total": 8324.155154999993
+ },
+ "priceMoveBps": {
+  "p50": 1.3481177783292164,
+  "p90": 3.592807056247427,
+  "p99": 6.766530988601138,
+  "max": 13.55676790310012,
+  "over30bps": 0
+ },
+ "lastPrice": 0.08758772991329576,
+ "sampled": 462,
+ "uniqueSendersInSample": 16,
+ "topSenders": [
+  [
+   "0xec77ef78b577d758ad2ea59bd52c976bbabb4154",
+   433
+  ],
+  [
+   "0xebd93b8ad96c9174807e23d8520d3c9d62c3c388",
+   4
+  ],
+  [
+   "0xd19ce1b12b3cad9e5a19455d1d368f52acd2a761",
+   4
+  ],
+  [
+   "0xcfdde8cf26062229e1bc12294c1029e531a7ac9a",
+   3
+  ],
+  [
+   "0x9145acf83f1ff539da1ddf0d50c791c302afe890",
+   3
+  ],
+  [
+   "0x1a71af3af568f85b8912f6fc6d92a75b1158850b",
+   3
+  ],
+  [
+   "0x98d50f1e66ad28ad1beeb377e83c940ea8ca5568",
+   2
+  ],
+  [
+   "0xca3b5788a5296429ccc2729dbb1bb0d523e992fd",
+   2
+  ]
+ ],
+ "topTargets": [
+  [
+   "0x112745933caa2e340d3691ad9a4eeaa365cab790",
+   433
+  ],
+  [
+   "0x2c16f75b95cf1390c328ab70e2cee7f4b80bd8f3",
+   6
+  ],
+  [
+   "0xe7a407c2c914278aa9f53779d433ab2c8d446948",
+   5
+  ],
+  [
+   "0xb496a899001a75994ce8acc0ba30bc061058d6d1",
+   5
+  ],
+  [
+   "0xf9ee4523742d52c9f1b4de779fc5b40d67e9a07d",
+   3
+  ],
+  [
+   "0x76d86a6e224b19270c2cda31477a4c79b2d56918",
+   3
+  ],
+  [
+   "0xd75eaab5543d761a8dd780b73867bba050ad2c1c",
+   2
+  ],
+  [
+   "0xd61261f13340c8296e0c4b7b52f7beea5c14644f",
+   2
+  ]
+ ],
+ "tipGwei": {
+  "p50": 1,
+  "p90": 1,
+  "max": 500.001,
+  "zero": 0,
+  "n": 458
+ }
+}

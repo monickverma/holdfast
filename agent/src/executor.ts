@@ -30,6 +30,8 @@ export interface ExecutorOptions {
   vault: Address;
   chainId: number;
   sendMode?: SendMode;
+  /** Other endpoints that get the same signed bytes at the same moment. Off unless configured. */
+  hedges?: RpcClient[];
 }
 
 export interface RawReceipt {
@@ -44,8 +46,13 @@ export interface RawReceipt {
 export class Executor {
   sendMode: SendMode;
   readonly address: Address;
+  hedgesSent = 0;
+  hedgeFailures = 0;
   private readonly account: PrivateKeyAccount;
   private readonly rpc: RpcClient;
+  /** Sends go here, so a read holding the shared connection cannot make a send open a new one. */
+  private sendRpc: RpcClient;
+  private readonly hedges: RpcClient[];
   private readonly ledger: Ledger;
   private readonly vault: Address;
   private readonly chainId: number;
@@ -58,6 +65,38 @@ export class Executor {
     this.vault = options.vault;
     this.chainId = options.chainId;
     this.sendMode = options.sendMode ?? "classic";
+    this.sendRpc = options.rpc;
+    this.hedges = options.hedges ?? [];
+  }
+
+  useSendLane(rpc: RpcClient): void {
+    this.sendRpc = rpc;
+  }
+
+  /** Runs the signer over a throwaway transaction, so the first real signature is not also the first ever. Never stored. */
+  warmSigner(): Promise<Hex> {
+    return this.account.signTransaction({
+      type: "eip1559",
+      // No chain uses this ID, so these bytes could not land anywhere even if they escaped.
+      chainId: 2 ** 40,
+      nonce: 0,
+      to: this.vault,
+      data: "0x",
+      value: 0n,
+      gas: GAS_LIMIT,
+      maxPriorityFeePerGas: 1n,
+      maxFeePerGas: 1n,
+    });
+  }
+
+  /** The same bytes to every other endpoint. They can land only once, so a failure here changes nothing. */
+  private sendHedges(rawTx: Hex): void {
+    for (const hedge of this.hedges) {
+      this.hedgesSent++;
+      void hedge.callOnce("eth_sendRawTransaction", [rawTx]).catch(() => {
+        this.hedgeFailures++;
+      });
+    }
   }
 
   /** Reserve, sign, persist, then broadcast. The signed bytes are on disk before they can reach the network. */
@@ -115,8 +154,9 @@ export class Executor {
    */
   private async broadcastSync(intent: Intent, headNumber: bigint): Promise<Intent> {
     let receipt: RawReceipt | null = null;
+    this.sendHedges(intent.rawTx!);
     try {
-      receipt = await this.rpc.callOnce<RawReceipt>("eth_sendRawTransactionSync", [intent.rawTx], SYNC_SEND_TIMEOUT_MS);
+      receipt = await this.sendRpc.callOnce<RawReceipt>("eth_sendRawTransactionSync", [intent.rawTx], SYNC_SEND_TIMEOUT_MS);
     } catch (error) {
       if (!(error instanceof RpcError)) throw error;
       if (error.code === -32601) this.sendMode = "classic";
@@ -132,7 +172,7 @@ export class Executor {
    */
   async broadcast(intent: Intent, headNumber: bigint): Promise<Intent> {
     try {
-      await this.rpc.callOnce("eth_sendRawTransaction", [intent.rawTx]);
+      await this.sendRpc.callOnce("eth_sendRawTransaction", [intent.rawTx]);
     } catch (error) {
       // A node that already has these bytes, or already mined them, has done what was asked.
       const alreadyKnown = error instanceof RpcError && /already known|known transaction|nonce too low/i.test(error.message);

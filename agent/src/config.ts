@@ -52,6 +52,8 @@ export interface Config {
   twapWindowSec: number;
   /** Where to watch flashblocks. Absent means the agent only polls. */
   flashblocksUrl?: string;
+  /** Other endpoints to send the same signed bytes to. Empty means one route. */
+  hedgeRpcUrls?: string[];
   /** How a frame's logs turn into pool state: real Uniswap V3, or the test market's constant product. */
   poolKind: "v3" | "constant-product";
   /** Refuse a decision when the state it used is older than this. */
@@ -76,6 +78,7 @@ export function loadConfig(env: Env = process.env): Config {
     poolKind: profile.network === "testnet" ? "constant-product" : "v3",
     // A custom RPC is a fork or a local node, which has no stream.
     flashblocksUrl: env.FLASHBLOCKS_URL ?? (env.RPC_URL ? undefined : `wss://${profile.network}-flashblocks.hsk.xyz/ws`),
+    hedgeRpcUrls: env.HEDGE_RPC_URLS?.split(",").filter(Boolean) ?? [],
   };
   if (profile.network === "testnet") {
     assertTestMarketChain(config.chainId);

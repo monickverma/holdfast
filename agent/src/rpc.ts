@@ -157,6 +157,18 @@ export class RpcClient {
   }
 }
 
+/** For a tool's first read: a public RPC that is limiting this address gets a long, patient wait, not more requests. */
+export async function untilAnswered<T>(read: () => Promise<T>, waitMs = 60_000): Promise<T> {
+  for (;;) {
+    try {
+      return await read();
+    } catch (error) {
+      if (!(error instanceof RpcError)) throw error;
+      await sleep(waitMs);
+    }
+  }
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

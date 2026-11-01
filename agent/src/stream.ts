@@ -30,6 +30,10 @@ export interface Frame {
   logs: FlashLog[];
   /** Monotonic time this process received the frame. Reaction latency starts here. */
   arrivedAt: number;
+  /** The builder's view after this frame, for checking it against the sealed block. */
+  payloadId?: string;
+  blockHash?: Hex;
+  transactions?: Hex[];
 }
 
 export function decodeFrame(raw: string | ArrayBuffer | Uint8Array, arrivedAt: number = performance.now()): Frame {
@@ -47,6 +51,9 @@ export function decodeFrame(raw: string | ArrayBuffer | Uint8Array, arrivedAt: n
     baseFeePerGas: message.base ? BigInt(message.base.base_fee_per_gas) : undefined,
     logs,
     arrivedAt,
+    payloadId: message.payload_id,
+    blockHash: message.diff?.block_hash,
+    transactions: message.diff?.transactions,
   };
 }
 
@@ -242,6 +249,8 @@ function isqrt(value: bigint): bigint {
 
 interface RawFrame {
   index: number;
+  payload_id?: string;
+  diff?: { block_hash?: Hex; transactions?: Hex[] };
   base?: { timestamp: string; base_fee_per_gas: string };
   metadata: {
     block_number: number | string;

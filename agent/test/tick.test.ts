@@ -195,6 +195,58 @@ test("a frame sends nothing while a trade is in flight", async () => {
   agent.close();
 });
 
+test("a hedge gets the same bytes, and a hedge that fails changes nothing", async () => {
+  const sent: Array<[string, string]> = [];
+  handle = (call) => {
+    sent.push([call.method, call.params[0]]);
+    if (call.method === "eth_sendRawTransaction") return Object.assign(new Error("nope"), { code: -32000 });
+    return receipt;
+  };
+  const rpc = new RpcClient(url);
+  const hedge = new RpcClient(url);
+  const ledger = new Ledger(join(mkdtempSync(join(tmpdir(), "holdfast-")), "ledger.jsonl"));
+  const exec = new Executor({ rpc, ledger, agentKey: AGENT_KEY, vault: HSKSWAP.router, chainId: 133, sendMode: "sync", hedges: [hedge] });
+  const intent = await exec.submit("k", decision, market, new Trace("t", "testnet"), 9);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(intent.status, "included");
+  assert.equal(new Set(sent.map(([, raw]) => raw)).size, 1, "identical bytes on every route, so it can land only once");
+  assert.deepEqual(sent.map(([m]) => m).sort(), ["eth_sendRawTransaction", "eth_sendRawTransactionSync"]);
+  assert.equal(exec.hedgesSent, 1);
+  assert.equal(exec.hedgeFailures, 1);
+  ledger.close();
+  rpc.close();
+  hedge.close();
+});
+
+test("a send on its own lane does not use the shared client", async () => {
+  const lane: string[] = [];
+  handle = (call) => {
+    lane.push(call.method);
+    return receipt;
+  };
+  const shared = new RpcClient(url);
+  const own = new RpcClient(url);
+  const { exec, ledger } = executor(shared);
+  exec.useSendLane(own);
+  await exec.submit("k", decision, market, new Trace("t", "testnet"), 9);
+  assert.equal(shared.stats.httpRequests, 0);
+  assert.equal(own.stats.httpRequests, 1);
+  ledger.close();
+  shared.close();
+  own.close();
+});
+
+test("the warm signature is for no real chain and is never stored", async () => {
+  const rpc = new RpcClient(url);
+  const { exec, ledger } = executor(rpc);
+  const raw = await exec.warmSigner();
+  const { parseTransaction } = await import("viem");
+  assert.equal(parseTransaction(raw).chainId, 2 ** 40);
+  assert.equal(ledger.all().length, 0);
+  ledger.close();
+  rpc.close();
+});
+
 test("a sync timeout resends the same bytes and leaves the intent in flight", async () => {
   const sent: string[] = [];
   handle = (call) => {

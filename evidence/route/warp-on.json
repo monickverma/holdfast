@@ -1,0 +1,100 @@
+{
+ "label": "warp-on-alone",
+ "lane": "mainnet, read only",
+ "routeBefore": {
+  "colo": "BOM",
+  "loc": "IN",
+  "warp": "on"
+ },
+ "routeAfter": {
+  "colo": "BOM",
+  "loc": "IN",
+  "warp": "on"
+ },
+ "primary": {
+  "n": 100,
+  "p50": 94.85009999999602,
+  "p90": {
+   "n": 100,
+   "value": 99.88330000000133,
+   "low": 97.59239999999409,
+   "high": 167.66099999999278
+  },
+  "p99": {
+   "n": 100,
+   "value": null,
+   "low": null,
+   "high": null,
+   "withheld": "n=100 is below 299 for P99"
+  }
+ },
+ "second": {
+  "url": "hashkey.drpc.org",
+  "n": 100,
+  "p50": 96.06530000000203,
+  "p90": {
+   "n": 100,
+   "value": 168.04730000000563,
+   "low": 105.0234000000055,
+   "high": 170.91719999999623
+  },
+  "p99": {
+   "n": 100,
+   "value": null,
+   "low": null,
+   "high": null,
+   "withheld": "n=100 is below 299 for P99"
+  }
+ },
+ "fasterOfTwo": {
+  "n": 100,
+  "p50": 94.04719999997178,
+  "p90": {
+   "n": 100,
+   "value": 96.58499999999185,
+   "low": 96.01289999997243,
+   "high": 98.77989999999409
+  },
+  "p99": {
+   "n": 100,
+   "value": null,
+   "low": null,
+   "high": null,
+   "withheld": "n=100 is below 299 for P99"
+  }
+ },
+ "atomicRead": {
+  "n": 100,
+  "p50": 100.34429999999702,
+  "p90": {
+   "n": 100,
+   "value": 104.0405000000028,
+   "low": 102.50370000000112,
+   "high": 126.71869999999763
+  },
+  "p99": {
+   "n": 100,
+   "value": null,
+   "low": null,
+   "high": null,
+   "withheld": "n=100 is below 299 for P99"
+  }
+ },
+ "frameGapMs": {
+  "n": 1476,
+  "p50": 199.55399999999645,
+  "p90": {
+   "n": 1476,
+   "value": 208.66950000001816,
+   "low": 205.69670000000042,
+   "high": 277.7781999999861
+  },
+  "p99": {
+   "n": 1476,
+   "value": 284.05340000000433,
+   "low": 283.03330000001006,
+   "high": 285.7522000000172
+  }
+ },
+ "failures": 0
+}

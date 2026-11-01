@@ -10,6 +10,9 @@ import { RpcClient, sleep } from "./rpc.js";
 import { FlashblockStream, lastSwap, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState } from "./stream.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
 
+/** How often the send lane and signer run between trades. A warm signature takes about 0.5 ms and the first one about 5 ms. */
+const KEEP_WARM_MS = 5_000;
+
 export interface AgentOptions {
   config: Config;
   lane: Lane;
@@ -60,6 +63,9 @@ export class Agent {
   private acting = false;
   private queuedFrame: Frame | null = null;
   private stopping = false;
+  private hedgeRpcs: RpcClient[] = [];
+  private sendLane: RpcClient | null = null;
+  private keepWarmTimer: NodeJS.Timeout | undefined;
   private readonly traces: JsonlLog;
   private readonly decisions: JsonlLog;
   private readonly confirmations: JsonlLog;
@@ -72,6 +78,7 @@ export class Agent {
     this.decisions = new JsonlLog(join(config.dataDir, "decisions.jsonl"));
     this.confirmations = new JsonlLog(join(config.dataDir, "confirmations.jsonl"));
     if (config.agentKey && config.vault) {
+      this.hedgeRpcs = (config.hedgeRpcUrls ?? []).map((url) => new RpcClient(url));
       this.executor = new Executor({
         rpc: this.rpc,
         ledger: this.ledger,
@@ -79,6 +86,7 @@ export class Agent {
         vault: config.vault,
         chainId: config.chainId,
         sendMode: options.sendMode ?? "sync",
+        hedges: this.hedgeRpcs,
       });
     }
     this.rebuildRuntime();
@@ -128,11 +136,30 @@ export class Agent {
     const { flashblocksUrl } = this.options.config;
     if (!flashblocksUrl) throw new Error("This network has no flashblock stream configured");
     this.streaming = true;
+    this.startSendLane();
     return new FlashblockStream(flashblocksUrl, (frame) => {
       if (!this.observeFrame(frame)) return;
       if (onActivity) onActivity(frame);
       else void this.reactTo(frame).catch((error) => this.logError(error));
     });
+  }
+
+  /**
+   * Swaps here can be many minutes apart, so the send path would otherwise be cold when it matters. A connection only
+   * sends use is pinged, and the signer runs on a throwaway transaction, between trades.
+   */
+  private startSendLane(): void {
+    if (!this.executor || this.sendLane) return;
+    const lane = new RpcClient(this.options.config.rpcUrl, { maxRetries: 0 });
+    this.sendLane = lane;
+    this.executor.useSendLane(lane);
+    const keepWarm = () => {
+      void lane.call("eth_chainId").catch(() => {});
+      void this.executor!.warmSigner().catch(() => {});
+    };
+    keepWarm();
+    this.keepWarmTimer = setInterval(keepWarm, KEEP_WARM_MS);
+    this.keepWarmTimer.unref();
   }
 
   /** Records what a frame did to the pool. Returns true if it touched the pool. */
@@ -209,6 +236,9 @@ export class Agent {
   }
 
   close(): void {
+    clearInterval(this.keepWarmTimer);
+    this.sendLane?.close();
+    for (const hedge of this.hedgeRpcs) hedge.close();
     this.rpc.close();
     this.ledger.close();
   }

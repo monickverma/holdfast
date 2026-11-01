@@ -1,0 +1,36 @@
+{
+ "lane": "mainnet, read only",
+ "decoderAgainstRealSwaps": null,
+ "frames": 13872,
+ "reconnects": 1,
+ "blocks": 410,
+ "skippedEmptyBlocks": 852,
+ "partialBlocks": 0,
+ "hashMatch": 410,
+ "vanished": 0,
+ "vanishedUser": 0,
+ "unseen": 0,
+ "orderMismatch": 0,
+ "multiPayload": 0,
+ "blocksWithUserTx": 188,
+ "userTransactions": 207,
+ "userBlocksHashMatch": 188,
+ "framesPerBlock": {
+  "4": 1,
+  "5": 1,
+  "7": 1,
+  "11": 407
+ },
+ "hashChangedLater": 0,
+ "recheckedLater": 395,
+ "readFailures": 0,
+ "vanishedUserWilson95PerUserTransaction": {
+  "low": 0,
+  "high": 0.018219655868209117
+ },
+ "hashMatchWilson95": {
+  "low": 0.9907175592473813,
+  "high": 0.9999999999999998
+ },
+ "samplesOfMismatch": []
+}

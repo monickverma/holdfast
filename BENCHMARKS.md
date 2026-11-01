@@ -38,7 +38,7 @@ A faster or cheaper vault counts only if the limits still hold. These ran agains
 |---|---|---|
 | Attack set | Fork | 100/100 contained, 100/100 benign completed, 0 cap violations, at most 59.99 HSK drained of a 60 HSK cap |
 | Contract tests | Local | Forge 34/34, not counting the separate fork test |
-| Agent unit tests | Local | 99/99 |
+| Agent unit tests | Local | 115/115 |
 | End-to-end, including crash recovery | Fork | 8/8 |
 | End-to-end | Local test market | 7/7 |
 | Reverted benchmark swaps | Testnet | 0 of 440 |
@@ -109,9 +109,76 @@ What this leaves open:
 
 - **The polling baseline reads `latest`.** Polling the `pending` tag might shorten it. We did not test that.
 - **The clock starts at frame arrival,** not when the mover's transaction executed. Both arms miss the same earlier time.
-- **The agent acts on a preconfirmation.** A frame that never sealed could trigger a trade on a move that did not happen. We saw no receipt change, but we did not test a frame disappearing.
-- **The mainnet path has not traded.** The test market emits no Swap event, so testnet used its token transfers and constant-product math. Decoding a real V3 Swap log is covered only by unit tests with a built log.
+- **The agent acts on a preconfirmation.** A frame that never sealed could trigger a trade on a move that did not happen. We saw no receipt change on testnet. On mainnet, read only, [Frame Drift](#the-real-market) found 0 of 207 user transactions vanish, but no abandoned payload carrying user transactions was observed.
+- **The mainnet path has not traded.** The test market emits no Swap event, so testnet used its token transfers and constant-product math. Decoding real V3 Swap logs has since been checked against real pool state, read only: 284 of 284 blocks matched.
 - **Other gaps.** Stream reconnection was not exercised: the run had 0 reconnects. The trigger is a limit order crossed by a large deliberate move in a thin market.
+
+## The real market
+
+All of this section is mainnet and read only. No wallet key was loaded and no trade was sent. Shadow fills are simulated.
+
+**Who trades.** Over 7 days (300,000 blocks) the real WHSK/USDT pool had 462 swaps worth about $8,324. One wallet made 433 of them (94% of swaps, 99% of volume) in $15–$40 clips, and it flipped direction only 3.7% of the time. Everyone else made 29 swaps worth $63. The largest single swap moved the price 13.6 bps, below the pool's 30 bps fee. So there is no latency race to win on this pool today, and being milliseconds faster earns nothing here yet. The speed work above is capacity for when there is one.
+
+**Shadow trader.** The agent's real `decide()` ran against live prices for 43 minutes, with Gate's top of book as the outside price and the edge rule set at $15 before collecting data. Each opportunity counts as one simulated fill, however many samples it lasted. 942 of 981 samples were usable. Another 133 reads failed with HTTP 429, while our other benchmarks were running.
+
+| Size, buy side, no outside fee | Opportunities | Act at once | Wait 2 s | Wait 5 s | Wait 10 s | Act at once, other leg closed 2 s later |
+|---|---:|---:|---:|---:|---:|---:|
+| $15 | 13 | $0.10 (13 fills) | $0.06 (9) | $0.07 (9) | $0.06 (7) | $0.04, 3 of 12 lost money |
+| $50 | 13 | $0.21 (13) | $0.16 (10) | $0.18 (10) | $0.24 (7) | $0.10, 2 of 12 lost money |
+| $150 | 13 | $0.42 (13) | $0.32 (10) | $0.38 (10) | $0.59 (7) | $0.09, 2 of 12 lost money |
+
+- **With an assumed 20 bps fee on the outside venue, there were 0 opportunities at every size.** The table above removes that fee, so it is the best case, not a forecast.
+- There were no opportunities on the sell side, or at $1 and $5 on the buy side. At those small sizes gas costs more than the edge.
+- **Spread Lifetime:** an opportunity lasted about 6.2–6.5 s at P50. Reads were 2–2.5 s apart, so that figure is coarse.
+- **Act now or wait is not settled.** Waiting 10 s beat acting at once at $50 and $150, but all 53 samples where the agent chose to trade fell in one 7-minute stretch, so this is close to one event rather than 13 independent ones.
+- A profit of cents on one event is not evidence of a business. It does show that the agent's rule stays out of the market almost all the time: 927 of 981 decisions were `uneconomic`.
+
+**Frame Drift.** Does what a flashblock frame shows end up in the sealed block? The same question matters on mainnet, where the agent would act on frames.
+
+| Check | Result |
+|---|---|
+| Blocks compared with their sealed version | 410, over 13,872 frames and 1 reconnect |
+| Last frame's hash equals the sealed hash | 410 of 410 (Wilson lower bound 99.07%) |
+| User transactions covered | 207, and 0 vanished (Wilson upper bound 1.82%) |
+| Hash changed when read again about 2 minutes later | 0 of 395 |
+
+Every block with a user transaction or a second payload was read, plus one in five empty blocks; 852 empty blocks were skipped to stay inside the public RPC's rate limit. An earlier, shorter run saw one block (29594625) with two payloads and one transaction that never sealed. Its hash still matched and it had no user transactions, so it was probably a system deposit from an abandoned payload. We did not capture that transaction to confirm this, and the check now records whether a vanished transaction is a deposit. This run never saw a second payload, so an abandoned payload carrying user transactions has not been observed.
+
+**Real Swap logs.** Decoding real V3 Swap logs through the agent's own code matched the pool's real `slot0` and liquidity in 284 of 284 blocks (Wilson lower bound 98.67%). Another 174 of the 458 blocks with swaps could not be checked because their state could not be read; we did not establish whether rate limiting or pruned history caused that.
+
+**Hot path and idle.** One local process, throwaway key, no network:
+
+| Local decide and sign | n | P50 |
+|---|---:|---:|
+| First run in a new process | 20 | 5.82 ms |
+| Warm | 200 | 0.52 ms |
+| After 5 s idle | 10 | 1.12 ms |
+| After 30 s idle | 10 | 1.76 ms |
+
+Keeping the signer warm saves about 1–5 ms, on a path where each network request costs about 95 ms. Across the network, idling did not slow a request at P50:
+
+| Request after | n | P50 | P90 [95% interval] | New sockets |
+|---|---:|---:|---:|---:|
+| 5 s pause | 164 | 94.7 ms | 105.2 ms [103.4, 172.4] | 2 |
+| 30 s pause | 29 | 94.7 ms | 162.9 ms [96.2, open] | 1 |
+| 120 s pause | 8 | 94.4 ms | withheld | 1 |
+| Shared connection pool | 94 | 94.2 ms | 131.8 ms [103.5, 173.0] | 5 |
+| Dedicated warm send lane | 94 | 93.9 ms | 105.2 ms [96.9, 170.8] | 2 |
+
+The send lane opened fewer sockets, and its P90 is lower, but the intervals overlap heavily. **We have no proof that it helps.** It runs only with `STREAM=true`.
+
+**Route and second endpoint.** WARP was on for both reads of the route (Cloudflare `BOM`). 100 samples, 0 failures, nothing else running:
+
+| Read | P50 | P90 [95% interval] |
+|---|---:|---:|
+| `mainnet.hsk.xyz` | 94.9 ms | 99.9 ms [97.6, 167.7] |
+| `hashkey.drpc.org` | 96.1 ms | 168.0 ms [105.0, 170.9] |
+| Faster of the two | 94.0 ms | 96.6 ms [96.0, 98.8] |
+| Full atomic market read | 100.3 ms | 104.0 ms [102.5, 126.7] |
+
+Flashblock frames arrived 199.6 ms apart at P50 and 208.7 ms at P90 (n=1,476). The WARP-off comparison has not been run, so the tunnel's share is still unknown. The same read is 100.3 ms here against 203.9 ms in the earlier table. Those runs were not alternated in one window, so we do not claim that as an improvement.
+
+**Hedged send.** The agent can send the same signed bytes to extra endpoints, set with `HEDGE_RPC_URLS`. It is off by default and covered by unit tests only. Testnet has no free second endpoint, and nothing has been sent on mainnet, so the send itself is unmeasured. Racing reads as a stand-in gains 0.9 ms at P50 and 3.3 ms at P90, so it stays off.
 
 ## How the metrics were chosen
 
@@ -132,7 +199,7 @@ No controlled study shows that one prioritisation method beats another, and thes
 | 3 | Correct task completion | 7.93 | 440/440 testnet swaps; 100/100 benign on fork |
 | 4 | Recovery completion | 7.93 | Crash recovery passes on fork; a single scenario, not a rate |
 | 5 | Pinned quote agreement | 7.93 | 0 mismatches in 80 mainnet blocks |
-| 6 | Net economic result | 7.80 | **Not measured.** Testnet prices mean nothing |
+| 6 | Net economic result | 7.80 | **No real trades.** Simulated on mainnet prices: $0 with an assumed 20 bps outside fee; without it, $0.42 acting at once at $150, over 43 minutes |
 | 7 | Scheduled deadline compliance | 7.73 | **Not measured** as a rate |
 | 8 | Benign false-refusal rate | 7.67 | 0/100 on fork |
 | 9 | Revert and expiry rate | 7.67 | 0/440 on testnet |
@@ -180,7 +247,14 @@ npm run bench:gas
 npm run bench:react -- --n 90 --run react --broadcast
 npm run check:quotes -- --rounds 25 --run quotes-mainnet
 npm run attack-set
+npm run shadow -- --minutes 60 --run shadow-run
+npm run frame-drift -- --minutes 60 --backfill-blocks 0 --run drift-run
+npm run bench:cold -- --mode local --run cold-local
+npm run bench:cold -- --mode network --minutes 15 --run cold-network
+npm run bench:route -- --label warp-on --n 100 --second https://hashkey.drpc.org
 ```
+
+The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alone, and do not run a large `frame-drift` backfill next to anything else.
 
 ## Evidence files
 
@@ -199,3 +273,8 @@ npm run attack-set
 | `evidence/gas-compare.json` | Fork gas for the plain router and both vaults |
 | `evidence/attack-results.json` | Attack set on the new vault |
 | `evidence/testnet-deployment.json` | Deployed testnet addresses |
+| `evidence/market/` | The 7-day pool activity read and the scripts behind it |
+| `evidence/shadow/` | Shadow report and every sample |
+| `evidence/frame-drift/` | Frame Drift report, the earlier run's mismatch and the Swap log check |
+| `evidence/hot-path/` | Local and network idle and send lane results |
+| `evidence/route/warp-on.json` | Route, second endpoint and frame gaps with WARP on |
