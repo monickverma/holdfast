@@ -452,12 +452,15 @@ export class Agent {
       if (order.kind !== "stop-loss" || !isSell(order.kind)) continue;
       const state = this.runtime.get(order.id) ?? { filled: 0n, hitStreak: 0 };
       const hit = market.spotPriceX18 <= order.triggerPriceX18!;
+      const counted = this.pendingStreak.get(order.id) ?? new Set<string>();
+      if (!hit) counted.clear();
       // The current block counts inside decide(), so the streak here is blocks before this one.
-      const next = hit ? (this.pendingStreak.get(order.id) ?? 0) : 0;
+      const next = hit ? counted.size - (counted.has(market.head.hash) ? 1 : 0) : 0;
       this.runtime.set(order.id, { filled: state.filled, hitStreak: next });
-      this.pendingStreak.set(order.id, hit ? next + 1 : 0);
+      if (hit) counted.add(market.head.hash);
+      this.pendingStreak.set(order.id, counted);
     }
   }
 
-  private readonly pendingStreak = new Map<string, number>();
+  private readonly pendingStreak = new Map<string, Set<string>>();
 }
