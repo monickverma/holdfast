@@ -61,7 +61,7 @@ try {
     await wallet.deployContract({
       abi: artifact.abi,
       bytecode: artifact.bytecode.object,
-      args: [owner.address, agentAddress, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee],
+      args: [owner.address, agentAddress, BigInt(Math.floor(Date.now() / 1000)) + 86_400n * 29n, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee],
     }),
   );
   const vault = deployed.contractAddress as Address;
@@ -69,8 +69,8 @@ try {
 
   await send(await wallet.writeContract({ address: HSKSWAP.whsk, abi: WHSK_ABI, functionName: "deposit", value: 300n * HSK }));
   await send(await wallet.writeContract({ address: HSKSWAP.whsk, abi: WHSK_ABI, functionName: "transfer", args: [vault, 300n * HSK] }));
-  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, 50n * HSK, 200n * HSK, 50_000n] }));
-  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.usdt, 5n * USDT, 20n * USDT, 5n * 10n ** 30n] }));
+  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, 50n * HSK, 200n * HSK, 50_000n, 200n * HSK] }));
+  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.usdt, 5n * USDT, 20n * USDT, 5n * 10n ** 30n, 20n * USDT] }));
 
   const balance = (token: Address) => client.readContract({ address: token, abi: WHSK_ABI, functionName: "balanceOf", args: [vault] });
 

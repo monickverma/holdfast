@@ -1,6 +1,7 @@
 // Owner actions, signed by your own key from .env. Dry run by default; add --broadcast to send.
-//   deploy   --agent <address>
-//   limits   --max-trade-hsk 150 --lifetime-hsk 2000 --max-trade-usdt 12 --lifetime-usdt 160 --band-bps 500
+//   deploy   --agent <address> --days 7
+//   renew    --days 7, or --agent <address> to replace the key. Recheck the floors with `limits` when you do.
+//   limits   --max-trade-hsk 150 --lifetime-hsk 2000 --hourly-hsk 300 --max-trade-usdt 12 --lifetime-usdt 160 --hourly-usdt 24 --band-bps 500
 //   fund     --hsk 100 --usdt 10
 //   withdraw --token whsk|usdt --amount 1.5 --to <address>
 //   pause | unpause
@@ -43,6 +44,9 @@ const { values, positionals } = parseArgs({
     "lifetime-hsk": { type: "string", default: "2000" },
     "max-trade-usdt": { type: "string", default: "12" },
     "lifetime-usdt": { type: "string", default: "160" },
+    "hourly-hsk": { type: "string", default: "300" },
+    "hourly-usdt": { type: "string", default: "24" },
+    days: { type: "string", default: "7" },
     "band-bps": { type: "string", default: "500" },
     hsk: { type: "string" },
     usdt: { type: "string" },
@@ -104,7 +108,7 @@ async function run(steps: Step[]): Promise<void> {
     if (receipt.status !== "success") throw new Error(`${step.label} reverted`);
     if (receipt.contractAddress) {
       console.log(`\nVAULT_ADDRESS=${receipt.contractAddress}\nPut that line in your .env. Explorer: https://hsk.blockscout.com/address/${receipt.contractAddress}`);
-      console.log(`Verify source: node scripts/forge.mjs verify-contract ${receipt.contractAddress} contracts/HoldfastVault.sol:HoldfastVault --verifier blockscout --verifier-url https://hsk.blockscout.com/api/ --chain ${config.chainId} --compiler-version 0.8.28 --num-of-optimizations 2000 --evm-version cancun --constructor-args $(tools/foundry/cast abi-encode "constructor(address,address,address,address,address,uint24)" ${owner.address} ${values.agent} ${HSKSWAP.router} ${HSKSWAP.whsk} ${HSKSWAP.usdt} ${HSKSWAP.fee})`);
+      console.log(`Verify source: node scripts/forge.mjs verify-contract ${receipt.contractAddress} contracts/HoldfastVault.sol:HoldfastVault --verifier blockscout --verifier-url https://hsk.blockscout.com/api/ --chain ${config.chainId} --compiler-version 0.8.28 --num-of-optimizations 2000 --evm-version cancun --constructor-args $(tools/foundry/cast abi-encode "constructor(address,address,uint256,address,address,address,uint24)" ${owner.address} ${values.agent} ${deployExpiry} ${HSKSWAP.router} ${HSKSWAP.whsk} ${HSKSWAP.usdt} ${HSKSWAP.fee})`);
     }
   }
   if (!values.broadcast) console.log("\nDry run: nothing was sent. Add --broadcast to send.");
@@ -116,17 +120,26 @@ const required = (name: keyof typeof values): string => {
   return value;
 };
 
+const expiryFromNow = (): bigint => BigInt(Math.floor(Date.now() / 1000)) + BigInt(Number(required("days")) * 86_400);
+let deployExpiry = 0n;
+
 switch (positionals[0]) {
   case "deploy": {
     const agent = required("agent") as Address;
     if (agent.toLowerCase() === owner.address.toLowerCase()) throw new Error("The agent must be a different key from the owner.");
     const artifact = JSON.parse(readFileSync("out/HoldfastVault.sol/HoldfastVault.json", "utf8"));
+    deployExpiry = expiryFromNow();
     const data = encodeDeployData({
       abi: artifact.abi,
       bytecode: artifact.bytecode.object,
-      args: [owner.address, agent, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee],
+      args: [owner.address, agent, deployExpiry, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee],
     });
     await run([{ label: "deploy HoldfastVault", data }]);
+    break;
+  }
+  case "renew": {
+    const current = await client.readContract({ address: vaultAddress(), abi: VAULT_ABI, functionName: "agent" });
+    await run([vaultCall(`trust the agent key for ${values.days} more days`, "setAgent", [values.agent ?? current, expiryFromNow()])]);
     break;
   }
   case "limits": {
@@ -138,8 +151,8 @@ switch (positionals[0]) {
     const buyFloor = ((E18 * E18) / market.spotPriceX18) * band / 10_000n;
     console.log(`spot ${market.spotPriceX18} micro-USDT per HSK. Floors: sell at ${sellFloor}, buy at ${buyFloor} (out per 1e18 in).`);
     await run([
-      vaultCall("set WHSK limits", "setLimits", [HSKSWAP.whsk, parseUnits(required("max-trade-hsk"), 18), parseUnits(required("lifetime-hsk"), 18), sellFloor]),
-      vaultCall("set USDT limits", "setLimits", [HSKSWAP.usdt, parseUnits(required("max-trade-usdt"), 6), parseUnits(required("lifetime-usdt"), 6), buyFloor]),
+      vaultCall("set WHSK limits", "setLimits", [HSKSWAP.whsk, parseUnits(required("max-trade-hsk"), 18), parseUnits(required("lifetime-hsk"), 18), sellFloor, parseUnits(required("hourly-hsk"), 18)]),
+      vaultCall("set USDT limits", "setLimits", [HSKSWAP.usdt, parseUnits(required("max-trade-usdt"), 6), parseUnits(required("lifetime-usdt"), 6), buyFloor, parseUnits(required("hourly-usdt"), 6)]),
     ]);
     break;
   }
@@ -171,5 +184,5 @@ switch (positionals[0]) {
     await run([vaultCall("unpause", "unpause", [])]);
     break;
   default:
-    throw new Error("Commands: deploy, limits, fund, withdraw, pause, unpause");
+    throw new Error("Commands: deploy, renew, limits, fund, withdraw, pause, unpause");
 }

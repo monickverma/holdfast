@@ -47,12 +47,13 @@ try {
 
   const deployVault = async (file: string, name: string) => {
     const artifact = JSON.parse(readFileSync(`out/${file}/${name}.json`, "utf8"));
-    const receipt = await wait(await ownerWallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: [owner.address, agent.address, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] }));
+    const current = name === "HoldfastVault";
+    const receipt = await wait(await ownerWallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: current ? [owner.address, agent.address, BigInt(Math.floor(Date.now() / 1000)) + 86_400n * 29n, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] : [owner.address, agent.address, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] }));
     const vault = receipt.contractAddress as Address;
     await wait(await ownerWallet.writeContract({ address: HSKSWAP.whsk, abi: TOKEN_ABI, functionName: "deposit", value: 300n * HSK }));
     await wait(await ownerWallet.writeContract({ address: HSKSWAP.whsk, abi: TOKEN_ABI, functionName: "transfer", args: [vault, 300n * HSK] }));
-    await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, 50n * HSK, 200n * HSK, 50_000n] }));
-    await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.usdt, 5n * 10n ** 6n, 20n * 10n ** 6n, 5n * 10n ** 30n] }));
+    await wait(await ownerWallet.writeContract({ address: vault, abi: artifact.abi, functionName: "setLimits", args: [HSKSWAP.whsk, 50n * HSK, 200n * HSK, 50_000n, ...(current ? [200n * HSK] : [])] }));
+    await wait(await ownerWallet.writeContract({ address: vault, abi: artifact.abi, functionName: "setLimits", args: [HSKSWAP.usdt, 5n * 10n ** 6n, 20n * 10n ** 6n, 5n * 10n ** 30n, ...(current ? [20n * 10n ** 6n] : [])] }));
     return { vault, deployGas: receipt.gasUsed };
   };
   const v1 = await deployVault("HoldfastVaultV1.sol", "HoldfastVaultV1");

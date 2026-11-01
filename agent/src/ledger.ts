@@ -4,7 +4,8 @@ import { dirname } from "node:path";
 import type { Address, Hex } from "viem";
 import { toJson } from "./trace.js";
 
-export type IntentStatus = "reserved" | "signed" | "broadcast" | "included" | "reverted";
+/** "expired" means its deadline passed and the vault shows it never ran, so it can never move funds. */
+export type IntentStatus = "reserved" | "signed" | "broadcast" | "included" | "reverted" | "expired";
 
 export interface Intent {
   /** Stable logical name: the same work always has the same key. */
@@ -61,11 +62,11 @@ export class Ledger {
     return this.all().find((i) => i.status === "signed" || i.status === "broadcast");
   }
 
-  /** Highest nonce this agent has ever signed, or null. */
+  /** Highest nonce this agent has signed, or null. An expired intent's nonce may never be used, so it is free again. */
   lastNonce(): number | null {
     let last: number | null = null;
     for (const intent of this.intents.values()) {
-      if (intent.nonce !== undefined && (last === null || intent.nonce > last)) last = intent.nonce;
+      if (intent.status !== "expired" && intent.nonce !== undefined && (last === null || intent.nonce > last)) last = intent.nonce;
     }
     return last;
   }

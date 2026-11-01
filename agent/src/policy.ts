@@ -15,6 +15,8 @@ export interface EdgeRule {
   sizeUsdt: bigint;
   /** Required conservative net result after fees and gas, in USDT micro-units. */
   minNetUsdt: bigint;
+  /** The most HSK the rule may hold or owe, valued in USDT micro-units. Absent means one trade's worth. */
+  maxInventoryUsdt?: bigint;
 }
 
 export interface Policy {
@@ -58,7 +60,7 @@ export function parsePolicy(input: unknown): Policy {
   if (new Set(parsed.map((o) => o.id)).size !== parsed.length) throw new PolicyError("order ids must be unique");
 
   const edge = record(root.edge, "edge");
-  allowKeys(edge, ["enabled", "sizeUsdt", "minNetUsdt"], "edge");
+  allowKeys(edge, ["enabled", "sizeUsdt", "minNetUsdt", "maxInventoryUsdt"], "edge");
   if (typeof edge.enabled !== "boolean") throw new PolicyError("edge.enabled must be true or false");
 
   return {
@@ -68,6 +70,7 @@ export function parsePolicy(input: unknown): Policy {
       enabled: edge.enabled,
       sizeUsdt: amount(edge.sizeUsdt, "edge.sizeUsdt", true),
       minNetUsdt: amount(edge.minNetUsdt, "edge.minNetUsdt", false),
+      ...(edge.maxInventoryUsdt === undefined ? {} : { maxInventoryUsdt: amount(edge.maxInventoryUsdt, "edge.maxInventoryUsdt", false) }),
     },
     slippageBps: int(root.slippageBps, "slippageBps", 0, 500),
     maxTwapDeviationBps: int(root.maxTwapDeviationBps, "maxTwapDeviationBps", 1, 2_000),

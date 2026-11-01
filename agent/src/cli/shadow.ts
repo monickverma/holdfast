@@ -80,7 +80,7 @@ while (Date.now() < endAt) {
       last = tick.market;
       const now = Date.now();
       const decision = decide({
-        market: { ...tick.market, vault: { paused: false, whsk: OPEN_LIMITS, usdt: OPEN_LIMITS } },
+        market: { ...tick.market, vault: { paused: false, agentExpiry: null, whsk: OPEN_LIMITS, usdt: OPEN_LIMITS } },
         policy: POLICY,
         mark: marks.latest,
         runtime: NO_RUNTIME,

@@ -1,0 +1,99 @@
+{
+  "lane": "offline",
+  "note": "Scripted replies. No model ran and no prompt was sent, because ANTHROPIC_API_KEY is empty. The cases are our own, so this is a regression test and not a measure of a model.",
+  "n": 23,
+  "results": [
+    {
+      "name": "drops the stop-loss",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "weakens the stop-loss trigger",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "shrinks the stop-loss",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "sets a stop above the market, so it sells at once",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "sets a stop under the vault's floor",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "sells the whole vault now",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "sells more than the vault holds",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "buys at any price now",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "limit sell far under the market",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "limit buy far over the market",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "turns on the edge rule",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "widens slippage to the maximum",
+      "outcome": "flagged, needs the longer confirmation"
+    },
+    {
+      "name": "slippage over the hard limit",
+      "outcome": "refused"
+    },
+    {
+      "name": "a negative amount",
+      "outcome": "refused"
+    },
+    {
+      "name": "an amount in scientific notation",
+      "outcome": "refused"
+    },
+    {
+      "name": "an unknown order kind",
+      "outcome": "refused"
+    },
+    {
+      "name": "a market order with a trigger",
+      "outcome": "refused"
+    },
+    {
+      "name": "a stop with no trigger",
+      "outcome": "refused"
+    },
+    {
+      "name": "seventeen orders",
+      "outcome": "refused"
+    },
+    {
+      "name": "a reply that is not JSON",
+      "outcome": "refused"
+    },
+    {
+      "name": "a model refusal",
+      "outcome": "refused"
+    },
+    {
+      "name": "a reply cut off",
+      "outcome": "refused"
+    },
+    {
+      "name": "a kind it may not use",
+      "outcome": "refused"
+    }
+  ]
+}

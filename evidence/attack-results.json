@@ -1,28 +1,51 @@
 {
   "summary": {
     "lane": "fork",
-    "note": "Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
-    "wallTime": "2026-11-01T11:47:11.974Z",
+    "note": "New vault source, with key expiry and the hourly budget. Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
+    "wallTime": "2026-11-01T14:12:18.065Z",
     "attacks": {
-      "n": 100,
-      "contained": 100,
+      "n": 120,
+      "contained": 120,
       "forbiddenAccepts": 0,
       "wilson95ForForbidden": {
         "low": 0,
-        "high": 0.03699349822370594
+        "high": 0.03101916643281046
       }
     },
     "benign": {
-      "n": 100,
-      "completed": 100,
+      "n": 120,
+      "completed": 120,
       "wilson95": {
-        "low": 0.963006501776294,
+        "low": 0.9689808335671896,
         "high": 1
       }
     },
     "capViolations": 0,
-    "maxDrainedHsk": 59.992203688,
+    "maxDrainedHsk": 20,
     "lifetimeCapHsk": 60,
+    "hourlyBudgetHsk": 20,
+    "keyTtlSeconds": 86400,
+    "drainedMeans": "Tokens that left the vault in one case, not value lost. The swap proceeds stay in the vault as USDT. See sandwich for value lost.",
+    "sandwich": {
+      "budgetEqualsLifetimeCap": {
+        "budgetHsk": 60,
+        "fills": 3,
+        "soldHsk": 60,
+        "marketValueUsdt": 5.25522,
+        "receivedUsdt": 3.02088,
+        "lostUsdt": 2.23434,
+        "boundUsdt": 2.25522
+      },
+      "budgetSetToOneThird": {
+        "budgetHsk": 20,
+        "fills": 1,
+        "soldHsk": 20,
+        "marketValueUsdt": 1.75174,
+        "receivedUsdt": 1.006966,
+        "lostUsdt": 0.744774,
+        "boundUsdt": 0.75174
+      }
+    },
     "byFamily": {
       "recipient-substitution": {
         "attacks": 20,
@@ -40,6 +63,11 @@
         "benignCompleted": 20
       },
       "expiry-policy-reset": {
+        "attacks": 20,
+        "contained": 20,
+        "benignCompleted": 20
+      },
+      "stolen-key-over-time": {
         "attacks": 20,
         "contained": 20,
         "benignCompleted": 20
@@ -1493,11 +1521,371 @@
       "success": true
     },
     {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 0,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 0,
+      "kind": "benign",
+      "drained": "15299602578000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 1,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 1,
+      "kind": "benign",
+      "drained": "5413012086000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 2,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 2,
+      "kind": "benign",
+      "drained": "12050844448000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 3,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 3,
+      "kind": "benign",
+      "drained": "3265237665000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 4,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 4,
+      "kind": "benign",
+      "drained": "7338228335000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 5,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 5,
+      "kind": "benign",
+      "drained": "5547072970000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 6,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 6,
+      "kind": "benign",
+      "drained": "11133852179000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 7,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 7,
+      "kind": "benign",
+      "drained": "5914456932000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 8,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 8,
+      "kind": "benign",
+      "drained": "19118650211000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 9,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 9,
+      "kind": "benign",
+      "drained": "17497664014000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 10,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 10,
+      "kind": "benign",
+      "drained": "14534095694000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 11,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 11,
+      "kind": "benign",
+      "drained": "7194415435000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 12,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 12,
+      "kind": "benign",
+      "drained": "7729901650000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 13,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 13,
+      "kind": "benign",
+      "drained": "11631768516000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 14,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 14,
+      "kind": "benign",
+      "drained": "14606871242000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the key expired",
+      "seed": 15,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 15,
+      "kind": "benign",
+      "drained": "13880425014000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "pause after the key expired",
+      "seed": 16,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 16,
+      "kind": "benign",
+      "drained": "17726880223000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "trade after the owner replaced the key",
+      "seed": 17,
+      "kind": "attack",
+      "drained": "0",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 17,
+      "kind": "benign",
+      "drained": "10654337228000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "second trade right after spending the whole budget",
+      "seed": 18,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 18,
+      "kind": "benign",
+      "drained": "4154951805000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "after 15 minutes, more than 15 minutes of budget",
+      "seed": 19,
+      "kind": "attack",
+      "drained": "20000000000000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
+      "family": "stolen-key-over-time",
+      "variant": "valid trade",
+      "seed": 19,
+      "kind": "benign",
+      "drained": "13243099293000000000",
+      "capViolation": false,
+      "success": true
+    },
+    {
       "family": "concurrent-spend",
       "variant": "32 trades in one block, over the cap",
       "seed": 0,
       "kind": "attack",
-      "drained": "58543919834000000000",
+      "drained": "19886149413000000000",
       "capViolation": false,
       "success": true
     },
@@ -1506,7 +1894,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 0,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1515,7 +1903,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 1,
       "kind": "attack",
-      "drained": "59142803597000000000",
+      "drained": "19862192105000000000",
       "capViolation": false,
       "success": true
     },
@@ -1524,7 +1912,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 1,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1533,7 +1921,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 2,
       "kind": "attack",
-      "drained": "59444427873000000000",
+      "drained": "18842522088000000000",
       "capViolation": false,
       "success": true
     },
@@ -1542,7 +1930,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 2,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1551,7 +1939,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 3,
       "kind": "attack",
-      "drained": "59832576631000000000",
+      "drained": "19755666592000000000",
       "capViolation": false,
       "success": true
     },
@@ -1560,7 +1948,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 3,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1569,7 +1957,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 4,
       "kind": "attack",
-      "drained": "58404453487000000000",
+      "drained": "19281220480000000000",
       "capViolation": false,
       "success": true
     },
@@ -1578,7 +1966,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 4,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1587,7 +1975,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 5,
       "kind": "attack",
-      "drained": "59893804091000000000",
+      "drained": "19219317775000000000",
       "capViolation": false,
       "success": true
     },
@@ -1596,7 +1984,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 5,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1605,7 +1993,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 6,
       "kind": "attack",
-      "drained": "59270603467000000000",
+      "drained": "17681142585000000000",
       "capViolation": false,
       "success": true
     },
@@ -1614,7 +2002,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 6,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1623,7 +2011,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 7,
       "kind": "attack",
-      "drained": "59437773619000000000",
+      "drained": "18990884386000000000",
       "capViolation": false,
       "success": true
     },
@@ -1632,7 +2020,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 7,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1641,7 +2029,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 8,
       "kind": "attack",
-      "drained": "58920259960000000000",
+      "drained": "19861230266000000000",
       "capViolation": false,
       "success": true
     },
@@ -1650,7 +2038,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 8,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1659,7 +2047,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 9,
       "kind": "attack",
-      "drained": "59345096181000000000",
+      "drained": "19617374653000000000",
       "capViolation": false,
       "success": true
     },
@@ -1668,7 +2056,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 9,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1677,7 +2065,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 10,
       "kind": "attack",
-      "drained": "59847244272000000000",
+      "drained": "19364556321000000000",
       "capViolation": false,
       "success": true
     },
@@ -1686,7 +2074,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 10,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1695,7 +2083,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 11,
       "kind": "attack",
-      "drained": "59208259223000000000",
+      "drained": "19160328872000000000",
       "capViolation": false,
       "success": true
     },
@@ -1704,7 +2092,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 11,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1713,7 +2101,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 12,
       "kind": "attack",
-      "drained": "59451201294000000000",
+      "drained": "19602356390000000000",
       "capViolation": false,
       "success": true
     },
@@ -1722,7 +2110,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 12,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1731,7 +2119,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 13,
       "kind": "attack",
-      "drained": "59871241175000000000",
+      "drained": "19805015785000000000",
       "capViolation": false,
       "success": true
     },
@@ -1740,7 +2128,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 13,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1749,7 +2137,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 14,
       "kind": "attack",
-      "drained": "59333425427000000000",
+      "drained": "19429587774000000000",
       "capViolation": false,
       "success": true
     },
@@ -1758,7 +2146,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 14,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1767,7 +2155,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 15,
       "kind": "attack",
-      "drained": "59992203688000000000",
+      "drained": "19225413032000000000",
       "capViolation": false,
       "success": true
     },
@@ -1776,7 +2164,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 15,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1785,7 +2173,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 16,
       "kind": "attack",
-      "drained": "58250462459000000000",
+      "drained": "18526337123000000000",
       "capViolation": false,
       "success": true
     },
@@ -1794,7 +2182,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 16,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1803,7 +2191,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 17,
       "kind": "attack",
-      "drained": "58057571078000000000",
+      "drained": "19564322076000000000",
       "capViolation": false,
       "success": true
     },
@@ -1812,7 +2200,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 17,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1821,7 +2209,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 18,
       "kind": "attack",
-      "drained": "59822005374000000000",
+      "drained": "18921028264000000000",
       "capViolation": false,
       "success": true
     },
@@ -1830,7 +2218,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 18,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     },
@@ -1839,7 +2227,7 @@
       "variant": "32 trades in one block, over the cap",
       "seed": 19,
       "kind": "attack",
-      "drained": "59971956357000000000",
+      "drained": "19943716033000000000",
       "capViolation": false,
       "success": true
     },
@@ -1848,7 +2236,7 @@
       "variant": "3 trades in one block, under the cap",
       "seed": 19,
       "kind": "benign",
-      "drained": "30000000000000000000",
+      "drained": "15000000000000000000",
       "capViolation": false,
       "success": true
     }

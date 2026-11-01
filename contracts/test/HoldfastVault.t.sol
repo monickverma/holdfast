@@ -101,6 +101,8 @@ contract HoldfastVaultTest {
     uint256 constant MAX_TRADE = 100e18;
     uint256 constant LIFETIME = 1_000e18;
     uint256 constant FLOOR = 0.9e18;
+    uint256 constant BUDGET = 500e18;
+    uint256 constant TTL = 7 days;
 
     HoldfastVault vault;
     MockRouter router;
@@ -112,12 +114,12 @@ contract HoldfastVaultTest {
         a = new MockToken(false);
         b = new MockToken(true);
         router = new MockRouter();
-        vault = new HoldfastVault(OWNER, AGENT, address(router), address(a), address(b), 3000);
+        vault = new HoldfastVault(OWNER, AGENT, block.timestamp + TTL, address(router), address(a), address(b), 3000);
         a.mint(address(vault), 10_000e18);
         b.mint(address(router), 1_000_000e18);
         a.mint(address(router), 1_000_000e18);
         vm.prank(OWNER);
-        vault.setLimits(address(a), MAX_TRADE, LIFETIME, FLOOR);
+        vault.setLimits(address(a), MAX_TRADE, LIFETIME, FLOOR, BUDGET);
     }
 
     function _trade(uint256 amountIn, uint256 minOut, bytes32 id) internal returns (uint256) {
@@ -149,7 +151,7 @@ contract HoldfastVaultTest {
     function test_trade_sellsTokenThatReturnsNothing() public {
         b.mint(address(vault), 100e18);
         vm.prank(OWNER);
-        vault.setLimits(address(b), 10e18, 20e18, FLOOR);
+        vault.setLimits(address(b), 10e18, 20e18, FLOOR, 20e18);
         for (uint256 i = 0; i < 2; i++) {
             vm.prank(AGENT);
             vault.execute(address(b), 10e18, 9e18, block.timestamp + 60, keccak256(abi.encode(i)));
@@ -189,7 +191,7 @@ contract HoldfastVaultTest {
     function test_attack_agentCannotChangeLimits() public {
         vm.prank(AGENT);
         vm.expectRevert(HoldfastVault.NotOwner.selector);
-        vault.setLimits(address(a), type(uint256).max, type(uint256).max, 0);
+        vault.setLimits(address(a), type(uint256).max, type(uint256).max, 0, type(uint256).max);
     }
 
     function test_attack_agentCannotUnpauseOrReplaceItself() public {
@@ -200,7 +202,7 @@ contract HoldfastVaultTest {
         vault.unpause();
         vm.prank(AGENT);
         vm.expectRevert(HoldfastVault.NotOwner.selector);
-        vault.setAgent(ATTACKER);
+        vault.setAgent(ATTACKER, block.timestamp + 1);
     }
 
     // Attack family: amount inflation and bad price
@@ -213,10 +215,11 @@ contract HoldfastVaultTest {
 
     function test_attack_lifetimeCapDoesNotRenew() public {
         for (uint256 i = 0; i < 10; i++) {
+            vm.warp(block.timestamp + 1 hours);
             _trade(MAX_TRADE, 90e18, keccak256(abi.encode(i)));
         }
         _eq(vault.remaining(address(a)), 0);
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(block.timestamp + 6 days);
         vm.prank(AGENT);
         vm.expectRevert(HoldfastVault.OverLifetimeCap.selector);
         vault.execute(address(a), 1, 1, block.timestamp + 60, "later");
@@ -240,7 +243,7 @@ contract HoldfastVaultTest {
         vm.expectRevert(HoldfastVault.OverTradeCap.selector);
         vault.execute(address(b), 1e18, 1e18, block.timestamp + 60, "x");
         vm.prank(OWNER);
-        vault.setLimits(address(b), 10e18, 10e18, 0);
+        vault.setLimits(address(b), 10e18, 10e18, 0, 10e18);
         vm.prank(AGENT);
         vm.expectRevert(HoldfastVault.BelowFloor.selector);
         vault.execute(address(b), 1e18, 1e18, block.timestamp + 60, "x");
@@ -327,22 +330,27 @@ contract HoldfastVaultTest {
     function test_attack_oversizedLimitsRefusedNotTruncated() public {
         vm.prank(OWNER);
         vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
-        vault.setLimits(address(a), uint256(type(uint72).max) + 1, 1, 1);
+        vault.setLimits(address(a), uint256(type(uint72).max) + 1, 1, 1, 1);
         vm.prank(OWNER);
         vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
-        vault.setLimits(address(a), 1, uint256(type(uint72).max) + 1, 1);
+        vault.setLimits(address(a), 1, uint256(type(uint72).max) + 1, 1, 1);
         vm.prank(OWNER);
         vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
-        vault.setLimits(address(a), 1, 1, uint256(type(uint112).max) + 1);
+        vault.setLimits(address(a), 1, 1, uint256(type(uint112).max) + 1, 1);
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.LimitTooLarge.selector);
+        vault.setLimits(address(a), 1, 1, 1, uint256(type(uint72).max) + 1);
         _eq(vault.maxTrade(address(a)), MAX_TRADE);
     }
 
     function test_limitsKeepTheirLargestValues() public {
         vm.prank(OWNER);
-        vault.setLimits(address(a), type(uint72).max, type(uint72).max - 1, type(uint112).max);
+        vault.setLimits(address(a), type(uint72).max, type(uint72).max - 1, type(uint112).max, type(uint72).max - 2);
         _eq(vault.maxTrade(address(a)), type(uint72).max);
         _eq(vault.remaining(address(a)), type(uint72).max - 1);
         _eq(vault.floorPriceX18(address(a)), type(uint112).max);
+        _eq(vault.hourlyBudget(address(a)), type(uint72).max - 2);
+        _eq(vault.budgetAvailable(address(a)), type(uint72).max - 2);
     }
 
     function test_attack_replayInsideASharedWord() public {
@@ -374,6 +382,173 @@ contract HoldfastVaultTest {
         _trade(1e18, 0.9e18, "a");
         _trade(1e18, 0.9e18, "b");
         _eq(vault.remaining(address(a)), LIFETIME - 2e18);
+    }
+
+    // Attack family: a stolen key, over time
+
+    function test_attack_expiredKeyCannotTrade() public {
+        vm.warp(vault.agentExpiry());
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.AgentExpired.selector);
+        vault.execute(address(a), 1e18, 0.9e18, block.timestamp + 60, "x");
+    }
+
+    function test_keyWorksUntilTheSecondBeforeExpiry() public {
+        vm.warp(uint256(vault.agentExpiry()) - 1);
+        _trade(1e18, 0.9e18, "last");
+    }
+
+    function test_attack_expiredKeyCannotPause() public {
+        vm.warp(vault.agentExpiry());
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.NotOwnerOrAgent.selector);
+        vault.pause();
+        vm.prank(OWNER);
+        vault.pause();
+        require(vault.paused(), "owner could not pause");
+    }
+
+    function test_attack_replacedKeyLosesEverythingAtOnce() public {
+        vm.prank(OWNER);
+        vault.setAgent(address(0xC0DE), block.timestamp + 1 days);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.NotAgent.selector);
+        vault.execute(address(a), 1e18, 0.9e18, block.timestamp + 60, "x");
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.NotOwnerOrAgent.selector);
+        vault.pause();
+    }
+
+    function test_ownerRenewsAnExpiredKey() public {
+        vm.warp(vault.agentExpiry());
+        vm.prank(OWNER);
+        vault.setAgent(AGENT, block.timestamp + 1 days);
+        _trade(1e18, 0.9e18, "renewed");
+    }
+
+    function test_expiryMustBeSoonAndInTheFuture() public {
+        uint256 tooFar = block.timestamp + vault.MAX_AGENT_TTL() + 1;
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.BadExpiry.selector);
+        vault.setAgent(AGENT, block.timestamp);
+        vm.prank(OWNER);
+        vm.expectRevert(HoldfastVault.BadExpiry.selector);
+        vault.setAgent(AGENT, tooFar);
+        vm.expectRevert(HoldfastVault.BadExpiry.selector);
+        new HoldfastVault(OWNER, AGENT, 0, address(router), address(a), address(b), 3000);
+    }
+
+    function _budget(uint256 budget) internal {
+        vm.prank(OWNER);
+        vault.setLimits(address(a), MAX_TRADE, LIFETIME, FLOOR, budget);
+    }
+
+    function test_attack_budgetStopsABurstInOneBlock() public {
+        _budget(150e18);
+        _trade(100e18, 90e18, "one");
+        _trade(50e18, 45e18, "two");
+        _eq(vault.budgetAvailable(address(a)), 0);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.OverHourlyBudget.selector);
+        vault.execute(address(a), 1, 1, block.timestamp + 60, "three");
+    }
+
+    function test_budgetRefillsInProportionToTime() public {
+        _budget(36e18);
+        _trade(36e18, 32.4e18, "all");
+        vm.warp(block.timestamp + 600);
+        _eq(vault.budgetAvailable(address(a)), 6e18);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.OverHourlyBudget.selector);
+        vault.execute(address(a), 6e18 + 1, 6e18, block.timestamp + 60, "over");
+        _trade(6e18, 5.4e18, "refilled");
+        _eq(vault.budgetAvailable(address(a)), 0);
+    }
+
+    function test_attack_changingALimitDoesNotHandOutASecondBudget() public {
+        _budget(100e18);
+        _trade(100e18, 90e18, "spent");
+        // The owner raises only the floor. A key that front-runs this must not get to spend the budget again.
+        vm.prank(OWNER);
+        vault.setLimits(address(a), MAX_TRADE, LIFETIME, FLOOR + 1, 100e18);
+        _eq(vault.budgetAvailable(address(a)), 0);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.OverHourlyBudget.selector);
+        vault.execute(address(a), 1, 1, block.timestamp + 60, "again");
+    }
+
+    function test_loweringTheBudgetKeepsWhatWasSpent() public {
+        _budget(100e18);
+        _trade(90e18, 81e18, "spent");
+        _budget(10e18);
+        _eq(vault.budgetAvailable(address(a)), 0);
+    }
+
+    function test_raisingTheBudgetAddsOnlyTheRaise() public {
+        _budget(100e18);
+        _trade(60e18, 54e18, "spent");
+        _budget(150e18);
+        _eq(vault.budgetAvailable(address(a)), 90e18);
+    }
+
+    function test_changingALimitKeepsTheRefillEarned() public {
+        _budget(36e18);
+        _trade(36e18, 32.4e18, "all");
+        vm.warp(block.timestamp + 600);
+        _budget(36e18);
+        _eq(vault.budgetAvailable(address(a)), 6e18);
+    }
+
+    function test_budgetNeverRefillsPastItself() public {
+        _budget(36e18);
+        _trade(1e18, 0.9e18, "one");
+        vm.warp(block.timestamp + 6 days);
+        _eq(vault.budgetAvailable(address(a)), 36e18);
+    }
+
+    function test_zeroBudgetMeansNoTrading() public {
+        _budget(0);
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.OverHourlyBudget.selector);
+        vault.execute(address(a), 1, 1, block.timestamp + 60, "x");
+    }
+
+    function test_failedTradeSpendsNoBudget() public {
+        _budget(100e18);
+        router.setMode(MockRouter.Mode.ShortPay, vault);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.InsufficientOutput.selector);
+        vault.execute(address(a), 10e18, 9e18, block.timestamp + 60, "x");
+        _eq(vault.budgetAvailable(address(a)), 100e18);
+    }
+
+    function test_settingLimitsDoesNotTouchOtherToken() public {
+        vm.prank(OWNER);
+        vault.setLimits(address(b), 1, 2, 3, 4);
+        _eq(vault.maxTrade(address(a)), MAX_TRADE);
+        _eq(vault.hourlyBudget(address(a)), BUDGET);
+        _eq(vault.floorPriceX18(address(a)), FLOOR);
+    }
+
+    /// Whatever the timing, spending over any stretch of time stays within one budget plus the refill for that time.
+    function testFuzz_spendStaysInsideTheBudgetEnvelope(uint256[8] memory amounts, uint32[8] memory gaps) public {
+        uint256 budget = 150e18;
+        _budget(budget);
+        uint256 start = block.timestamp;
+        uint256 spent;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            vm.warp(block.timestamp + gaps[i] % 2 hours);
+            uint256 amount = i == 0 ? 1e18 : amounts[i] % (MAX_TRADE + 1);
+            uint256 minOut = (amount * FLOOR + 1e18 - 1) / 1e18;
+            vm.prank(AGENT);
+            try vault.execute(address(a), amount, minOut, block.timestamp + 60, keccak256(abi.encode(i))) {
+                spent += amount;
+            } catch {}
+            require(spent <= budget + ((block.timestamp - start) * budget) / 1 hours, "over the envelope");
+            require(vault.budgetAvailable(address(a)) <= budget, "bucket over its size");
+        }
+        require(spent >= 1e18, "nothing traded");
     }
 
     // Properties

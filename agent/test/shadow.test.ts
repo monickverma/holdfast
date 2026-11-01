@@ -6,7 +6,7 @@ import { costLedger, decide, type Mark } from "../src/decide.js";
 import { compareBlock, FrameLedger } from "../src/drift.js";
 import { DEFAULT_POLICY } from "../src/policy.js";
 import type { MarketState } from "../src/reader.js";
-import { analyzeShadow, netUsdt, OPEN_LIMITS, SHADOW_DEFAULTS, toShadowQuote, type ShadowSample } from "../src/shadow.js";
+import { analyzeShadow, netUsdt, OPEN_LIMITS, replayEdgeFills, SHADOW_DEFAULTS, toShadowQuote, type ShadowSample } from "../src/shadow.js";
 import { decodeFrame, type Frame } from "../src/stream.js";
 
 const E18 = 10n ** 18n;
@@ -84,11 +84,22 @@ test("the agent's real decision trades under the shadow's limits when the edge p
     priorityFeePerGas: 0n,
     l1FeeWei: 0n,
     quotes: [{ tokenIn: HSKSWAP.whsk, amountIn: 150n * E18, amountOut: 15_000_000n, ticksCrossed: 0 }],
-    vault: { paused: false, whsk: OPEN_LIMITS, usdt: OPEN_LIMITS },
+    vault: { paused: false, agentExpiry: null, whsk: OPEN_LIMITS, usdt: OPEN_LIMITS },
   } as unknown as MarketState;
   const policy = { ...DEFAULT_POLICY, edge: { enabled: true, sizeUsdt: 15_000_000n, minNetUsdt: 0n } };
-  const decision = decide({ market, policy, mark: { askX18: 90_000n, bidX18: 89_000n, fetchedAtMs: 100_000 }, runtime: new Map(), nowMs: 100_000, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000 });
+  const decision = decide({ market, policy, mark: { askX18: 99_000n, bidX18: 98_800n, fetchedAtMs: 100_000 }, runtime: new Map(), nowMs: 100_000, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000 });
   assert.equal(decision.action, "trade");
+});
+
+test("the replay counts one fill per gap, then applies the inventory limit", () => {
+  const point = (atMs: number, net: boolean, block: string): ShadowSample => ({ atMs, block, ask: 0.1, bid: 0.1, spot: 0.09, networkUsdt: 0, markAgeMs: 0, twapDeviation: 0, decision: "x", quotes: [{ side: "buy", sizeUsdt: 15, hsk: net ? 200 : 100, usdt: 15 }] });
+  const samples = [point(0, true, "1"), point(2_000, true, "2"), point(4_000, true, "2"), point(6_000, false, "3"), point(8_000, true, "4")];
+  const replay = replayEdgeFills(samples, 15);
+  assert.equal(replay.oncePerBlock.fills, 3);
+  assert.equal(replay.oncePerOpportunity.fills, 2);
+  assert.equal(replay.withInventoryLimit.fills, 1);
+  assert.equal(replay.oncePerBlock.inventoryUsdt, 45);
+  assert.equal(replay.withInventoryLimit.inventoryUsdt, 15);
 });
 
 const HASH = `0x${"ab".repeat(32)}` as Hex;

@@ -20,6 +20,8 @@
     "check:quotes": "tsx agent/src/cli/check-quotes.ts",
     "bench:cold": "tsx agent/src/cli/bench-cold.ts",
     "bench:route": "tsx agent/src/cli/bench-route.ts",
+    "bench:limit": "tsx agent/src/cli/bench-limit.ts",
+    "replay:edge": "tsx agent/src/cli/replay-edge.ts",
     "shadow": "tsx agent/src/cli/shadow.ts",
     "frame-drift": "tsx agent/src/cli/frame-drift.ts",
     "bench:gas": "node scripts/forge.mjs build --offline && npm run build:agent && node .test-build/test/bench-gas.js",

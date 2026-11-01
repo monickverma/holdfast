@@ -10,8 +10,8 @@ const PRICE = 87_400n; // 0.0874 USDT per HSK
 const HSK = 10n ** 18n;
 const USDT = 10n ** 6n;
 
-const whskLimits: TokenLimits = { balance: 1_000n * HSK, maxTrade: 200n * HSK, remaining: 500n * HSK, floorPriceX18: 50_000n };
-const usdtLimits: TokenLimits = { balance: 50n * USDT, maxTrade: 10n * USDT, remaining: 25n * USDT, floorPriceX18: 5n * HSK };
+const whskLimits: TokenLimits = { balance: 1_000n * HSK, maxTrade: 200n * HSK, remaining: 500n * HSK, floorPriceX18: 50_000n, hourlyBudget: 500n * HSK, available: 500n * HSK };
+const usdtLimits: TokenLimits = { balance: 50n * USDT, maxTrade: 10n * USDT, remaining: 25n * USDT, floorPriceX18: 5n * HSK, hourlyBudget: 25n * USDT, available: 25n * USDT };
 
 function market(overrides: Partial<MarketState> = {}): MarketState {
   return {
@@ -24,7 +24,7 @@ function market(overrides: Partial<MarketState> = {}): MarketState {
     quotes: [],
     priorityFeePerGas: 1_000_000n,
     l1FeeWei: 3_919_085_385_435n,
-    vault: { paused: false, whsk: whskLimits, usdt: usdtLimits },
+    vault: { paused: false, agentExpiry: null, whsk: whskLimits, usdt: usdtLimits },
     ...overrides,
   };
 }
@@ -61,7 +61,7 @@ test("holds with no orders and no edge", () => {
 });
 
 test("paused vault and stale state refuse before anything else", () => {
-  const paused = decide(input({ orders: [stop] }, market({ vault: { paused: true, whsk: whskLimits, usdt: usdtLimits } })));
+  const paused = decide(input({ orders: [stop] }, market({ vault: { paused: true, agentExpiry: null, whsk: whskLimits, usdt: usdtLimits } })));
   assert.equal(paused.action === "hold" && paused.code, "paused");
   const stale = decide(input({ orders: [stop] }, market(), { nowMs: NOW + 6_001 }));
   assert.equal(stale.action === "hold" && stale.code, "stale-state");
@@ -91,7 +91,7 @@ test("a stop-loss below the owner's floor refuses instead of sending a doomed tr
   const m = market({ spotPriceX18: 40_000n, quotes: [sell(100n * HSK, 4_000_000n)] });
   const runtime = new Map<string, OrderRuntime>([["s1", { filled: 0n, hitStreak: 1 }]]);
   const d = decide(input({ orders: [stop] }, m, { runtime }));
-  assert.equal(d.action === "hold" && d.code, "below-floor");
+  assert.equal(d.action === "hold" && d.code, "stop-blocked");
 });
 
 test("minOut never falls below the vault floor, whatever the slippage setting", () => {
@@ -141,7 +141,7 @@ test("a completed order stops trading", () => {
 });
 
 test("exhausted lifetime cap refuses with that reason", () => {
-  const m = market({ vault: { paused: false, whsk: { ...whskLimits, remaining: 0n }, usdt: usdtLimits } });
+  const m = market({ vault: { paused: false, agentExpiry: null, whsk: { ...whskLimits, remaining: 0n }, usdt: usdtLimits } });
   const d = decide(input({ orders: [{ id: "m1", kind: "market-sell", amountIn: HSK }] }, m));
   assert.equal(d.action === "hold" && d.code, "cap-exhausted");
 });

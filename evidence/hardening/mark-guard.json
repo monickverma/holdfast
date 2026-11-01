@@ -1,0 +1,22 @@
+{
+  "lane": "mainnet read only, replayed",
+  "n": 992,
+  "note": "The pool's spot was the same in all 992 samples and the TWAP deviation was 0 in all of them, so every gap here is movement in Gate's price. This tests how often the guards refuse a quiet market. It says nothing about catching a real manipulation, and no manipulated sample exists in this data.",
+  "markGapBps": {
+    "p50": 17.9,
+    "p99": 54.6,
+    "max": 64.3,
+    "threshold": 150,
+    "samplesRefused": 0
+  },
+  "markAge": {
+    "before": {
+      "maxAgeMs": 30000,
+      "samplesRefused": 0
+    },
+    "after": {
+      "maxAgeMs": 5000,
+      "samplesRefused": 31
+    }
+  }
+}

@@ -10,6 +10,7 @@ import { buildFacts } from "./facts.js";
 import { MarkFeed } from "./mark.js";
 import { Assistant, DEFAULT_MODEL } from "./nl.js";
 import { DEFAULT_POLICY, parsePolicy, serializePolicy, type Policy } from "./policy.js";
+import { reviewPolicy } from "./policy-review.js";
 import { JsonlLog } from "./trace.js";
 
 try {
@@ -46,6 +47,11 @@ try {
     const message = (await prompt.question("> ")).trim();
     if (!message) continue;
     if (message === "exit") break;
+    if (message === "reset breaker") {
+      agent.resetBreaker();
+      console.log("Breaker reset. Trades that failed before now no longer count.");
+      continue;
+    }
     if (!assistant) {
       console.log(JSON.stringify(buildFacts(agent, policy), null, 2));
       continue;
@@ -54,9 +60,12 @@ try {
     const reply = await assistant.handle(message, buildFacts(agent, policy), policy, spot);
     console.log(reply.text);
     if (reply.policy) {
-      console.log(JSON.stringify(serializePolicy(reply.policy), null, 2));
-      const answer = await prompt.question("Activate this policy? Type yes to confirm: ");
-      if (answer.trim() === "yes") {
+      const review = reviewPolicy(reply.policy, policy, spot, agent.lastMarket?.vault);
+      console.log(review.summary.map((line) => `  ${line}`).join("\n"));
+      for (const risk of review.risks) console.log(`  RISK: ${risk}`);
+      const expected = review.risks.length ? "yes, I accept the risks" : "yes";
+      const answer = await prompt.question(`Activate this policy? Type "${expected}" to confirm: `);
+      if (answer.trim() === expected) {
         policy = reply.policy;
         writeFileSync(policyPath, JSON.stringify(serializePolicy(policy), null, 2));
         console.log(`Policy version ${policy.version} is active.`);

@@ -1,5 +1,6 @@
 import { formatUnits } from "viem";
 import type { Agent } from "./agent.js";
+import { hourlyLossBound } from "./decide.js";
 import { serializePolicy, type Policy } from "./policy.js";
 import { tradingResult } from "./position.js";
 
@@ -26,8 +27,10 @@ export function buildFacts(agent: Agent, policy: Policy): unknown {
     },
     vault: vault && {
       paused: vault.paused,
-      hsk: { balance: hsk(vault.whsk.balance), maxTrade: hsk(vault.whsk.maxTrade), remainingLifetime: hsk(vault.whsk.remaining), floorUsdtPerHsk: usdt(vault.whsk.floorPriceX18) },
-      usdt: { balance: usdt(vault.usdt.balance), maxTrade: usdt(vault.usdt.maxTrade), remainingLifetime: usdt(vault.usdt.remaining) },
+      agentKeyExpiresAtUnix: vault.agentExpiry?.toString() ?? "never: this vault predates key expiry",
+      hsk: { balance: hsk(vault.whsk.balance), maxTrade: hsk(vault.whsk.maxTrade), remainingLifetime: hsk(vault.whsk.remaining), hourlyBudget: hsk(vault.whsk.hourlyBudget), budgetAvailableNow: hsk(vault.whsk.available), floorUsdtPerHsk: usdt(vault.whsk.floorPriceX18) },
+      usdt: { balance: usdt(vault.usdt.balance), maxTrade: usdt(vault.usdt.maxTrade), remainingLifetime: usdt(vault.usdt.remaining), hourlyBudget: usdt(vault.usdt.hourlyBudget), budgetAvailableNow: usdt(vault.usdt.available) },
+      worstCaseLossPerHourUsdt: usdt(hourlyLossBound(vault, market.spotPriceX18)),
     },
     lastDecision: agent.lastDecision && {
       block: agent.lastDecision.block.toString(),

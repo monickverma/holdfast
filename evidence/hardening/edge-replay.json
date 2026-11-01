@@ -1,0 +1,82 @@
+{
+  "lane": "mainnet read only, replayed. Fills are simulated.",
+  "n": 992,
+  "note": "Buy side with no outside fee, the best case. Every unprofitable sample counts as closing the gap, so the once-per-opportunity count is an upper bound: the live rule also needs a fresh mark to reopen. Inventory is what the live agent would be left holding, because it has no code to close the other leg.",
+  "rows": [
+    {
+      "sizeUsdt": 1,
+      "oncePerBlock": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      },
+      "oncePerOpportunity": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      },
+      "withInventoryLimit": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      }
+    },
+    {
+      "sizeUsdt": 5,
+      "oncePerBlock": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      },
+      "oncePerOpportunity": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      },
+      "withInventoryLimit": {
+        "fills": 0,
+        "inventoryUsdt": 0
+      }
+    },
+    {
+      "sizeUsdt": 15,
+      "oncePerBlock": {
+        "fills": 53,
+        "inventoryUsdt": 795
+      },
+      "oncePerOpportunity": {
+        "fills": 11,
+        "inventoryUsdt": 165
+      },
+      "withInventoryLimit": {
+        "fills": 1,
+        "inventoryUsdt": 15
+      }
+    },
+    {
+      "sizeUsdt": 50,
+      "oncePerBlock": {
+        "fills": 153,
+        "inventoryUsdt": 7650
+      },
+      "oncePerOpportunity": {
+        "fills": 8,
+        "inventoryUsdt": 400
+      },
+      "withInventoryLimit": {
+        "fills": 1,
+        "inventoryUsdt": 50
+      }
+    },
+    {
+      "sizeUsdt": 150,
+      "oncePerBlock": {
+        "fills": 153,
+        "inventoryUsdt": 22950
+      },
+      "oncePerOpportunity": {
+        "fills": 8,
+        "inventoryUsdt": 1200
+      },
+      "withInventoryLimit": {
+        "fills": 1,
+        "inventoryUsdt": 150
+      }
+    }
+  ]
+}

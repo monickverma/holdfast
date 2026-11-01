@@ -8,7 +8,7 @@ import { nearestRank, quantileReport } from "./stats.js";
  * No vault exists on mainnet, so these limits never block a shadow decision. The floor is the smallest legal value,
  * because decide() treats a floor of zero as an owner who has set no limits.
  */
-export const OPEN_LIMITS: TokenLimits = { balance: 2n ** 200n, maxTrade: 2n ** 200n, remaining: 2n ** 200n, floorPriceX18: 1n };
+export const OPEN_LIMITS: TokenLimits = { balance: 2n ** 200n, maxTrade: 2n ** 200n, remaining: 2n ** 200n, floorPriceX18: 1n, hourlyBudget: 2n ** 200n, available: 2n ** 200n };
 
 /** One simulated quote, as plain numbers, because a report never does money arithmetic on chain. */
 export interface ShadowQuote {
@@ -103,6 +103,41 @@ export interface ShadowReport {
   spreadBps: { p10: number; p50: number; p90: number } | null;
   decisions: Record<string, number>;
   rows: ShadowRow[];
+}
+
+export interface EdgeReplay {
+  sizeUsdt: number;
+  oncePerBlock: { fills: number; inventoryUsdt: number };
+  oncePerOpportunity: { fills: number; inventoryUsdt: number };
+  withInventoryLimit: { fills: number; inventoryUsdt: number };
+}
+
+/**
+ * Replays recorded prices through the live agent's trading rules, buy side, no outside fee. The old rule traded once per
+ * block while a gap lasted; the new one trades once per gap, and then stops at one trade's worth of inventory, because
+ * nothing closes the other leg. Fills are simulated.
+ */
+export function replayEdgeFills(samples: readonly ShadowSample[], sizeUsdt: number): EdgeReplay {
+  const usable = samples.filter((s) => s.quotes.some((q) => q.side === "buy" && q.sizeUsdt === sizeUsdt));
+  const blocks = new Set<string>();
+  let opportunities = 0;
+  let open = false;
+  for (const sample of usable) {
+    const quote = sample.quotes.find((q) => q.side === "buy" && q.sizeUsdt === sizeUsdt)!;
+    const profitable = netUsdt(quote, sample.ask, sample.bid, sample.networkUsdt, 0) > 0;
+    if (profitable) {
+      blocks.add(sample.block);
+      if (!open) opportunities++;
+    }
+    open = profitable;
+  }
+  const limited = Math.min(opportunities, 1);
+  return {
+    sizeUsdt,
+    oncePerBlock: { fills: blocks.size, inventoryUsdt: blocks.size * sizeUsdt },
+    oncePerOpportunity: { fills: opportunities, inventoryUsdt: opportunities * sizeUsdt },
+    withInventoryLimit: { fills: limited, inventoryUsdt: limited * sizeUsdt },
+  };
 }
 
 export function analyzeShadow(all: readonly ShadowSample[], options: ShadowOptions = SHADOW_DEFAULTS): ShadowReport {

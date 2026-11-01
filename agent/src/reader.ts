@@ -24,8 +24,11 @@ export const VAULT_ABI = parseAbi([
   "function execute(address tokenIn, uint256 amountIn, uint256 minOut, uint256 deadline, bytes32 intentId) returns (uint256 amountOut)",
   "function pause()",
   "function unpause()",
-  "function setAgent(address agent_)",
-  "function setLimits(address token, uint256 maxTrade_, uint256 remaining_, uint256 floorPriceX18_)",
+  "function agentExpiry() view returns (uint40)",
+  "function hourlyBudget(address) view returns (uint256)",
+  "function budgetAvailable(address) view returns (uint256)",
+  "function setAgent(address agent_, uint256 expiry_)",
+  "function setLimits(address token, uint256 maxTrade_, uint256 remaining_, uint256 floorPriceX18_, uint256 hourlyBudget_)",
   "function withdraw(address token, address to, uint256 amount)",
   "event Traded(bytes32 indexed intentId, address indexed tokenIn, uint256 amountIn, uint256 amountOut, uint256 remainingAfter)",
   "error NotOwner()",
@@ -39,6 +42,9 @@ export const VAULT_ABI = parseAbi([
   "error IntentUsed()",
   "error OverTradeCap()",
   "error OverLifetimeCap()",
+  "error OverHourlyBudget()",
+  "error AgentExpired()",
+  "error BadExpiry()",
   "error BelowFloor()",
   "error InsufficientOutput()",
   "error Overspent()",
@@ -81,10 +87,15 @@ export interface TokenLimits {
   maxTrade: bigint;
   remaining: bigint;
   floorPriceX18: bigint;
+  hourlyBudget: bigint;
+  /** What the hourly budget allows right now. */
+  available: bigint;
 }
 
 export interface VaultState {
   paused: boolean;
+  /** When the agent key stops working. Null on a vault from before expiry existed. */
+  agentExpiry: bigint | null;
   whsk: TokenLimits;
   usdt: TokenLimits;
 }
@@ -127,7 +138,7 @@ export async function poolReserves(rpc: RpcClient, block: bigint): Promise<{ kin
 /** Reads everything for one decision in one batch, every call pinned to the same block hash. */
 export async function readMarket(
   rpc: RpcClient,
-  config: Pick<Config, "vault" | "twapWindowSec">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
   head: Head,
   quoteRequests: QuoteRequest[],
 ): Promise<MarketState> {
@@ -157,7 +168,7 @@ export interface Tick {
  */
 export async function readTick(
   rpc: RpcClient,
-  config: Pick<Config, "vault" | "twapWindowSec">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
   quoteRequests: QuoteRequest[],
   nonceOf?: Address,
 ): Promise<Tick | null> {
@@ -192,7 +203,7 @@ export async function readTick(
 }
 
 /** Every value a decision needs, in the fixed order buildMarket expects. */
-function marketReads(config: Pick<Config, "vault" | "twapWindowSec">, quoteRequests: QuoteRequest[]): MarketRead[] {
+function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">, quoteRequests: QuoteRequest[]): MarketRead[] {
   const pool = HSKSWAP.pool;
   const reads: MarketRead[] = [
     contractRead(pool, POOL_ABI, "slot0", []),
@@ -219,6 +230,7 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec">, quoteReque
   if (config.vault) {
     const vault = config.vault;
     reads.push(contractRead(vault, VAULT_ABI, "paused", []));
+    if (!config.legacyVault) reads.push(contractRead(vault, VAULT_ABI, "agentExpiry", []));
     for (const token of [HSKSWAP.whsk, HSKSWAP.usdt]) {
       reads.push(
         contractRead(token, ERC20_ABI, "balanceOf", [vault]),
@@ -226,13 +238,14 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec">, quoteReque
         contractRead(vault, VAULT_ABI, "remaining", [token]),
         contractRead(vault, VAULT_ABI, "floorPriceX18", [token]),
       );
+      if (!config.legacyVault) reads.push(contractRead(vault, VAULT_ABI, "hourlyBudget", [token]), contractRead(vault, VAULT_ABI, "budgetAvailable", [token]));
     }
   }
   return reads;
 }
 
 function buildMarket(
-  config: Pick<Config, "vault" | "twapWindowSec">,
+  config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault">,
   head: Head,
   quoteRequests: QuoteRequest[],
   values: unknown[],
@@ -261,16 +274,24 @@ function buildMarket(
   };
   if (config.vault) {
     const vaultStart = 4 + quoteRequests.length;
-    const limits = (start: number): TokenLimits => ({
-      balance: values[start] as bigint,
-      maxTrade: values[start + 1] as bigint,
-      remaining: values[start + 2] as bigint,
-      floorPriceX18: values[start + 3] as bigint,
-    });
+    const legacy = config.legacyVault === true;
+    const limits = (start: number): TokenLimits => {
+      const remaining = values[start + 2] as bigint;
+      return {
+        balance: values[start] as bigint,
+        maxTrade: values[start + 1] as bigint,
+        remaining,
+        floorPriceX18: values[start + 3] as bigint,
+        hourlyBudget: legacy ? remaining : (values[start + 4] as bigint),
+        available: legacy ? remaining : (values[start + 5] as bigint),
+      };
+    };
+    const first = vaultStart + (legacy ? 1 : 2);
     market.vault = {
       paused: values[vaultStart] as boolean,
-      whsk: limits(vaultStart + 1),
-      usdt: limits(vaultStart + 5),
+      agentExpiry: legacy ? null : BigInt(values[vaultStart + 1] as number),
+      whsk: limits(first),
+      usdt: limits(first + (legacy ? 4 : 6)),
     };
   }
   return market;

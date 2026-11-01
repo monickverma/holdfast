@@ -32,16 +32,16 @@ contract HoldfastVaultForkTest {
         if (!vm.envOr("FORK_TESTS", false)) return;
         vm.createSelectFork("hsk");
 
-        HoldfastVault vault = new HoldfastVault(OWNER, AGENT, ROUTER, WHSK, USDT, 3000);
+        HoldfastVault vault = new HoldfastVault(OWNER, AGENT, block.timestamp + 1 days, ROUTER, WHSK, USDT, 3000);
         vm.deal(address(this), 200e18);
         IWhsk(WHSK).deposit{value: 100e18}();
         IWhsk(WHSK).transfer(address(vault), 100e18);
 
         // Floors are deliberately loose here; the test proves routing and accounting, not pricing.
         vm.prank(OWNER);
-        vault.setLimits(WHSK, 100e18, 100e18, 0.01e6);
+        vault.setLimits(WHSK, 100e18, 100e18, 0.01e6, 100e18);
         vm.prank(OWNER);
-        vault.setLimits(USDT, 100e6, 100e6, 1e30);
+        vault.setLimits(USDT, 100e6, 100e6, 1e30, 100e6);
 
         vm.prank(AGENT);
         uint256 usdtOut = vault.execute(WHSK, 50e18, 0.5e6, block.timestamp + 60, "sell");

@@ -1,11 +1,14 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey } from "./breaker.js";
 import { HSKSWAP, type Config } from "./config.js";
-import { decide, plannedQuotes, type Decision, type Mark, type OrderRuntime } from "./decide.js";
+import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime } from "./decide.js";
 import { Executor, type SendMode } from "./executor.js";
 import { Ledger, type Intent } from "./ledger.js";
 import { isSell, type Policy } from "./policy.js";
 import { hasMulticall, poolReserves, readHead, readMarket, readTick, type Head, type MarketState } from "./reader.js";
+import { tradingResult } from "./position.js";
 import { RpcClient, sleep } from "./rpc.js";
 import { FlashblockStream, lastSwap, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState } from "./stream.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
@@ -45,6 +48,8 @@ export class Agent {
   polls = 0;
   missedBlocks = 0;
   errors = 0;
+  /** Polls dropped because an earlier one ran late. Sending them all at once would hammer a limiting endpoint. */
+  skippedTicks = 0;
   /** "hot" reads everything in one round trip; "pinned" is the three-round-trip path it replaced. */
   readMode: "hot" | "pinned" = "hot";
   /** Ticks where the atomic read's block did not match, so the pinned read ran instead. */
@@ -66,6 +71,13 @@ export class Agent {
   private hedgeRpcs: RpcClient[] = [];
   private sendLane: RpcClient | null = null;
   private keepWarmTimer: NodeJS.Timeout | undefined;
+  /** True from an edge trade until the gap it traded is seen to close. */
+  private edgeTaken: boolean;
+  /** Ledger entries from before the owner last reset the breaker. */
+  private breakerIgnored = 0;
+  /** A read that began before the last send cannot show that send, so frames must not build on it. */
+  private minWarmBlock = 0n;
+  private readonly stopsReported = new Set<string>();
   private readonly traces: JsonlLog;
   private readonly decisions: JsonlLog;
   private readonly confirmations: JsonlLog;
@@ -90,6 +102,20 @@ export class Agent {
       });
     }
     this.rebuildRuntime();
+    // After a restart nothing shows whether the last edge trade's gap closed, so assume it has not.
+    this.edgeTaken = edgeIntents(this.ledger.all()).length > 0;
+    const reset = this.breakerResetPath;
+    if (existsSync(reset)) this.breakerIgnored = (JSON.parse(readFileSync(reset, "utf8")) as { ignored: number }).ignored;
+  }
+
+  private get breakerResetPath(): string {
+    return join(this.options.config.dataDir, "breaker-reset.json");
+  }
+
+  /** The owner's decision to trade again after the breaker tripped. Survives a restart. */
+  resetBreaker(): void {
+    this.breakerIgnored = this.ledger.all().length;
+    writeFileSync(this.breakerResetPath, JSON.stringify({ ignored: this.breakerIgnored }));
   }
 
   get canTrade(): boolean {
@@ -100,20 +126,27 @@ export class Agent {
   async run(): Promise<void> {
     const chainId = Number(await this.rpc.call<string>("eth_chainId"));
     if (chainId !== this.options.config.chainId) throw new Error(`rpc is chain ${chainId}, expected ${this.options.config.chainId}`);
-    if (this.canTrade) await this.executor!.recover((await readHead(this.rpc)).number);
+    if (this.canTrade) {
+      await readHead(this.rpc)
+        .then((head) => this.executor!.recover(head.number))
+        .catch((error) => this.logError(error));
+    }
 
     const start = performance.now();
     const { pollMs } = this.options.config;
-    for (let tick = 0; !this.stopping; tick++) {
+    for (let tick = 0; !this.stopping; ) {
       const intended = start + tick * pollMs;
       const wait = intended - performance.now();
       if (wait > 0) await sleep(wait);
       try {
         await this.step(intended);
       } catch (error) {
-        this.errors++;
-        this.decisions.append({ wallTime: new Date().toISOString(), error: String(error) });
+        this.logError(error);
       }
+      // The first late poll keeps its intended time, so the stall shows as latency. The ones it overran are dropped.
+      const next = Math.max(tick + 1, Math.floor((performance.now() - start) / pollMs));
+      this.skippedTicks += next - tick - 1;
+      tick = next;
     }
   }
 
@@ -275,6 +308,7 @@ export class Agent {
   /** Keeps the base a frame reaction builds on. Only the test market needs a second read, for its reserves. */
   async refreshWarm(market: MarketState, pendingNonce?: number): Promise<void> {
     const reserves = this.options.config.poolKind === "constant-product" ? await poolReserves(this.rpc, market.head.number) : undefined;
+    if (market.head.number < this.minWarmBlock) return;
     if (!this.warm || market.head.number >= this.warm.market.head.number) this.warm = { market, pendingNonce, reserves };
   }
 
@@ -290,17 +324,21 @@ export class Agent {
     readMode: "hot" | "pinned" | "stream",
   ): Promise<DecisionRecord> {
     const { config } = this.options;
-    const decision = await trace.span("decide", () =>
-      decide({
-        market,
-        policy,
-        mark: this.options.mark(),
-        runtime: this.runtime,
-        nowMs: (this.options.now ?? Date.now)(),
-        maxStateAgeMs: config.maxStateAgeMs,
-        maxMarkAgeMs: config.maxMarkAgeMs,
-      }),
-    );
+    const input: DecideInput = {
+      market,
+      policy,
+      mark: this.options.mark(),
+      runtime: this.runtime,
+      nowMs: (this.options.now ?? Date.now)(),
+      maxStateAgeMs: config.maxStateAgeMs,
+      maxMarkAgeMs: config.maxMarkAgeMs,
+      unsealed: readMode === "stream",
+      edgeInventoryHsk: tradingResult(edgeIntents(this.ledger.all()), 0n).whskDelta,
+    };
+    if (this.edgeTaken && !input.unsealed && edgeHasClosed(input)) this.edgeTaken = false;
+    input.edgeTaken = this.edgeTaken;
+    const decision = this.applyBreaker(await trace.span("decide", () => decide(input)), market);
+    this.reportBlockedStop(decision);
 
     const record: DecisionRecord = {
       block: head.number,
@@ -312,7 +350,11 @@ export class Agent {
     };
 
     if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
-      record.intent = await this.executor!.submit(this.intentKey(decision, policy, head), decision, market, trace, pendingNonce);
+      if (decision.trigger === "edge") this.edgeTaken = true;
+      // Whatever happens next changes the vault's balances and limits, so the next frame must read them first.
+      this.warm = null;
+      this.minWarmBlock = head.number + 1n;
+      record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce);
       const synced = record.intent.status === "included" || record.intent.status === "reverted";
       if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
       else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
@@ -337,11 +379,26 @@ export class Agent {
     return record;
   }
 
+  /** The agent's own stops. The vault still checks every trade that gets past them. */
+  private applyBreaker(decision: Decision, market: MarketState): Decision {
+    if (decision.action !== "trade") return decision;
+    const limits = this.options.config.breaker ?? BREAKER_DEFAULTS;
+    const reason = breakerVerdict(decision, this.ledger.all().slice(this.breakerIgnored), market.head.number, market.spotPriceX18, limits);
+    return reason ? { action: "hold", code: "breaker", reason } : decision;
+  }
+
+  /** Once per order: this needs a person, and the log alone would not reach one. */
+  private reportBlockedStop(decision: Decision): void {
+    if (decision.action !== "hold" || decision.code !== "stop-blocked" || this.stopsReported.has(decision.reason)) return;
+    this.stopsReported.add(decision.reason);
+    console.error(`ALERT: ${decision.reason}`);
+  }
+
   /** Settles any intent awaiting the chain, then counts its fill against its order. */
   async settleInFlight(): Promise<void> {
     const pending = this.ledger.inFlight();
     if (!pending || !this.executor) return;
-    const settled = await this.executor.settle(pending);
+    const settled = await this.executor.settle(pending, this.lastHead ?? undefined);
     if (settled) {
       if (this.awaiting?.intent.key === settled.key) {
         this.confirmed(settled, this.awaiting.traceId, this.awaiting.intended, performance.now(), this.awaiting.sentAt);
@@ -370,8 +427,8 @@ export class Agent {
    * An order tranche gets a new attempt only after the previous one reached a terminal state with no fill, so one
    * piece of work can never be live on the chain twice.
    */
-  private intentKey(decision: Extract<Decision, { action: "trade" }>, policy: Policy, head: Head): string {
-    if (!decision.orderId) return `edge:${head.number}`;
+  private intentKey(decision: Extract<Decision, { action: "trade" }>, policy: Policy): string {
+    if (!decision.orderId) return `edge:${this.ledger.all().filter((i) => isEdgeKey(i.key)).length}`;
     const base = `order:${policy.version}:${decision.orderId}`;
     const attempts = this.ledger.all().filter((i) => i.key.startsWith(`${base}:`)).length;
     return `${base}:${attempts}`;

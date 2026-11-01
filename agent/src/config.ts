@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { Address, Hex } from "viem";
+import type { BreakerLimits } from "./breaker.js";
 
 export const CHAIN_ID = 177;
 export function networkProfile(env: Record<string, string | undefined> = process.env) {
@@ -18,7 +19,7 @@ export function testMarket() {
   for (const key of ["router", "quoter", "pool", "whsk", "usdt", "vault"]) {
     if (!/^0x[0-9a-fA-F]{40}$/.test(m[key])) throw new Error(`Invalid test market ${key}`);
   }
-  return m as { router: Address; quoter: Address; pool: Address; whsk: Address; usdt: Address; vault: Address; chainId: number };
+  return m as { router: Address; quoter: Address; pool: Address; whsk: Address; usdt: Address; vault: Address; chainId: number; generation?: number };
 }
 
 export const MAINNET_MARKET = {
@@ -60,6 +61,10 @@ export interface Config {
   maxStateAgeMs: number;
   /** Refuse a decision when the reference price is older than this. */
   maxMarkAgeMs: number;
+  /** True for a vault deployed before key expiry and the hourly budget, which has neither to read. */
+  legacyVault?: boolean;
+  /** The agent's own stops, inside the vault's. Defaults to BREAKER_DEFAULTS. */
+  breaker?: BreakerLimits;
 }
 
 type Env = Record<string, string | undefined>;
@@ -74,7 +79,7 @@ export function loadConfig(env: Env = process.env): Config {
     dataDir: env.DATA_DIR ?? (profile.network === "testnet" ? "data/testnet" : "data"),
     twapWindowSec: Number(env.TWAP_WINDOW_SEC ?? 300),
     maxStateAgeMs: Number(env.MAX_STATE_AGE_MS ?? 6_000),
-    maxMarkAgeMs: Number(env.MAX_MARK_AGE_MS ?? 30_000),
+    maxMarkAgeMs: Number(env.MAX_MARK_AGE_MS ?? 5_000),
     poolKind: profile.network === "testnet" ? "constant-product" : "v3",
     // A custom RPC is a fork or a local node, which has no stream.
     flashblocksUrl: env.FLASHBLOCKS_URL ?? (env.RPC_URL ? undefined : `wss://${profile.network}-flashblocks.hsk.xyz/ws`),
@@ -85,6 +90,8 @@ export function loadConfig(env: Env = process.env): Config {
     const market = testMarket();
     if (market.chainId !== config.chainId) throw new Error("Test market manifest chain does not match profile; deploy on the selected chain first");
     config.vault = market.vault;
+    // The vault on public testnet predates the expiry and budget. A redeployment writes generation 2.
+    config.legacyVault = (market.generation ?? 1) < 2;
   }
   if (env.VAULT_ADDRESS) config.vault = env.VAULT_ADDRESS as Address;
   if (env.AGENT_PRIVATE_KEY) config.agentKey = env.AGENT_PRIVATE_KEY as Hex;

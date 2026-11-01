@@ -19,7 +19,7 @@ export class MarkFeed {
   failures = 0;
   private timer: NodeJS.Timeout | undefined;
 
-  constructor(private readonly refreshMs = 5_000) {}
+  constructor(private readonly refreshMs = 2_000) {}
 
   start(): void {
     void this.refresh();

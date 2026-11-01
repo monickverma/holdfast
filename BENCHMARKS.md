@@ -16,8 +16,8 @@ Every number here names its lane (mainnet read only, fork, or testnet), its samp
 | Market read P95 | Same | 453.7 ms | 218.0 ms | −52.0% |
 | Market read P99 | Same | 513.6 ms | 244.9 ms | −52.3% |
 | Round-Trip Budget, read then send | Protocol, confirmed by counters | 4 HTTP requests | 2 | −50% |
-| Gas per swap, sell | Fork, real HSKSwap router, 20-round median | 157,470 | 130,807 | −16.9% |
-| Guard Overhead, gas above a plain router swap | Same | 51,760 | 25,097 | −51.5% |
+| Gas per swap, sell, old vault (current source is in [Hardening](#hardening)) | Fork, real HSKSwap router, 20-round median | 157,470 | 130,807 | −16.9% |
+| Guard Overhead, gas above a plain router swap, old vault | Same | 51,760 | 25,097 | −51.5% |
 
 The money saved per swap is small. At 500 gwei and an assumed $0.0874/HSK, a sell falls from about $0.00688 to $0.00572 of L2 gas, before any L1 data fee.
 
@@ -32,15 +32,11 @@ Brackets are 95% order-statistic intervals. The P95 intervals for Tick-to-Receip
 
 ## Safety held
 
-A faster or cheaper vault counts only if the limits still hold. These ran against the new vault.
+A faster or cheaper vault counts only if the limits still hold. The testnet rows and the 1,050 swaps ran on **the old vault**, built before key expiry and the hourly budget. See [Hardening](#hardening) for the current source.
 
 | Check | Lane | Result |
 |---|---|---|
-| Attack set | Fork | 100/100 contained, 100/100 benign completed, 0 cap violations, at most 59.99 HSK drained of a 60 HSK cap |
-| Contract tests | Local | Forge 34/34, not counting the separate fork test |
-| Agent unit tests | Local | 115/115 |
-| End-to-end, including crash recovery | Fork | 8/8 |
-| End-to-end | Local test market | 7/7 |
+| Attack set, old vault | Fork | 100/100 contained, 100/100 benign completed, 0 cap violations. The old report's "59.99 HSK drained of 60" counted tokens that left the vault. The USDT they bought came back, so it was never value lost |
 | Reverted benchmark swaps | Testnet | 0 of 440 |
 | Refusals on chain | Testnet | `BelowFloor`, `OverTradeCap`, agent withdrawal, and `OverLifetimeCap` |
 | Lifetime cap used | Testnet | 952 benchmark swaps spent 47.6 of 50 tWHSK. An order for 10 tWHSK was then refused with `OverLifetimeCap`. |
@@ -101,8 +97,8 @@ Reading state first takes about 130 ms or more, which would miss the window ever
 Safeguards:
 
 - **Local quotes.** On mainnet read-only checks, the local Uniswap V3 math matched the real HSKSwap Quoter exactly in 250 of 250 comparisons across 25 blocks, at sizes up to 10 WHSK and 1 USDT (Wilson lower bound 98.5%). A swap that could reach another initialized tick is refused locally and goes to the Quoter.
-- **On-chain limits.** No contract changed. The vault still checks every trade, whichever path produced it.
-- **Stop-losses.** Confirmation still counts sealed-block reads, so one unsealed frame cannot fire a stop.
+- **On-chain limits.** The vault checks every trade, whichever path produced it.
+- **Stop-losses.** This section used to say one unsealed frame cannot fire a stop. That was false when `stopConfirmBlocks` was 1: a false low frame fired a stop that would have filled. Stops now wait for a sealed block, which adds up to one block to a real stop.
 - **Fallback.** Polling keeps running if the stream drops. The stream is off unless `STREAM=true`.
 
 What this leaves open:
@@ -180,6 +176,45 @@ Flashblock frames arrived 199.6 ms apart at P50 and 208.7 ms at P90 (n=1,476). T
 
 **Hedged send.** The agent can send the same signed bytes to extra endpoints, set with `HEDGE_RPC_URLS`. It is off by default and covered by unit tests only. Testnet has no free second endpoint, and nothing has been sent on mainnet, so the send itself is unmeasured. Racing reads as a stand-in gains 0.9 ms at P50 and 3.3 ms at P90, so it stays off.
 
+## Hardening
+
+Measured on the current source, on a fork or locally. **None of this has run on public testnet or mainnet**, and the deployed testnet vault does not have these changes. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the reasoning and the corrected list of problems.
+
+| Fix | Lane, n | Before | After |
+|---|---|---|---|
+| Value a stolen key loses, selling into a pool pushed to just above the floor | Fork, one run per arm | 60 HSK sold, $2.23 lost of $5.26 (bound $2.26) | 20 HSK sold, $0.74 lost, budget at a third of the cap |
+| Tokens out in one block | Fork, attack set | About 59.99 HSK | 20 HSK, the hourly budget |
+| Time a stolen key works | Fork and local | No end | At most 30 days, and trade and pause both refused after |
+| Edge fills if a gap stays open, $15 size | Mainnet read replay, 992 samples, simulated, no outside fee | 53 fills, $795 held | 11 per gap, $165; with the inventory limit 1, $15 |
+| Same, $150 size | Same | 153 fills, $22,950 held | 8 per gap, $1,200; with the limit 1, $150 |
+| A dropped transaction | Local, fake node, 17 fault tests | Every later trade blocked for ever, stops included | Clears 30 s past its deadline |
+| False frame on a stop, confirm=1 | Local test | Fires, and would fill | Holds until a sealed block |
+| Limit order fill price | Local test | Up to 50 bps past its price | Never past its price |
+| Requests during a 10 s rate limit | Local simulation, one run per arm | 38 | 4 |
+
+**Worse than before:**
+
+- **Gas.** Above a plain router swap 25,097 → 28,375 (+3,278, +13%). Sell 130,807 → 133,103, on different fork blocks, so compare the overhead. Deployment 1,368,813 → 1,707,771 (+25%). Fork, median of 20 rounds.
+- **Recovery from a rate limit.** With no `Retry-After` header, first success after a 10 s limit went from 10.1 s to 16.9 s. The agent reads nothing during that time, so a stop cannot fire. With a header: 10.4 s. Local simulation, one run per arm.
+- **Fewer edge decisions.** The 5-second age limit refuses 31 of 992 samples (3.1%) where the old 30 seconds refused none. Mainnet read replay.
+- **Stops are slower by up to one block,** since they now wait for a sealed block.
+
+**Not shown:**
+
+- The price guards refused 0 of 992 samples, but the pool's spot price did not change in those samples. That shows they do not refuse a quiet market. It does not show they catch a manipulation.
+- The breaker has run only in unit tests.
+- The chat harness uses scripted replies we wrote. No model ran, because no API key is set.
+- A stop under the floor is still blocked. The agent only raises an alert.
+- Replays are simulated fills, and no profit is claimed.
+
+| Check | Lane | Result |
+|---|---|---|
+| Attack set | Fork | 120/120 contained, 120/120 benign completed, 0 cap violations. 95% Wilson upper bound on a forbidden accept 3.1% |
+| Contract tests | Local | Forge 52/52, including the fork test |
+| Agent unit tests | Local | 191/191 |
+| End-to-end, including crash recovery | Fork | 8/8 |
+| End-to-end | Local test market | 7/7 |
+
 ## How the metrics were chosen
 
 We used existing methods in this order, and an earlier step can veto a later one:
@@ -194,7 +229,7 @@ No controlled study shows that one prioritisation method beats another, and thes
 
 | Rank | Metric | Score | Our result |
 |---:|---|---:|---|
-| 1 | Maximum contained loss | 8.40 | 59.99 of 60 HSK, fork |
+| 1 | Maximum contained loss | 8.40 | Replaced: 59.99 of 60 HSK counted tokens out, not value lost. Now $2.23 of $5.26 lost at 60 HSK, $0.74 at 20 HSK, fork, one run each |
 | 2 | Audit trace completeness | 8.00 | Traces, ledger and receipts are recorded per trade; not scored as a percentage |
 | 3 | Correct task completion | 7.93 | 440/440 testnet swaps; 100/100 benign on fork |
 | 4 | Recovery completion | 7.93 | Crash recovery passes on fork; a single scenario, not a rate |
@@ -247,6 +282,8 @@ npm run bench:gas
 npm run bench:react -- --n 90 --run react --broadcast
 npm run check:quotes -- --rounds 25 --run quotes-mainnet
 npm run attack-set
+npm run replay:edge
+npm run bench:limit -- --run rate-limit
 npm run shadow -- --minutes 60 --run shadow-run
 npm run frame-drift -- --minutes 60 --backfill-blocks 0 --run drift-run
 npm run bench:cold -- --mode local --run cold-local
@@ -270,8 +307,9 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/testnet-swaps-phase-locked/report.json` | Earlier run; use decision to broadcast only |
 | `evidence/mainnet-reads/read-report.json` | Randomised-phase mainnet reads |
 | `evidence/sync-send-probe.json` | Sync send against polling, n=15 each, plain self-transfers |
-| `evidence/gas-compare.json` | Fork gas for the plain router and both vaults |
-| `evidence/attack-results.json` | Attack set on the new vault |
+| `evidence/gas-compare.json` | Fork gas for the plain router, the first vault and the current source |
+| `evidence/attack-results.json` | Attack set on the current source, on a fork |
+| `evidence/hardening/` | Edge replay, mark guard replay, rate limit run, policy harness, and the old vault's attack and gas results |
 | `evidence/testnet-deployment.json` | Deployed testnet addresses |
 | `evidence/market/` | The 7-day pool activity read and the scripts behind it |
 | `evidence/shadow/` | Shadow report and every sample |

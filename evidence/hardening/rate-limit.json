@@ -1,0 +1,38 @@
+{
+  "lane": "local simulation",
+  "note": "A local server returned 429 for 10 s of a 20 s run, polled every 650 ms. One run per arm. It shows the client's behaviour, not how the public RPC's limiter responds.",
+  "results": [
+    {
+      "name": "before",
+      "retryAfterHeader": false,
+      "requestsDuringLimit": 38,
+      "requestsAfterLimit": 20,
+      "firstSuccessMs": 10072.6647,
+      "skippedTicks": 0
+    },
+    {
+      "name": "after",
+      "retryAfterHeader": false,
+      "requestsDuringLimit": 4,
+      "requestsAfterLimit": 6,
+      "firstSuccessMs": 16902.423099999996,
+      "skippedTicks": 0
+    },
+    {
+      "name": "before",
+      "retryAfterHeader": true,
+      "requestsDuringLimit": 38,
+      "requestsAfterLimit": 20,
+      "firstSuccessMs": 10119.908499999998,
+      "skippedTicks": 0
+    },
+    {
+      "name": "after",
+      "retryAfterHeader": true,
+      "requestsDuringLimit": 4,
+      "requestsAfterLimit": 16,
+      "firstSuccessMs": 10415.588799999998,
+      "skippedTicks": 0
+    }
+  ]
+}

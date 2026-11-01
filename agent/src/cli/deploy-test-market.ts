@@ -4,6 +4,8 @@ import { createPublicClient, createWalletClient, defineChain, formatEther, http,
 import { privateKeyToAccount } from "viem/accounts";
 import { assertTestMarketChain, networkProfile, testMarketFile } from "../config.js";
 
+const AGENT_TTL_SEC = 29n * 86_400n;
+
 export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address, persist = true) {
   const transport = http(rpcUrl);
   const probe = createPublicClient({ transport });
@@ -39,7 +41,7 @@ export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address
   const pool = await deploy("TestPool", [whsk, usdt]);
   const router = await deploy("TestRouter", [pool]);
   const quoter = await deploy("TestQuoter", [pool]);
-  const vault = await deploy("HoldfastVault", [account.address, agent ?? account.address, router, whsk, usdt, 3000]);
+  const vault = await deploy("HoldfastVault", [account.address, agent ?? account.address, BigInt(Math.floor(Date.now() / 1000)) + AGENT_TTL_SEC, router, whsk, usdt, 3000]);
   for (const [token, amount] of [[whsk, 1_000_000n * 10n ** 18n], [usdt, 100_000n * 10n ** 6n]] as const) {
     await write("TestToken", token, "mint", [account.address, amount]);
     await write("TestToken", token, "approve", [pool, amount]);
@@ -47,9 +49,9 @@ export async function deployTestMarket(rpcUrl: string, key: Hex, agent?: Address
   await write("TestPool", pool, "seed", [1_000_000n * 10n ** 18n, 100_000n * 10n ** 6n]);
   await write("TestToken", whsk, "mint", [vault, 100n * 10n ** 18n]);
   await write("TestToken", usdt, "mint", [vault, 10n * 10n ** 6n]);
-  await write("HoldfastVault", vault, "setLimits", [whsk, 10n * 10n ** 18n, 50n * 10n ** 18n, 90_000n]);
-  await write("HoldfastVault", vault, "setLimits", [usdt, 1_000_000n, 5_000_000n, 9n * 10n ** 30n]);
-  const market = { chainId: id, whsk, usdt, pool, router, quoter, vault, gasUsed: gas.toString(), feeWei: fee.toString() };
+  await write("HoldfastVault", vault, "setLimits", [whsk, 10n * 10n ** 18n, 50n * 10n ** 18n, 90_000n, 50n * 10n ** 18n]);
+  await write("HoldfastVault", vault, "setLimits", [usdt, 1_000_000n, 5_000_000n, 9n * 10n ** 30n, 5_000_000n]);
+  const market = { generation: 2, chainId: id, whsk, usdt, pool, router, quoter, vault, gasUsed: gas.toString(), feeWei: fee.toString() };
   if (persist) { mkdirSync("data", { recursive: true }); writeFileSync(testMarketFile(), JSON.stringify(market, null, 2)); }
   console.log(`Deployment and setup: ${gas} gas, ${formatEther(fee)} HSK; at 1 gwei: ${formatEther(gas * 1_000_000_000n)} HSK`);
   return market;

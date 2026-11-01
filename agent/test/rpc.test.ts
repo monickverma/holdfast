@@ -93,10 +93,50 @@ test("throttling is counted and retried", async () => {
     if (++seen === 1) return reply(res, {}, 429);
     reply(res, body.map(echo));
   };
-  const rpc = new RpcClient(url, { retryBaseMs: 1 });
+  const rpc = new RpcClient(url, { retryBaseMs: 1, respectRateLimit: false });
   assert.deepEqual(await rpc.batch(calls), ["a", "b", "c"]);
   assert.equal(rpc.stats.rateLimited, 1);
   assert.equal(rpc.stats.retries, 1);
+  rpc.close();
+});
+
+test("a 429 stops reads for as long as it asks, and sends still go", async () => {
+  let seen = 0;
+  handler = (body, res) => {
+    seen++;
+    if (seen === 1) {
+      res.writeHead(429, { "retry-after": "1" });
+      return res.end("{}");
+    }
+    reply(res, Array.isArray(body) ? body.map(echo) : echo(body));
+  };
+  const rpc = new RpcClient(url, { retryBaseMs: 1 });
+  await assert.rejects(rpc.batch(calls), /rate limited/);
+  await assert.rejects(rpc.batch(calls), /rate limited/);
+  assert.equal(seen, 1, "the limiter saw one request");
+  assert.equal(await rpc.callOnce("eth_sendRawTransaction"), "eth_sendRawTransaction");
+  assert.equal(seen, 2);
+  rpc.close();
+});
+
+test("a 429 with no Retry-After backs off, doubling while it lasts, and recovers", async () => {
+  let limited = true;
+  let seen = 0;
+  handler = (body, res) => {
+    seen++;
+    if (limited) return reply(res, {}, 429);
+    reply(res, body.map(echo));
+  };
+  const rpc = new RpcClient(url, { retryBaseMs: 1, maxRetries: 0 });
+  await assert.rejects(rpc.batch(calls));
+  await new Promise((resolve) => setTimeout(resolve, 1_050));
+  await assert.rejects(rpc.batch(calls));
+  assert.equal(seen, 2);
+  await assert.rejects(rpc.batch(calls), /rate limited/);
+  assert.equal(seen, 2, "the second limit doubled the pause to 2 s");
+  limited = false;
+  await new Promise((resolve) => setTimeout(resolve, 2_050));
+  assert.deepEqual(await rpc.batch(calls), ["a", "b", "c"]);
   rpc.close();
 });
 

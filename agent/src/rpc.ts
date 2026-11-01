@@ -33,7 +33,16 @@ export interface RpcOptions {
   timeoutMs?: number;
   maxRetries?: number;
   retryBaseMs?: number;
+  /** Off only to measure what the limiter sees without it. */
+  respectRateLimit?: boolean;
 }
+
+/** How long to stay quiet after the first limit with no Retry-After, doubling while limits keep coming. */
+const COOL_BASE_MS = 1_000;
+/** Our own guess stays short, because a stop-loss cannot see the market during a pause. */
+const COOL_MAX_MS = 16_000;
+/** A server's stated wait is honoured further, up to this. */
+const RETRY_AFTER_MAX_MS = 60_000;
 
 /** JSON-RPC over one keep-alive connection, with batches checked by response ID. */
 export class RpcClient {
@@ -50,6 +59,9 @@ export class RpcClient {
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
+  private readonly respectRateLimit: boolean;
+  private coolUntil = 0;
+  private coolStep = COOL_BASE_MS;
   private nextId = 1;
 
   constructor(url: string, options: RpcOptions = {}) {
@@ -59,6 +71,7 @@ export class RpcClient {
     this.timeoutMs = options.timeoutMs ?? 4_000;
     this.maxRetries = options.maxRetries ?? 2;
     this.retryBaseMs = options.retryBaseMs ?? 250;
+    this.respectRateLimit = options.respectRateLimit ?? true;
   }
 
   async call<T = unknown>(method: string, params: unknown[] = []): Promise<T> {
@@ -75,6 +88,8 @@ export class RpcClient {
   /** All calls succeed and come back in request order, or the whole batch throws. */
   async batch(calls: RpcCall[]): Promise<unknown[]> {
     for (let attempt = 0; ; attempt++) {
+      // A limited endpoint gets no reads until it has had its pause. A send is not a read, so sends still go.
+      if (this.coolUntil > Date.now()) throw new RpcError(`rate limited for another ${this.coolUntil - Date.now()} ms`, true, 429);
       try {
         return await this.attempt(calls);
       } catch (error) {
@@ -88,6 +103,16 @@ export class RpcClient {
 
   close(): void {
     this.agent.destroy();
+  }
+
+  /** RFC 6585 lets a 429 say how long to wait. Without that, back off exponentially. */
+  private noteRateLimit(retryAfter: string | undefined): void {
+    this.stats.rateLimited++;
+    if (!this.respectRateLimit) return;
+    const seconds = Number(retryAfter);
+    const pause = retryAfter !== undefined && Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : this.coolStep;
+    this.coolUntil = Date.now() + Math.min(pause, RETRY_AFTER_MAX_MS);
+    this.coolStep = Math.min(this.coolStep * 2, COOL_MAX_MS);
   }
 
   private async attempt(calls: RpcCall[], timeoutMs: number = this.timeoutMs): Promise<unknown[]> {
@@ -137,11 +162,12 @@ export class RpcClient {
           res.on("end", () => {
             const status = res.statusCode ?? 0;
             if (status === 429 || status === 403) {
-              this.stats.rateLimited++;
+              this.noteRateLimit(res.headers["retry-after"] as string | undefined);
               return reject(new RpcError(`http ${status}`, true));
             }
             if (status >= 500) return reject(new RpcError(`http ${status}`, true));
             if (status !== 200) return reject(new RpcError(`http ${status}`, false));
+            this.coolStep = COOL_BASE_MS;
             try {
               resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
             } catch {

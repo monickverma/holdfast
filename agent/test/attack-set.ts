@@ -16,6 +16,8 @@ const RPC_URL = `http://127.0.0.1:${PORT}`;
 const HSK = 10n ** 18n;
 const MAX_TRADE = 20n * HSK;
 const LIFETIME = 60n * HSK;
+const HOURLY = 20n * HSK;
+const KEY_TTL = 86_400n;
 const FLOOR = 50_000n; // 0.05 USDT per HSK, well under the market, so benign trades pass
 const FUNDING = 500n * HSK;
 const GAS = 700_000n;
@@ -92,11 +94,11 @@ try {
   };
 
   const artifact = JSON.parse(readFileSync("out/HoldfastVault.sol/HoldfastVault.json", "utf8"));
-  const deployed = await wait(await ownerWallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: [owner.address, agentAccount.address, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] }));
+  const deployed = await wait(await ownerWallet.deployContract({ abi: artifact.abi, bytecode: artifact.bytecode.object, args: [owner.address, agentAccount.address, (await client.getBlock()).timestamp + KEY_TTL, HSKSWAP.router, HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee] }));
   const vault = deployed.contractAddress as Address;
   await wait(await ownerWallet.writeContract({ address: HSKSWAP.whsk, abi: ERC20, functionName: "deposit", value: FUNDING }));
   await wait(await ownerWallet.writeContract({ address: HSKSWAP.whsk, abi: ERC20, functionName: "transfer", args: [vault, FUNDING] }));
-  await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, MAX_TRADE, LIFETIME, FLOOR] }));
+  await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, MAX_TRADE, LIFETIME, FLOOR, HOURLY] }));
   const snapshot = async () => probe.call<string>("evm_snapshot");
   const revert = async (id: string) => probe.call("evm_revert", [id]);
 
@@ -120,6 +122,11 @@ try {
   };
   const amountFor = (rand: () => number) => HSK + (BigInt(Math.floor(rand() * 1e9)) * (MAX_TRADE - HSK)) / 1_000_000_000n;
 
+  const passTime = async (seconds: bigint) => {
+    await probe.call("evm_increaseTime", [`0x${seconds.toString(16)}`]);
+    await probe.call("evm_mine");
+  };
+
   type Attack = (rand: () => number, seed: number) => Promise<{ variant: string; reverted: boolean }>;
   const families: Record<string, Attack> = {
     "recipient-substitution": async (rand, seed) => {
@@ -135,7 +142,7 @@ try {
           return { variant: "use the router with the vault's allowance", reverted: (await asAgent(HSKSWAP.router, ROUTER as Abi, "exactInputSingle", [params])).status === "reverted" };
         }
         default:
-          return { variant: "replace the agent with an attacker", reverted: (await asAgent(vault, VAULT_ABI as Abi, "setAgent", ["0x000000000000000000000000000000000000bad1"])).status === "reverted" };
+          return { variant: "replace the agent with an attacker", reverted: (await asAgent(vault, VAULT_ABI as Abi, "setAgent", ["0x000000000000000000000000000000000000bad1", (await timestamp()) + 60n])).status === "reverted" };
       }
     },
     "amount-inflation": async (rand, seed) => {
@@ -166,13 +173,42 @@ try {
         case 1:
           return { variant: "deadline too far ahead", reverted: (await execute(amount, minOutFor(amount), now + 100_000n, id(`far-${seed}`))).status === "reverted" };
         case 2:
-          return { variant: "agent raises its own caps", reverted: (await asAgent(vault, VAULT_ABI as Abi, "setLimits", [HSKSWAP.whsk, 2n ** 255n, 2n ** 255n, 0n])).status === "reverted" };
+          return { variant: "agent raises its own caps", reverted: (await asAgent(vault, VAULT_ABI as Abi, "setLimits", [HSKSWAP.whsk, 2n ** 71n, 2n ** 71n, 0n, 2n ** 71n])).status === "reverted" };
         default: {
           await asAgent(vault, VAULT_ABI as Abi, "pause", []);
           return { variant: "agent unpauses after a pause", reverted: (await asAgent(vault, VAULT_ABI as Abi, "unpause", [])).status === "reverted" };
         }
       }
     },
+  };
+
+  // A stolen key, given time. These only became possible to refuse with key expiry and the hourly budget.
+  families["stolen-key-over-time"] = async (rand, seed) => {
+    const amount = amountFor(rand);
+    switch (seed % 5) {
+      case 0:
+        await passTime(KEY_TTL);
+        return { variant: "trade after the key expired", reverted: (await execute(amount, minOutFor(amount), (await timestamp()) + 60n, id(`late-${seed}`))).status === "reverted" };
+      case 1:
+        await passTime(KEY_TTL);
+        return { variant: "pause after the key expired", reverted: (await asAgent(vault, VAULT_ABI as Abi, "pause", [])).status === "reverted" };
+      case 2: {
+        await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setAgent", args: [owner.address, (await timestamp()) + 60n], ...FEES }));
+        return { variant: "trade after the owner replaced the key", reverted: (await execute(amount, minOutFor(amount), (await timestamp()) + 60n, id(`old-key-${seed}`))).status === "reverted" };
+      }
+      case 3: {
+        const first = await execute(HOURLY, minOutFor(HOURLY), (await timestamp()) + 60n, id(`burst-${seed}`));
+        assert.equal(first.status, "success");
+        return { variant: "second trade right after spending the whole budget", reverted: (await execute(HSK, minOutFor(HSK), (await timestamp()) + 60n, id(`burst2-${seed}`))).status === "reverted" };
+      }
+      default: {
+        const first = await execute(HOURLY, minOutFor(HOURLY), (await timestamp()) + 60n, id(`wait-${seed}`));
+        assert.equal(first.status, "success");
+        await passTime(900n);
+        const over = HOURLY / 4n + 2n * HSK;
+        return { variant: "after 15 minutes, more than 15 minutes of budget", reverted: (await execute(over, minOutFor(over), (await timestamp()) + 60n, id(`wait2-${seed}`))).status === "reverted" };
+      }
+    }
   };
 
   for (const [family, attack] of Object.entries(families)) {
@@ -211,9 +247,9 @@ try {
     await probe.call("evm_mine");
     await Promise.all(hashes.map(wait));
     const spent = before - (await vaultBalance());
-    assert.ok(spent <= LIFETIME, `spent ${spent}`);
+    assert.ok(spent <= HOURLY, `spent ${spent}`);
     assert.equal(await remaining(), LIFETIME - spent);
-    results.push({ family, variant: "32 trades in one block, over the cap", seed, kind: "attack", drained: spent.toString(), capViolation: spent > LIFETIME, success: spent <= LIFETIME });
+    results.push({ family, variant: "32 trades in one block, over the cap", seed, kind: "attack", drained: spent.toString(), capViolation: spent > HOURLY, success: spent <= HOURLY });
     await revert(saved);
 
     const benignSaved = await snapshot();
@@ -221,7 +257,7 @@ try {
     let benignNonce = await client.getTransactionCount({ address: agentAccount.address });
     const benign: Hex[] = [];
     for (let i = 0; i < 3; i++) {
-      const amount = 10n * HSK;
+      const amount = 5n * HSK;
       benign.push(await agentWallet.sendTransaction({ to: vault, data: encodeFunctionData({ abi: VAULT_ABI as Abi, functionName: "execute", args: [HSKSWAP.whsk, amount, minOutFor(amount), deadline, id(`ok-${seed}-${i}`)] }), gas: GAS, ...FEES, nonce: benignNonce++ }));
     }
     await probe.call("evm_mine");
@@ -232,6 +268,42 @@ try {
   await probe.call("evm_setAutomine", [true]);
   console.log(`${family}: done`);
 
+  // What the key can actually lose. "Drained" above is tokens that left the vault, and the USDT they bought came back.
+  // Here the attacker holds the agent key and capital: push the pool down to just above the floor, make the vault sell
+  // into it, and measure the sale against the market price before the push. The budget is the only difference between arms.
+  const sandwich = async (budget: bigint) => {
+    const saved = await snapshot();
+    await wait(await ownerWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setLimits", args: [HSKSWAP.whsk, MAX_TRADE, LIFETIME, FLOOR, budget], ...FEES }));
+    const pool = [{ type: "function", name: "slot0", stateMutability: "view", inputs: [], outputs: [{ type: "uint160" }, { type: "int24" }, { type: "uint16" }, { type: "uint16" }, { type: "uint16" }, { type: "uint8" }, { type: "bool" }] }] as const;
+    const [sqrtBefore] = await client.readContract({ address: HSKSWAP.pool, abi: pool, functionName: "slot0" });
+    const spotBefore = (sqrtBefore * sqrtBefore * HSK) >> 192n;
+    // One percent above the floor, so a vault sale of this size still clears it.
+    const target = (FLOOR * 101n) / 100n;
+    const limit = BigInt(Math.floor(Math.sqrt(Number(target) / 1e18) * 2 ** 96));
+    const capital = 3_000_000n * HSK;
+    await probe.call("anvil_setBalance", [agentAccount.address, `0x${(capital + parseEther("5000")).toString(16)}`]);
+    await wait(await agentWallet.writeContract({ address: HSKSWAP.whsk, abi: ERC20, functionName: "deposit", value: capital, ...FEES }));
+    await wait(await agentWallet.writeContract({ address: HSKSWAP.whsk, abi: ERC20, functionName: "approve", args: [HSKSWAP.router, capital], ...FEES }));
+    const params = { tokenIn: HSKSWAP.whsk, tokenOut: HSKSWAP.usdt, fee: HSKSWAP.fee, recipient: agentAccount.address, amountIn: capital, amountOutMinimum: 0n, sqrtPriceLimitX96: limit };
+    assert.equal((await asAgent(HSKSWAP.router, ROUTER as Abi, "exactInputSingle", [params])).status, "success");
+
+    const usdtBefore = await client.readContract({ address: HSKSWAP.usdt, abi: ERC20, functionName: "balanceOf", args: [vault] });
+    const whskBefore = await vaultBalance();
+    const deadline = (await timestamp()) + 60n;
+    let fills = 0;
+    for (let i = 0; i < 4; i++) {
+      const receipt = await execute(MAX_TRADE, minOutFor(MAX_TRADE), deadline, id(`sandwich-${budget}-${i}`));
+      if (receipt.status === "success") fills++;
+    }
+    const sold = whskBefore - (await vaultBalance());
+    const received = (await client.readContract({ address: HSKSWAP.usdt, abi: ERC20, functionName: "balanceOf", args: [vault] })) - usdtBefore;
+    const fair = (sold * spotBefore) / HSK;
+    await revert(saved);
+    return { budgetHsk: Number(budget) / 1e18, fills, soldHsk: Number(sold) / 1e18, marketValueUsdt: Number(fair) / 1e6, receivedUsdt: Number(received) / 1e6, lostUsdt: Number(fair - received) / 1e6, boundUsdt: Number((sold * (spotBefore - FLOOR)) / HSK) / 1e6 };
+  };
+  const sandwichArms = { budgetEqualsLifetimeCap: await sandwich(LIFETIME), budgetSetToOneThird: await sandwich(HOURLY) };
+  console.log(`sandwich: ${JSON.stringify(sandwichArms)}`);
+
   const attacks = results.filter((r) => r.kind === "attack");
   const benign = results.filter((r) => r.kind === "benign");
   const contained = attacks.filter((r) => r.success).length;
@@ -240,13 +312,17 @@ try {
   const maxDrained = attacks.reduce((m, r) => (BigInt(r.drained) > m ? BigInt(r.drained) : m), 0n);
   const summary = {
     lane: "fork",
-    note: "Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
+    note: "New vault source, with key expiry and the hourly budget. Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
     wallTime: new Date().toISOString(),
     attacks: { n: attacks.length, contained, forbiddenAccepts: attacks.length - contained, wilson95ForForbidden: wilson(attacks.length - contained, attacks.length) },
     benign: { n: benign.length, completed, wilson95: wilson(completed, benign.length) },
     capViolations: results.filter((r) => r.capViolation).length,
     maxDrainedHsk: Number(maxDrained) / 1e18,
     lifetimeCapHsk: Number(LIFETIME) / 1e18,
+    hourlyBudgetHsk: Number(HOURLY) / 1e18,
+    keyTtlSeconds: Number(KEY_TTL),
+    drainedMeans: "Tokens that left the vault in one case, not value lost. The swap proceeds stay in the vault as USDT. See sandwich for value lost.",
+    sandwich: sandwichArms,
     byFamily: Object.fromEntries([...new Set(results.map((r) => r.family))].map((f) => [f, { attacks: attacks.filter((r) => r.family === f).length, contained: attacks.filter((r) => r.family === f && r.success).length, benignCompleted: benign.filter((r) => r.family === f && r.success).length }])),
   };
   mkdirSync("data", { recursive: true });

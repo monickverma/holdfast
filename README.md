@@ -74,18 +74,19 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Mainnet, read only, real HSKSwap Quoter | Local quote math matched the Quoter in 250 of 250 comparisons |
 | Testnet, 72 + 72 alternating swaps | Tick-to-receipt P50 795.0 → 509.3 ms (−35.9%), P95 1,025.9 → 728.7 ms (−29.0%) |
 | Mainnet, read only, real HSKSwap pool, 400 + 400 | Market read P50 364.2 → 203.9 ms, P95 453.7 → 218.0 ms, P99 513.6 → 244.9 ms; 3 HTTP requests → 1; 0 mismatches in 80 compared blocks |
-| Fork, real HSKSwap router | Gas per sell 157,470 → 130,807 (−16.9%); gas above a plain router swap 51,760 → 25,097 (−51.5%) |
-| Fork | Attack set: 100/100 contained and 100/100 benign completed; 0 cap violations; maximum drained about 59.99 HSK against a 60 HSK cap |
-| Fork | E2E 8/8, including crash recovery |
-| Local | Forge 34/34, plus a separate fork test; agent 115/115; test-market E2E 7/7 |
+| Fork, real HSKSwap router, current source, median of 20 rounds | Gas above a plain router swap: first vault 51,760, old vault 25,097, current 28,375. The current figure is worse than the old vault, the cost of key expiry and the hourly budget |
+| Fork, current source | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
+| Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
+| Fork, current source | E2E 8/8, including crash recovery |
+| Local, current source | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
 | Mainnet, read only, 7 days of the real pool | 462 swaps, $8,324 volume; one wallet made 94% of them; no latency race exists there today |
 | Mainnet, read only, 43 minutes, simulated fills | With an assumed 20 bps outside fee: 0 opportunities. Without it: 13, all within 7 minutes, $0.42 acting at once at $150 |
 | Mainnet, read only | Frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished; real Swap logs decoded correctly in 284 of 284 blocks |
-| Testnet, own test market | 1,050 benchmark swaps on the current vault, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
+| Testnet, own test market, **old vault** | 1,050 benchmark swaps, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
 
 Set `STREAM=true` to make the agent react to flashblocks as well as poll. It is off by default. The reaction has run on testnet only, and no mainnet transaction has been sent.
 
-[BENCHMARKS.md](BENCHMARKS.md) has the method, the metric ranking, the measurement flaws we found and what these numbers do not show. Source files are in `evidence/`.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the threat model, layers, invariants and failure modes, and corrects our own earlier claims. [BENCHMARKS.md](BENCHMARKS.md) has the method, the metric ranking, the measurement flaws we found and what these numbers do not show. Source files are in `evidence/`.
 
 Attack details are in `evidence/attack-results.json`. Reentrancy is covered only in the Foundry suite with a mock.
 
@@ -97,15 +98,15 @@ Mainnet deployment transaction: **not yet run**.
 
 Mainnet swap transaction: **not yet run**.
 
-Testnet (chain 133) Holdfast vault: [`0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89`](https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89).
+Testnet (chain 133) Holdfast vault: [`0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89`](https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89). It is the old vault and does not match the current source: it has no key expiry or hourly budget. The agent reads it in a legacy mode.
 
 ## Known limits
 
-The contract has not been audited. Per-trade and lifetime limits stop at 72 bits, about 4,722 tokens with 18 decimals; larger values are refused. A compromised agent can waste the remaining allowed spend. Gas exposure is separate from token caps. Fork results do not establish mainnet execution or profit.
+The contract has not been audited. Limits stop at 72 bits, about 4,722 tokens with 18 decimals; larger values are refused. A stolen agent key can sell at the floor inside its limits until it expires, up to the hourly budget. Under the floor, stop-losses are blocked too, and the agent can only raise an alert. Nothing protects a position while the agent is offline, other than the owner withdrawing. Gas exposure is separate from token caps. Fork results do not establish mainnet execution or profit.
 
 Benchmark swaps are self-trades in a thin pool. They are not volume or traction. No sustained profitability is claimed. Sparse samples cannot support tail claims. Order-statistic intervals assume independent observations; RPC delays may be correlated.
 
-The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It is a local evidence tool, not an authenticated public service. Refresh to reload saved evidence. Live model and vault integration checks are not yet run.
+The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It is a local evidence tool, not an authenticated public service. Refresh to reload saved evidence. No live model check has run: the chat layer is tested with scripted replies only.
 
 ## HSK testnet: our own test market
 
@@ -138,7 +139,7 @@ npm run deploy:testmarket -- --broadcast
 
 The deploy command refuses chain 177 and unknown chains, prints actual receipt gas and cost after broadcast, and preflights a 15-million-gas budget against 0.05 HSK at the current gas price. Without AGENT_PRIVATE_KEY, the owner is also the agent. `setup` under NETWORK=testnet requests **0.05 HSK per wallet**, reads the selected network, and checks its chain ID; setup retains its existing wallet-file workflow. Admin wrapping is refused on testnet: use minted tokens.
 
-Local verification completed: 99 agent tests, 34 active Solidity tests (31 vault + 3 market), and 7 end-to-end scenarios including market sell, buy, confirmed stop-loss, over-cap and below-floor refusals. These are local checks; the public results follow.
+Local verification at the time of that deployment: 99 agent tests, 34 Solidity tests and 7 end-to-end scenarios. Current counts are in [Evidence](#evidence). The public results that follow are from the old vault.
 
 ### Public testnet results (2026-11-01, chain 133)
 
