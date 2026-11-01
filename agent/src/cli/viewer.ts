@@ -80,11 +80,13 @@ export function readEvidence(dataDir = join(root, "data")) {
         const known = sell || token === market.usdt.toLowerCase();
         const amount = (v: unknown, decimals: number) => typeof v === "string" && /^\d+$/.test(v) ? formatUnits(BigInt(v), decimals) : "not yet run";
         const [base, quote] = lane === "testnet" ? ["tWHSK", "tUSDT"] : ["HSK", "USDT"];
-        trades.push({ lane, time: typeof row.time === "string" ? row.time : "not recorded", side: known ? `${sell ? "sell" : "buy"} ${base}` : "unknown token",
+        trades.push({
+          lane, time: typeof row.time === "string" ? row.time : "not recorded", side: known ? `${sell ? "sell" : "buy"} ${base}` : "unknown token",
           input: known ? `${amount(row.amountIn, sell ? 18 : 6)} ${sell ? base : quote}` : "unknown",
           output: row.status === "reverted" ? "none" : known ? `${amount(row.amountOut, sell ? 6 : 18)} ${sell ? quote : base}` : "unknown",
           gas: amount(row.gasUsed, 0), status: String(row.status ?? "unknown"), reason: typeof row.revertReason === "string" ? row.revertReason : null,
-          link: lane in explorers && /^0x[\da-f]{64}$/i.test(row.txHash ?? "") ? `${explorers[lane as keyof typeof explorers]}/tx/${row.txHash}` : null });
+          link: lane in explorers && /^0x[\da-f]{64}$/i.test(row.txHash ?? "") ? `${explorers[lane as keyof typeof explorers]}/tx/${row.txHash}` : null
+        });
         if (/^\d+$/.test(row.feeWei ?? "")) feeWei += BigInt(row.feeWei);
         if (["included", "reverted"].includes(row.status) && /^\d+$/.test(row.blockNumber ?? "") && /^\d+$/.test(row.broadcastBlock ?? "")) {
           const blocks = Number(BigInt(row.blockNumber) - BigInt(row.broadcastBlock));
@@ -92,18 +94,26 @@ export function readEvidence(dataDir = join(root, "data")) {
         }
       }
     }
-    return { lane, latency: { decisionToBroadcastMs: quantiles(sent.map((t) => t.attrs.decisionToBroadcastMs)),
-      decisionToReceiptMs: quantiles(traces.flatMap((t) => (finite(t.attrs?.decisionToReceiptMs) ? [t.attrs.decisionToReceiptMs] : []))),
-      ...Object.fromEntries(stages.map((stage) => [`${stage} service ms`, quantiles(sent.flatMap((t) => (Array.isArray(t.spans) ? t.spans : []).filter((s: Row) => s.stage === stage && s.ok && finite(s.endMs) && finite(s.startMs)).map((s: Row) => s.endMs - s.startMs)))])),
-      inclusionBlocks: quantiles(inclusion) }, trades,
-      totals: { fills: trades.filter((t) => t.status === "included").length, reverts: trades.filter((t) => t.status === "reverted").length,
-        networkFeeHsk: formatUnits(feeWei, 18), modelCallsInExecutionPath: traces.reduce((sum, t) => sum + (finite(t.attrs?.modelCalls) ? t.attrs.modelCalls : 0), 0) } };
+    return {
+      lane, latency: {
+        decisionToBroadcastMs: quantiles(sent.map((t) => t.attrs.decisionToBroadcastMs)),
+        decisionToReceiptMs: quantiles(traces.flatMap((t) => (finite(t.attrs?.decisionToReceiptMs) ? [t.attrs.decisionToReceiptMs] : []))),
+        ...Object.fromEntries(stages.map((stage) => [`${stage} service ms`, quantiles(sent.flatMap((t) => (Array.isArray(t.spans) ? t.spans : []).filter((s: Row) => s.stage === stage && s.ok && finite(s.endMs) && finite(s.startMs)).map((s: Row) => s.endMs - s.startMs)))])),
+        inclusionBlocks: quantiles(inclusion)
+      }, trades,
+      totals: {
+        fills: trades.filter((t) => t.status === "included").length, reverts: trades.filter((t) => t.status === "reverted").length,
+        networkFeeHsk: formatUnits(feeWei, 18), modelCallsInExecutionPath: traces.reduce((sum, t) => sum + (finite(t.attrs?.modelCalls) ? t.attrs.modelCalls : 0), 0)
+      }
+    };
   });
   // Explicit field selection keeps raw signed transactions and arbitrary metadata off the wire.
   const summary = (attack as Row | null)?.summary;
-  const attacks = summary ? { lane: "fork", attacks: summary.attacks?.n, contained: summary.attacks?.contained,
+  const attacks = summary ? {
+    lane: "fork", attacks: summary.attacks?.n, contained: summary.attacks?.contained,
     benign: summary.benign?.n, completed: summary.benign?.completed, capViolations: summary.capViolations,
-    maxDrainedHsk: summary.maxDrainedHsk, lifetimeCapHsk: summary.lifetimeCapHsk } : null;
+    maxDrainedHsk: summary.maxDrainedHsk, lifetimeCapHsk: summary.lifetimeCapHsk
+  } : null;
   return { lanes: result, attacks, incomplete, empty: !groups.some((g) => g.traces.length || g.ledger.length) && !attacks };
 }
 
@@ -135,8 +145,10 @@ export function createViewer(options: { dataDir?: string; assistant?: Pick<Assis
   const address = options.vaultAddress ?? process.env.VAULT_ADDRESS ?? (networkProfile().network === "testnet" ? testMarket().vault : undefined);
   return createServer(async (req, res) => {
     const send = (status: number, body: unknown, type = "application/json") => {
-      res.writeHead(status, { "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'" });
+      res.writeHead(status, {
+        "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+      });
       let text = type === "application/json" ? JSON.stringify(body) : String(body);
       // The API key is never returned, including when echoed by a model or evidence field. The vault address is public.
       const secret = process.env.ANTHROPIC_API_KEY;
@@ -146,14 +158,32 @@ export function createViewer(options: { dataDir?: string; assistant?: Pick<Assis
     try {
       const path = decodeURIComponent(req.url ?? "/");
       if (path.includes("..") || path.includes("\\") || path.includes("\0") || path.includes("%")) return send(400, { error: "Path refused." });
-      if (req.headers.host !== `127.0.0.1:${(res.socket?.address() as { port: number }).port}`) return send(403, { error: "Host refused." });
+      const localHost = `127.0.0.1:${(res.socket?.address() as { port: number }).port}`;
+      const renderHost = process.env.RENDER_EXTERNAL_HOSTNAME;
+
+      if (
+        req.headers.host !== localHost &&
+        (!renderHost || req.headers.host !== renderHost)
+      ) {
+        return send(403, { error: "Host refused." });
+      }
       if (req.method === "GET" && ["/", "/app.js", "/style.css"].includes(path)) {
         const name = path === "/" ? "index.html" : path.slice(1);
         return send(200, readFileSync(join(root, "web", name), "utf8"), path === "/" ? "text/html" : path.endsWith(".js") ? "text/javascript" : "text/css");
       }
       if (req.method === "GET" && path === "/api/evidence") return send(200, { ...readEvidence(dataDir), vault: await vaultLimits(address), chat: assistant ? "Questions only. Answers are model output." : "ANTHROPIC_API_KEY is missing. Chat is unavailable." });
       if (req.method === "POST" && path === "/api/chat") {
-        if (req.headers.origin !== `http://${req.headers.host}` || !req.headers["content-type"]?.startsWith("application/json")) return send(403, { error: "Origin refused." });
+        const expectedOrigin =
+          req.headers.host === process.env.RENDER_EXTERNAL_HOSTNAME
+            ? `https://${req.headers.host}`
+            : `http://${req.headers.host}`;
+
+        if (
+          req.headers.origin !== expectedOrigin ||
+          !req.headers["content-type"]?.startsWith("application/json")
+        ) {
+          return send(403, { error: "Origin refused." });
+        }
         if (!assistant) return send(503, { error: "ANTHROPIC_API_KEY is missing. Chat is unavailable." });
         let body = "";
         for await (const chunk of req) { body += chunk; if (body.length > 8_000) return send(413, { error: "Question too long." }); }
@@ -176,5 +206,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   const port = Number(process.env.PORT ?? 4177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid viewer port.");
-  createViewer({ dataDir: process.env.DATA_DIR }).listen(port, "127.0.0.1", () => console.log("Holdfast viewer is listening on the loopback interface."));
+  const host = process.env.HOST ?? "127.0.0.1";
+
+  createViewer({ dataDir: process.env.DATA_DIR })
+    .listen(port, host, () => {
+      console.log(`Holdfast viewer listening on ${host}:${port}`);
+    });
 }
