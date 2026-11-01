@@ -50,6 +50,10 @@ export interface Config {
   pollMs: number;
   dataDir: string;
   twapWindowSec: number;
+  /** Where to watch flashblocks. Absent means the agent only polls. */
+  flashblocksUrl?: string;
+  /** How a frame's logs turn into pool state: real Uniswap V3, or the test market's constant product. */
+  poolKind: "v3" | "constant-product";
   /** Refuse a decision when the state it used is older than this. */
   maxStateAgeMs: number;
   /** Refuse a decision when the reference price is older than this. */
@@ -69,6 +73,9 @@ export function loadConfig(env: Env = process.env): Config {
     twapWindowSec: Number(env.TWAP_WINDOW_SEC ?? 300),
     maxStateAgeMs: Number(env.MAX_STATE_AGE_MS ?? 6_000),
     maxMarkAgeMs: Number(env.MAX_MARK_AGE_MS ?? 30_000),
+    poolKind: profile.network === "testnet" ? "constant-product" : "v3",
+    // A custom RPC is a fork or a local node, which has no stream.
+    flashblocksUrl: env.FLASHBLOCKS_URL ?? (env.RPC_URL ? undefined : `wss://${profile.network}-flashblocks.hsk.xyz/ws`),
   };
   if (profile.network === "testnet") {
     assertTestMarketChain(config.chainId);

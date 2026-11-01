@@ -33,7 +33,8 @@ const assistant = process.env.ANTHROPIC_API_KEY
 console.log(agent.canTrade ? `LIVE: trading through vault ${config.vault}` : "OBSERVE ONLY: no transaction will be signed.");
 if (!assistant) console.log("ANTHROPIC_API_KEY is not set, so the prompt is off. The trading loop does not need it.");
 
-const running = agent.run();
+// STREAM=true also reacts to flashblocks. Polling stays on either way, so a dropped stream only costs speed.
+const running = process.env.STREAM === "true" ? agent.runStreaming() : agent.run();
 running.catch((error) => {
   console.error(`agent stopped: ${error}`);
   process.exit(1);

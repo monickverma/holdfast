@@ -1,12 +1,13 @@
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
-import type { Config } from "./config.js";
+import { HSKSWAP, type Config } from "./config.js";
 import { decide, plannedQuotes, type Decision, type Mark, type OrderRuntime } from "./decide.js";
 import { Executor, type SendMode } from "./executor.js";
 import { Ledger, type Intent } from "./ledger.js";
 import { isSell, type Policy } from "./policy.js";
-import { hasMulticall, readHead, readMarket, readTick, type Head, type MarketState } from "./reader.js";
+import { hasMulticall, poolReserves, readHead, readMarket, readTick, type Head, type MarketState } from "./reader.js";
 import { RpcClient, sleep } from "./rpc.js";
+import { FlashblockStream, lastSwap, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState } from "./stream.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
 
 export interface AgentOptions {
@@ -45,10 +46,19 @@ export class Agent {
   readMode: "hot" | "pinned" = "hot";
   /** Ticks where the atomic read's block did not match, so the pinned read ran instead. */
   atomicMisses = 0;
+  /** Frames that needed a full read because a local quote was not safe. */
+  localQuoteMisses = 0;
   private multicall: boolean | null = null;
   /** The sent trade whose receipt has not been seen yet. */
   private awaiting: { intent: Intent; traceId: string; intended: number; sentAt: number } | null = null;
   private lastHead: Head | null = null;
+  /** The last full read, which a frame reaction builds on. */
+  private warm: { market: MarketState; pendingNonce?: number; reserves?: ConstantProductState } | null = null;
+  /** Test market only: pool transfers seen in blocks the last full read cannot include yet. */
+  private readonly frameDeltas = new Map<bigint, { delta0: bigint; delta1: bigint }>();
+  private streaming = false;
+  private acting = false;
+  private queuedFrame: Frame | null = null;
   private stopping = false;
   private readonly traces: JsonlLog;
   private readonly decisions: JsonlLog;
@@ -99,6 +109,101 @@ export class Agent {
     }
   }
 
+  /**
+   * Polls as run() does, and also reacts the moment a flashblock shows the pool moved. If the stream drops, the polls
+   * carry on by themselves. Sealed-block reads still decide stop-loss confirmation.
+   */
+  async runStreaming(): Promise<void> {
+    const stream = this.openStream();
+    await stream.start();
+    try {
+      await this.run();
+    } finally {
+      stream.close();
+    }
+  }
+
+  /** A subscription that reacts to pool activity. A benchmark passes onActivity to time the reaction itself. */
+  openStream(onActivity?: (frame: Frame) => void): FlashblockStream {
+    const { flashblocksUrl } = this.options.config;
+    if (!flashblocksUrl) throw new Error("This network has no flashblock stream configured");
+    this.streaming = true;
+    return new FlashblockStream(flashblocksUrl, (frame) => {
+      if (!this.observeFrame(frame)) return;
+      if (onActivity) onActivity(frame);
+      else void this.reactTo(frame).catch((error) => this.logError(error));
+    });
+  }
+
+  /** Records what a frame did to the pool. Returns true if it touched the pool. */
+  private observeFrame(frame: Frame): boolean {
+    if (this.options.config.poolKind === "v3") return lastSwap(frame, HSKSWAP.pool) !== null;
+    const delta = poolTransfers(frame, HSKSWAP.pool, HSKSWAP.whsk, HSKSWAP.usdt);
+    if (!delta) return false;
+    const seen = this.frameDeltas.get(frame.block) ?? { delta0: 0n, delta1: 0n };
+    this.frameDeltas.set(frame.block, { delta0: seen.delta0 + delta.delta0, delta1: seen.delta1 + delta.delta1 });
+    return true;
+  }
+
+  /** The last read's reserves plus every transfer seen in blocks newer than that read. */
+  private reservesNow(): ConstantProductState | null {
+    const warm = this.warm;
+    if (!warm?.reserves) return null;
+    let { reserve0, reserve1 } = warm.reserves;
+    for (const [block, delta] of this.frameDeltas) {
+      if (block <= warm.market.head.number) {
+        this.frameDeltas.delete(block);
+      } else {
+        reserve0 += delta.delta0;
+        reserve1 += delta.delta1;
+      }
+    }
+    return { kind: "constant-product", reserve0, reserve1 };
+  }
+
+  /**
+   * Decides from the frame itself, with no read first, so the send can reach the next flashblock. Falls back to the
+   * full read when a local quote is not safe.
+   */
+  async reactTo(frame: Frame): Promise<DecisionRecord | null> {
+    if (this.acting) {
+      this.queuedFrame = frame;
+      return null;
+    }
+    this.acting = true;
+    try {
+      return await this.reactNow(frame);
+    } finally {
+      this.acting = false;
+      const queued = this.queuedFrame;
+      this.queuedFrame = null;
+      if (queued) void this.reactTo(queued).catch((error) => this.logError(error));
+    }
+  }
+
+  private async reactNow(frame: Frame): Promise<DecisionRecord | null> {
+    this.polls++;
+    const { config, lane } = this.options;
+    const trace = new Trace(`f-${Date.now()}-${this.polls}`, lane, frame.arrivedAt);
+    await this.settleInFlight();
+    if (this.ledger.inFlight()) return null;
+
+    const policy = this.options.policy();
+    const pool: PoolState | null = config.poolKind === "v3" ? lastSwap(frame, HSKSWAP.pool) : this.reservesNow();
+    const quotes = plannedQuotes(policy, this.warm?.market ?? null, this.runtime);
+    const market = this.warm && pool ? overlayMarket(this.warm.market, frame, pool, quotes, HSKSWAP.whsk, HSKSWAP.fee) : null;
+    if (!market) {
+      this.localQuoteMisses++;
+      return this.step(frame.arrivedAt, true);
+    }
+    return this.act(market, market.head, policy, trace, frame.arrivedAt, quotes.length, this.warm!.pendingNonce, "stream");
+  }
+
+  private logError(error: unknown): void {
+    this.errors++;
+    this.decisions.append({ wallTime: new Date().toISOString(), error: String(error) });
+  }
+
   stop(): void {
     this.stopping = true;
   }
@@ -133,7 +238,28 @@ export class Agent {
     const market = tick ? tick.market : await trace.span("state", () => readMarket(this.rpc, config, head, quotes));
     this.lastMarket = market;
     this.updateStreaks(policy, market);
+    if (this.streaming) void this.refreshWarm(market, tick?.pendingNonce).catch((error) => this.logError(error));
+    return this.act(market, head, policy, trace, intended, quotes.length, tick?.pendingNonce, tick ? "hot" : "pinned");
+  }
 
+  /** Keeps the base a frame reaction builds on. Only the test market needs a second read, for its reserves. */
+  async refreshWarm(market: MarketState, pendingNonce?: number): Promise<void> {
+    const reserves = this.options.config.poolKind === "constant-product" ? await poolReserves(this.rpc, market.head.number) : undefined;
+    if (!this.warm || market.head.number >= this.warm.market.head.number) this.warm = { market, pendingNonce, reserves };
+  }
+
+  /** Decides on a market state and sends any resulting trade. Every path to a trade passes through here. */
+  private async act(
+    market: MarketState,
+    head: Head,
+    policy: Policy,
+    trace: Trace,
+    intended: number,
+    quoteCount: number,
+    pendingNonce: number | undefined,
+    readMode: "hot" | "pinned" | "stream",
+  ): Promise<DecisionRecord> {
+    const { config } = this.options;
     const decision = await trace.span("decide", () =>
       decide({
         market,
@@ -156,14 +282,14 @@ export class Agent {
     };
 
     if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
-      record.intent = await this.executor!.submit(this.intentKey(decision, policy, head), decision, market, trace, tick?.pendingNonce);
+      record.intent = await this.executor!.submit(this.intentKey(decision, policy, head), decision, market, trace, pendingNonce);
       const synced = record.intent.status === "included" || record.intent.status === "reverted";
       if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
       else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
       trace.attrs.sendMode = this.executor!.sendMode;
-      trace.attrs.readMode = tick ? "hot" : "pinned";
+      trace.attrs.readMode = readMode;
       if (synced) {
-        this.confirmed(record.intent, trace.id, intended, performance.now());
+        this.confirmed(record.intent, trace.id, intended, performance.now(), undefined, readMode);
         this.rebuildRuntime();
       } else {
         this.awaiting = { intent: record.intent, traceId: trace.id, intended, sentAt: performance.now() };
@@ -172,7 +298,7 @@ export class Agent {
 
     trace.attrs.block = head.number;
     trace.attrs.action = decision.action;
-    trace.attrs.quotes = quotes.length;
+    trace.attrs.quotes = quoteCount;
     trace.attrs.modelCalls = 0;
     this.traces.append(trace.toRecord());
     this.decisions.append({ wallTime: new Date().toISOString(), ...record });
@@ -196,14 +322,14 @@ export class Agent {
   }
 
   /** When the agent learned the outcome, measured from the intended time so waiting stays visible. */
-  private confirmed(intent: Intent, traceId: string, intended: number, at: number, sentAt?: number): void {
+  private confirmed(intent: Intent, traceId: string, intended: number, at: number, sentAt?: number, readMode: string = this.readMode): void {
     this.confirmations.append({
       traceId,
       key: intent.key,
       txHash: intent.txHash,
       status: intent.status,
       blockNumber: intent.blockNumber,
-      readMode: this.readMode,
+      readMode,
       sendMode: sentAt === undefined ? "sync" : "classic",
       decisionToReceiptMs: at - intended,
       broadcastToReceiptMs: sentAt === undefined ? undefined : at - sentAt,

@@ -30,13 +30,17 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 
 | Lane | Recorded result |
 |---|---|
+| Testnet, 45 + 45 limit orders | Market move to receipt, polling against reacting to the flashblock stream: P50 1,628.5 → 225.2 ms (−86.2%), P90 2,230.2 → 413.5 ms (−81.5%); 90 of 90 filled |
+| Mainnet, read only, real HSKSwap Quoter | Local quote math matched the Quoter in 250 of 250 comparisons |
 | Testnet, 72 + 72 alternating swaps | Tick-to-receipt P50 795.0 → 509.3 ms (−35.9%), P95 1,025.9 → 728.7 ms (−29.0%) |
 | Mainnet, read only, real HSKSwap pool, 400 + 400 | Market read P50 364.2 → 203.9 ms, P95 453.7 → 218.0 ms, P99 513.6 → 244.9 ms; 3 HTTP requests → 1; 0 mismatches in 80 compared blocks |
 | Fork, real HSKSwap router | Gas per sell 157,470 → 130,807 (−16.9%); gas above a plain router swap 51,760 → 25,097 (−51.5%) |
 | Fork | Attack set: 100/100 contained and 100/100 benign completed; 0 cap violations; maximum drained about 59.99 HSK against a 60 HSK cap |
 | Fork | E2E 8/8, including crash recovery |
-| Local | Forge 34/34, plus a separate fork test; agent 88/88; test-market E2E 7/7 |
-| Testnet, own test market | 952 benchmark swaps on the current vault, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
+| Local | Forge 34/34, plus a separate fork test; agent 99/99; test-market E2E 7/7 |
+| Testnet, own test market | 1,050 benchmark swaps on the current vault, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
+
+Set `STREAM=true` to make the agent react to flashblocks as well as poll. It is off by default. The reaction has run on testnet only, and no mainnet transaction has been sent.
 
 [BENCHMARKS.md](BENCHMARKS.md) has the method, the metric ranking, the measurement flaws we found and what these numbers do not show. Source files are in `evidence/`.
 
@@ -91,7 +95,7 @@ npm run deploy:testmarket -- --broadcast
 
 The deploy command refuses chain 177 and unknown chains, prints actual receipt gas and cost after broadcast, and preflights a 15-million-gas budget against 0.05 HSK at the current gas price. Without AGENT_PRIVATE_KEY, the owner is also the agent. `setup` under NETWORK=testnet requests **0.05 HSK per wallet**, reads the selected network, and checks its chain ID; setup retains its existing wallet-file workflow. Admin wrapping is refused on testnet: use minted tokens.
 
-Local verification completed: 88 agent tests, 34 active Solidity tests (31 vault + 3 market), and 7 end-to-end scenarios including market sell, buy, confirmed stop-loss, over-cap and below-floor refusals. These are local checks; the public results follow.
+Local verification completed: 99 agent tests, 34 active Solidity tests (31 vault + 3 market), and 7 end-to-end scenarios including market sell, buy, confirmed stop-loss, over-cap and below-floor refusals. These are local checks; the public results follow.
 
 ### Public testnet results (2026-11-01, chain 133)
 
@@ -113,7 +117,7 @@ Refusals by the vault, sent by `npm run refusals -- --broadcast`, which skips th
 - [Zero minimum output](https://testnet-explorer.hskchain.net/tx/0x9eba7bf0d3721c8f64f6c6d926871fb5432d85c1fcab6b6c78f606d4c6bfb7a0): reverted with `BelowFloor`.
 - [11 tWHSK, over the trade cap](https://testnet-explorer.hskchain.net/tx/0x7d41dda69fccbcf61382a40767287cbb41895b789668826c6dc7740f0aa03792): reverted with `OverTradeCap`.
 - [The agent key withdrawing](https://testnet-explorer.hskchain.net/tx/0x276712cd2d682fa6dface8ea5bcb7273f164c5d796be58dcc2b0842ddf175b67): reverted.
-- [10 tWHSK once 952 benchmark swaps had used most of the lifetime budget](https://testnet-explorer.hskchain.net/tx/0xd660206d33904df0af39ed4d9c9fd6f0f0a914e128184b52170fbd245d062b1e): reverted with `OverLifetimeCap`. This one was unplanned: it happened when the refusal script first ran with too large an order. 2.4 tWHSK of the 50 remains.
+- [10 tWHSK once 952 benchmark swaps had used most of the lifetime budget](https://testnet-explorer.hskchain.net/tx/0xd660206d33904df0af39ed4d9c9fd6f0f0a914e128184b52170fbd245d062b1e): reverted with `OverLifetimeCap`. This one was unplanned: it happened when the refusal script first ran with too large an order.
 
 These are self-trades, not volume. Prices and P&L mean nothing here, and this says nothing about HSKSwap or mainnet.
 

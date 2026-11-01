@@ -2,7 +2,7 @@
   "summary": {
     "lane": "fork",
     "note": "Compiled bytecode on a local fork against the real router. Not a mainnet run and not an audit. Reentrancy needs a hostile router, so it is covered in the Foundry suite, not here.",
-    "wallTime": "2026-11-01T09:59:29.031Z",
+    "wallTime": "2026-11-01T11:47:11.974Z",
     "attacks": {
       "n": 100,
       "contained": 100,

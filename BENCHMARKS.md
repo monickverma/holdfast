@@ -6,9 +6,13 @@ Every number here names its lane (mainnet read only, fork, or testnet), its samp
 
 | Benchmark | Lane | Before | After | Change |
 |---|---|---|---:|---:|
+| Event-to-Receipt P50 | Testnet, 45 + 45 limit orders, polling then flashblock stream | 1,628.5 ms | 225.2 ms | −86.2% |
+| Event-to-Receipt P90 | Same | 2,230.2 ms | 413.5 ms | −81.5% |
 | Tick-to-Receipt P50 | Testnet, 72 + 72 alternating swaps | 795.0 ms | 509.3 ms | −35.9% |
+| Tick-to-Receipt P90 | Same | 969.9 ms | 652.3 ms | −32.7% |
 | Tick-to-Receipt P95 | Same | 1,025.9 ms | 728.7 ms | −29.0% |
 | Market read P50 | Mainnet, real HSKSwap pool, read only, 400 + 400 | 364.2 ms | 203.9 ms | −44.0% |
+| Market read P90 | Same | 434.9 ms | 215.6 ms | −50.4% |
 | Market read P95 | Same | 453.7 ms | 218.0 ms | −52.0% |
 | Market read P99 | Same | 513.6 ms | 244.9 ms | −52.3% |
 | Round-Trip Budget, read then send | Protocol, confirmed by counters | 4 HTTP requests | 2 | −50% |
@@ -22,6 +26,8 @@ Also measured on the faster path, all testnet:
 - Tick-to-Receipt over all 368 fast swaps: P50 467.4 ms [456.7, 483.5], P95 661.0 ms [632.5, 728.7], P99 858.4 ms [754.3, 1,124.8].
 - Decision to broadcast, in a separate run: 483.8 ms [474.2, 496.7] falls to 315.6 ms [263.8, 324.7] at P50, and 610.8 ms to 379.4 ms at P95, n=72 each, −35% at P50. This compares the old and new read path with the same send.
 
+Event-to-Receipt intervals: polling P50 [1,625.6, 2,223.5], P90 [2,226.0, 2,425.0]; stream P50 [223.9, 227.0], P90 [228.8, 429.8]. P95 is withheld at n=45. Every order filled: 90 of 90 included, 0 of 90 receipts changed after sealing.
+
 Brackets are 95% order-statistic intervals. The P95 intervals for Tick-to-Receipt touch slightly ([936.0, 1,174.1] and [637.6, 957.5]), so treat that gain as likely rather than proven. The P50 intervals are well apart.
 
 ## Safety held
@@ -32,7 +38,7 @@ A faster or cheaper vault counts only if the limits still hold. These ran agains
 |---|---|---|
 | Attack set | Fork | 100/100 contained, 100/100 benign completed, 0 cap violations, at most 59.99 HSK drained of a 60 HSK cap |
 | Contract tests | Local | Forge 34/34, not counting the separate fork test |
-| Agent unit tests | Local | 88/88 |
+| Agent unit tests | Local | 99/99 |
 | End-to-end, including crash recovery | Fork | 8/8 |
 | End-to-end | Local test market | 7/7 |
 | Reverted benchmark swaps | Testnet | 0 of 440 |
@@ -74,6 +80,39 @@ The cost:
 - The first swap in each 256-intent bitmap word costs about 17,100 more gas. The median above does not show this.
 - Per-trade and lifetime limits now stop at 72 bits, about 4,722 tokens with 18 decimals. Larger values are refused, not truncated.
 
+## Reacting to flashblocks
+
+Tick-to-Receipt starts from a schedule. A trader cares about something else: how long after the market moves does the trade land? Event-to-Receipt measures that. Another wallet moves the pool past an armed limit order, and the clock starts when the first flashblock showing the move reaches this process.
+
+Polling can only act once a read shows the move, and the `latest` state it reads moved only about once per block. So the wait is mostly the 2-second block. The stream shows the move within about 200 ms.
+
+Stream alone would not be enough. We sent 360 plain transfers, 72 at each of five points in the flashblock cycle, and found a send window:
+
+| Sent | Send P50 | Send P90 | Receipt after the frame |
+|---|---:|---:|---:|
+| Right after the frame | 204.9 ms | 238.0 ms | about 205 ms |
+| 50 ms after | 150.9 ms | 187.2 ms | about 200 ms |
+| 100 ms after | 297.6 ms | 340.4 ms | about 400 ms |
+| 150 ms after | 249.2 ms | 447.2 ms | about 400 ms |
+| Random moment | 223.2 ms | 309.5 ms | |
+
+Reading state first takes about 130 ms or more, which would miss the window every time. So the agent decides from the frame itself: the pool's new state comes from the frame's logs, quotes are worked out locally, and vault limits come from the last full read. Local stages take about 20 ms. In the benchmark, 39 of 45 stream trades landed in the 200–400 ms bucket and 6 took 400 ms or more, which is why P90 is 413.5 ms while P50 is 225.2 ms.
+
+Safeguards:
+
+- **Local quotes.** On mainnet read-only checks, the local Uniswap V3 math matched the real HSKSwap Quoter exactly in 250 of 250 comparisons across 25 blocks, at sizes up to 10 WHSK and 1 USDT (Wilson lower bound 98.5%). A swap that could reach another initialized tick is refused locally and goes to the Quoter.
+- **On-chain limits.** No contract changed. The vault still checks every trade, whichever path produced it.
+- **Stop-losses.** Confirmation still counts sealed-block reads, so one unsealed frame cannot fire a stop.
+- **Fallback.** Polling keeps running if the stream drops. The stream is off unless `STREAM=true`.
+
+What this leaves open:
+
+- **The polling baseline reads `latest`.** Polling the `pending` tag might shorten it. We did not test that.
+- **The clock starts at frame arrival,** not when the mover's transaction executed. Both arms miss the same earlier time.
+- **The agent acts on a preconfirmation.** A frame that never sealed could trigger a trade on a move that did not happen. We saw no receipt change, but we did not test a frame disappearing.
+- **The mainnet path has not traded.** The test market emits no Swap event, so testnet used its token transfers and constant-product math. Decoding a real V3 Swap log is covered only by unit tests with a built log.
+- **Other gaps.** Stream reconnection was not exercised: the run had 0 reconnects. The trigger is a limit order crossed by a large deliberate move in a thin market.
+
 ## How the metrics were chosen
 
 We used existing methods in this order, and an earlier step can veto a later one:
@@ -105,6 +144,7 @@ Speed and cost lead the table at the top by choice, because they are the enginee
 
 These are our labels for the definitions below. They are not registered trademarks and have not been cleared as such.
 
+- **Event-to-Receipt.** First flashblock showing a pool move reaching this process, to a receipt in hand for the order it triggered.
 - **Tick-to-Receipt.** Scheduled event time to a receipt in hand, on an open-loop schedule so a slow trade cannot hide the delay it causes to the next one.
 - **Round-Trip Budget.** HTTP requests between deciding to read and holding a receipt, on the path with no fallback.
 - **Guard Overhead.** Gas for a vault swap minus gas for a plain router swap in the same blocks.
@@ -121,7 +161,8 @@ Arms alternate in one window, so both see the same network. Timing starts at the
 
 ## What this does not show
 
-- **Mainnet confirmation is untested.** Our wallets hold no mainnet HSK. The docs list the flashblock stream for testnet only, so sync send may wait for a full 2-second block on mainnet. `eth_sendRawTransactionSync` is recognised by the mainnet RPC, but no transaction has gone through it there. The mainnet read results above do carry over.
+- **Mainnet confirmation is untested.** Our wallets hold no mainnet HSK. `eth_sendRawTransactionSync` is recognised by the mainnet RPC, but no transaction has gone through it there. A mainnet flashblock stream does exist at `wss://mainnet-flashblocks.hsk.xyz/ws`: 247 frames in 45 seconds, about 200 ms apart, with block numbers matching mainnet. That suggests similar confirmation times, but it does not prove them. The mainnet read results above do carry over.
+- **Every number went through Cloudflare WARP on this machine.** We have no direct-connection baseline, so the tunnel's share of the time is unknown.
 - **The swaps are self-trades in a thin test market.** They are not volume, and nothing here claims profit.
 - **A receipt here is a flashblock preconfirmation,** not a sealed or finalised block.
 - **One machine, one RPC endpoint, one afternoon.** Moving closer to the RPC should cut more, since the network dominates, but that is not measured. Intervals assume independent samples, and network delays can be correlated.
@@ -129,13 +170,15 @@ Arms alternate in one window, so both see the same network. Timing starts at the
 
 ## Reproduce
 
-Set `NETWORK=testnet` for the swap commands. Swaps need test HSK and enough vault limit.
+Set `NETWORK=testnet` for `bench:swaps`, `report` and `bench:react`. `bench:read` and `check:quotes` read mainnet. Swaps need test HSK and enough vault limit.
 
 ```sh
 npm run bench:swaps -- --n 440 --usd 0.01 --interval 3 --jitter-ms 2000 --run bench-jitter --arms pinned-classic,hot-sync --paired-slots 144 --broadcast
 npm run report -- data/testnet/bench-jitter
 npm run bench:read -- --n 400 --interval 2 --jitter-ms 1900 --verify-every 5 --run reads-mainnet-jitter
 npm run bench:gas
+npm run bench:react -- --n 90 --run react --broadcast
+npm run check:quotes -- --rounds 25 --run quotes-mainnet
 npm run attack-set
 ```
 
@@ -143,6 +186,10 @@ npm run attack-set
 
 | File | Contents |
 |---|---|
+| `evidence/event-to-receipt/report.json`, `react-samples.jsonl` | Polling against the stream, with every sample |
+| `evidence/event-to-receipt/quote-check.json` | Local V3 math against the real Quoter |
+| `evidence/next-steps/send-phase.json` | Send time across the flashblock cycle |
+| `evidence/next-steps/read-parts.json` | Read time by method, transport and endpoint |
 | `evidence/testnet-swaps/report.json` | Randomised-phase swap run |
 | `evidence/testnet-swaps/paired-window.json` | Each arm's quantiles, split at the end of the alternating window |
 | `evidence/testnet-swaps/preconfirmation-check.json` | Receipts re-read after sealing |

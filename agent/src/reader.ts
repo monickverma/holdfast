@@ -113,6 +113,17 @@ export async function readHeadByNumber(rpc: RpcClient, number: bigint): Promise<
   return parseHead(block);
 }
 
+/** The test market's reserves at a block: what its two tokens' balances say the pool holds. */
+export async function poolReserves(rpc: RpcClient, block: bigint): Promise<{ kind: "constant-product"; reserve0: bigint; reserve1: bigint }> {
+  const data = encodeFunctionData({ abi: ERC20_ABI, functionName: "balanceOf", args: [HSKSWAP.pool] });
+  const tag = `0x${block.toString(16)}`;
+  const [reserve0, reserve1] = await rpc.batch([
+    { method: "eth_call", params: [{ to: HSKSWAP.whsk, data }, tag] },
+    { method: "eth_call", params: [{ to: HSKSWAP.usdt, data }, tag] },
+  ]);
+  return { kind: "constant-product", reserve0: BigInt(reserve0 as string), reserve1: BigInt(reserve1 as string) };
+}
+
 /** Reads everything for one decision in one batch, every call pinned to the same block hash. */
 export async function readMarket(
   rpc: RpcClient,

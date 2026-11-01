@@ -7,7 +7,9 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { encodeAbiParameters, encodeFunctionResult, keccak256, parseAbi, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { Agent } from "../src/agent.js";
 import { HSKSWAP } from "../src/config.js";
+import { DEFAULT_POLICY } from "../src/policy.js";
 import { Executor } from "../src/executor.js";
 import { Ledger } from "../src/ledger.js";
 import { readTick, type MarketState } from "../src/reader.js";
@@ -154,6 +156,43 @@ test("a node without sync send falls back to the same signed bytes", async () =>
   assert.equal(exec.sendMode, "classic", "does not retry the missing method");
   ledger.close();
   rpc.close();
+});
+
+function streamAgent() {
+  const dataDir = mkdtempSync(join(tmpdir(), "holdfast-"));
+  return new Agent({
+    config: { rpcUrl: url, chainId: 177, live: true, pollMs: 650, dataDir, twapWindowSec: 300, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000, poolKind: "v3", agentKey: AGENT_KEY, vault: HSKSWAP.router },
+    lane: "fork",
+    policy: () => DEFAULT_POLICY,
+    mark: () => null,
+    now: () => 100_000,
+  });
+}
+const swapFrame = { block: 11n, index: 2, logs: [], arrivedAt: 0 };
+
+test("a frame with no earlier read to build on falls back to a full read", async () => {
+  node(10n, 10n);
+  const previous = handle;
+  handle = (call) => (call.method === "eth_getCode" ? "0x01" : previous(call));
+  const agent = streamAgent();
+  // The mock node returns too few values for a vault read, so the fallback's read is what fails.
+  await assert.rejects(agent.reactTo(swapFrame));
+  assert.equal(agent.localQuoteMisses, 1);
+  agent.close();
+});
+
+test("a frame sends nothing while a trade is in flight", async () => {
+  const methods: string[] = [];
+  handle = (call) => {
+    methods.push(call.method);
+    return null;
+  };
+  const agent = streamAgent();
+  agent.ledger.reserve({ key: "open", intentId: agent.ledger.nextIntentId(), bodyHash: "0x00", orderId: null, tokenIn: HSKSWAP.whsk, amountIn: 1n, minOut: 1n, deadline: 1n });
+  agent.ledger.update("open", { status: "broadcast", txHash: `0x${"cd".repeat(32)}` });
+  assert.equal(await agent.reactTo(swapFrame), null);
+  assert.deepEqual(methods, ["eth_getTransactionReceipt"]);
+  agent.close();
 });
 
 test("a sync timeout resends the same bytes and leaves the intent in flight", async () => {

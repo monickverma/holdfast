@@ -1,0 +1,68 @@
+{
+  "lane": "testnet",
+  "venue": "own test market",
+  "trialsPerArm": {},
+  "arms": {
+    "poll": {
+      "attempts": 45,
+      "included": 45,
+      "other": [],
+      "p50": {
+        "n": 45,
+        "value": 1628.5360000000219,
+        "low": 1625.588300000003,
+        "high": 2223.5315999999875
+      },
+      "p90": {
+        "n": 45,
+        "value": 2230.2255000000005,
+        "low": 2226.041900000011,
+        "high": 2424.993300000031
+      },
+      "p95": {
+        "n": 45,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=45 is below 59 for P95"
+      },
+      "quoteEqualsFill": {
+        "exact": 45,
+        "of": 45
+      }
+    },
+    "stream": {
+      "attempts": 45,
+      "included": 45,
+      "other": [],
+      "p50": {
+        "n": 45,
+        "value": 225.1773000000103,
+        "low": 223.94209999998566,
+        "high": 227.01800000001094
+      },
+      "p90": {
+        "n": 45,
+        "value": 413.4507000000158,
+        "low": 228.79869999998482,
+        "high": 429.7991000000038
+      },
+      "p95": {
+        "n": 45,
+        "value": null,
+        "low": null,
+        "high": null,
+        "withheld": "n=45 is below 59 for P95"
+      },
+      "quoteEqualsFill": {
+        "exact": 45,
+        "of": 45
+      }
+    }
+  },
+  "preconfirmation": {
+    "checked": 90,
+    "changed": 0,
+    "checkedAt": "2026-11-01T11:49:26.650Z"
+  }
+}

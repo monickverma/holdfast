@@ -1,0 +1,14 @@
+{
+  "lane": "mainnet",
+  "venue": "HSKSwap WHSK/USDT, read only",
+  "blocks": 25,
+  "compared": 250,
+  "exact": 250,
+  "exactWilson95": {
+    "low": 0.9848667004975602,
+    "high": 1
+  },
+  "maxDiffBps": 0,
+  "refusedToQuoterCount": 0,
+  "refusedWithNoTickCrossed": 0
+}
