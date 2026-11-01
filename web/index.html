@@ -1,12 +1,36 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdfast evidence</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdfast</title><meta name="description" content="A non-custodial vault and trading agent. An agent key can trade inside limits the owner sets on chain, and cannot withdraw. Testnet stage."><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
 <body><main>
-<header><div><p class="eyebrow">AI Agent Trading</p><h1>Holdfast</h1><p>Evidence for trading inside contract-enforced limits.</p></div><button id="theme" type="button">Switch theme</button></header>
-<p class="notice">Profitability is not claimed. Benchmark swaps are self-trades in a thin pool, not volume.</p>
-<p id="state" role="status">Loading evidence…</p>
-<section><h2>Latency and trades</h2><p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p><div id="lanes"></div></section>
-<section><h2>Attack set · fork</h2><p>Fork evidence is not a mainnet run or an audit. Reentrancy is covered only in the Foundry suite with a mock.</p><div id="attacks"></div></section>
-<section><h2>Vault limits</h2><div id="vault"></div></section>
-<section><h2>Ask about the evidence</h2><p id="chat-status"></p><p>Answers are model output. Policy changes stay in the existing REPL.</p><form id="chat"><label for="question">Your question</label><textarea id="question" required maxlength="4000" placeholder="What evidence is available?"></textarea><button id="ask">Ask</button></form><p id="answer" role="status"></p></section>
+<header class="hero"><div class="bar"><p class="eyebrow">AI Agent Trading · HSK Chain</p><button id="theme" type="button">Switch theme</button></div><h1>Holdfast</h1><p class="lead">Let AI trade. Never let it take unrestricted control.</p><p>Holdfast is a non-custodial vault and trading agent. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p><p class="links"><a href="https://github.com/monickverma/holdfast">Source code</a><a href="https://github.com/monickverma/holdfast/blob/main/BENCHMARKS.md">Benchmarks and method</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/ARCHITECTURE.md">Architecture</a></p></header>
+<p class="notice"><strong>Stage: testnet.</strong> No mainnet deployment or swap has happened. The contract is not audited, the live model call is untested, no outside user has tried it, and profit is not claimed.</p>
+<section><h2>How it works</h2><ol class="steps">
+<li><h3>Owner</h3><p>Deploys the vault, deposits funds and sets the limits. Only the owner can withdraw.</p></li>
+<li><h3>Agent</h3><p>A model turns a plain-English strategy into a typed policy. A deterministic loop then reads the pool and decides. No model runs in the trading path.</p></li>
+<li><h3>Vault</h3><p>Checks every trade on chain, separately from the agent, and refuses anything outside the limits.</p></li>
+<li><h3>Exchange</h3><p>Runs permitted swaps through a router fixed at deployment. Tested on a fork of the real HSKSwap router, and on our own test market on testnet.</p></li>
+</ol></section>
+<section><h2>What the limits do</h2><div class="split">
+<div><h3>The contract enforces</h3><ul><li>One router and two tokens, fixed at deployment</li><li>A cap per trade, an hourly budget and a lifetime cap, per token</li><li>A minimum price on every sale</li><li>An agent key that expires within 30 days</li><li>Short trade deadlines, and no replay of a trade</li><li>A pause, and no withdrawal by the agent</li></ul></div>
+<div><h3>It does not prevent</h3><ul><li>Bad trades inside the limits. A stolen key can sell at the minimum price until a limit stops it</li><li>Falling prices. There is no on-chain stop-loss; the stop-loss runs in the agent, so nothing but the owner protects a position while the agent is offline</li><li>Gas spent by the agent key, which is separate from the token caps</li></ul></div>
+</div></section>
+<section><h2>Measured so far</h2><p>Each result names where it ran. These come from the repository's evidence files, not from this server.</p><div class="scroll"><table><thead><tr><th scope="col">Result</th><th scope="col">Where it ran</th></tr></thead><tbody>
+<tr><td>120 of 120 attacks contained, 120 of 120 normal trades completed, 0 cap violations</td><td>Local fork, current contract</td></tr>
+<tr><td>Stolen key selling into a pool pushed to the minimum price: 60 HSK sold, $2.23 lost (one run)</td><td>Local fork, current contract</td></tr>
+<tr><td>Market move to receipt: P50 1,628.5 → 225.2 ms, P90 2,230.2 → 413.5 ms, polling then flashblock stream, 45 + 45 orders</td><td>Testnet, own test market, older vault</td></tr>
+<tr><td>Market read: P50 364.2 → 203.9 ms, 400 + 400 reads</td><td>Mainnet, real HSKSwap pool, read only</td></tr>
+<tr><td>Flashblock frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished</td><td>Mainnet, read only</td></tr>
+<tr><td>Real pool over 7 days: 462 swaps, one wallet made 94% of them, so no latency race exists there today</td><td>Mainnet, read only</td></tr>
+<tr><td>Simulated profit over 43 minutes: none with an assumed 20 bps outside fee; $0.42 at most acting at once without it, all within 7 minutes</td><td>Mainnet prices, simulated fills</td></tr>
+</tbody></table></div><p>Testnet vault: <a href="https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89">0x4bfc…ee89</a>. It is an older version, without the key expiry or hourly budget. Benchmark swaps are self-trades in a thin test market, not volume.</p></section>
+<section><h2>Where it could go</h2><p>A proposal: nothing here is built, and there are no customers or revenue. Autonomous trading is the first use. The larger product would be the vault itself, as security infrastructure for other teams' trading agents.</p><div class="scroll"><table><thead><tr><th scope="col">Direction</th><th scope="col">What customers could pay for</th></tr></thead><tbody>
+<tr><td>Agent security infrastructure</td><td>Vault contracts, an SDK and APIs for other trading agents</td></tr>
+<tr><td>Hosted trading</td><td>Running the agent for owners, with the vault still enforcing their limits</td></tr>
+<tr><td>Reliability tooling</td><td>Testing, monitoring and risk reports for trading agents</td></tr>
+</tbody></table></div></section>
+<p id="state" role="status">Loading run data…</p>
+<section id="lanes-section" hidden><h2>Latency and trades</h2><p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p><div id="lanes"></div></section>
+<section id="attacks-section" hidden><h2>Attack set · fork</h2><p>Fork evidence is not a mainnet run or an audit. Reentrancy is covered only in the Foundry suite with a mock.</p><div id="attacks"></div></section>
+<section id="vault-section" hidden><h2>Vault limits</h2><div id="vault"></div></section>
+<section id="chat-section" hidden><h2>Ask about the evidence</h2><p id="chat-status"></p><p>Answers are model output. Policy changes stay in the existing REPL.</p><form id="chat"><label for="question">Your question</label><textarea id="question" required maxlength="4000" placeholder="What evidence is available?"></textarea><button id="ask">Ask</button></form><p id="answer" role="status"></p></section>
 </main></body></html>

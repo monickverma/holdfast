@@ -81,7 +81,7 @@ test("viewer hides unsupported quantiles with n and the shared reason", async ()
 test("viewer has an empty data state and no configured vault", async () => fixture(async (get) => {
   const data = JSON.parse((await get("/api/evidence")).text);
   assert.equal(data.empty, true); assert.equal(data.attacks, null); assert.equal(data.vault.status, "No vault is set.");
-  assert.match((await get("/app.js")).text, /No evidence in data/);
+  assert.match((await get("/app.js")).text, /holds no run data/);
 }));
 
 test("viewer starts normally and explains chat without a key", async () => fixture(async (get) => {

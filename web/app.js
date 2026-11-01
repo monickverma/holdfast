@@ -16,7 +16,16 @@ document.querySelector('#theme').onclick = () => {
 async function load() {
   const response = await fetch('/api/evidence'); if (!response.ok) throw new Error();
   const data = await response.json();
-  document.querySelector('#state').textContent = `${data.empty ? 'No evidence in data/.' : 'Saved evidence is shown by lane.'} Mainnet execution: ${data.lanes.some(l => l.lane === 'mainnet' && l.totals.fills + l.totals.reverts > 0) ? 'see the mainnet trades below.' : 'not yet run.'}${data.lanes.some(l => l.lane === 'testnet' && l.trades.length) ? ' Testnet trades use our own test market with free test tokens, not HSKSwap, so their prices mean nothing.' : ''}`;
+  const show = id => { document.querySelector(id).hidden = false; };
+  if (data.vault.tokens) show('#vault-section');
+  if (!data.chat.includes('missing')) { show('#chat-section'); document.querySelector('#chat-status').textContent = data.chat; }
+  if (data.empty) {
+    document.querySelector('#state').textContent = 'This public server holds no run data, so its live tables are hidden. The results above are from the repository. Mainnet execution: not yet run.';
+    return;
+  }
+  show('#lanes-section');
+  if (data.attacks) show('#attacks-section');
+  document.querySelector('#state').textContent = `Saved evidence is shown by lane. Mainnet execution: ${data.lanes.some(l => l.lane === 'mainnet' && l.totals.fills + l.totals.reverts > 0) ? 'see the mainnet trades below.' : 'not yet run.'}${data.lanes.some(l => l.lane === 'testnet' && l.trades.length) ? ' Testnet trades use our own test market with free test tokens, not HSKSwap, so their prices mean nothing.' : ''}`;
   if (data.incomplete) document.querySelector('#state').append(' Some records were withheld: missing or ambiguous lane, unreadable data, or invalid records.');
   for (const group of data.lanes) {
     const area = document.querySelector('#lanes'); area.append(el('h3', group.lane));
@@ -42,8 +51,6 @@ async function load() {
     const line = el('p', `${data.vault.lane} - Vault `); line.append(link, ` · Read at block ${data.vault.block}`); vault.append(line);
     table(vault, ['Lane', 'Token', 'Per-trade cap', 'Lifetime remaining', 'Floor output per input'], data.vault.tokens.map(t => [t.lane, t.token, t.maxTrade, t.remainingLifetime, t.floorOutputPerInput]));
   }
-  document.querySelector('#chat-status').textContent = data.chat;
-  document.querySelector('#ask').disabled = data.chat.includes('missing');
 }
 document.querySelector('#chat').onsubmit = async event => {
   event.preventDefault(); const button = document.querySelector('#ask'); button.disabled = true;
@@ -54,4 +61,4 @@ document.querySelector('#chat').onsubmit = async event => {
   } catch { answer.textContent = 'Chat is unavailable.'; }
   finally { button.disabled = false; }
 };
-load().catch(() => { document.querySelector('#state').textContent = 'Evidence could not be loaded. No result is claimed.'; });
+load().catch(() => { document.querySelector('#state').textContent = 'Live run data could not be loaded. The results above are from the repository.'; });
