@@ -1,6 +1,6 @@
 # Status of the system
 
-What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet. A language model can now be the trading engine, inside limits code enforces, but it has never traded on any chain: it has run on recorded mainnet data only. The live chat check passes 14 of 14 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet but has not traded there, and its guard is off. No profit has been shown in any lane.**
+What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **On mainnet, only the version 4 deployment has run: no limits, guardian, funds or trades. A language model can now be the trading engine, inside limits code enforces, but it has never traded on any chain: it has run on recorded mainnet data only. The live chat check passes 14 of 14 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. Version 4 is deployed on mainnet and on no other public network. Version 3 is deployed on testnet but has not traded there, and its guard is off. No profit has been shown in any lane.**
 
 ## What the audit found
 
@@ -40,6 +40,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
 | Whole lifecycle | Version 4: deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps, with the loss budget, share limit and cooldown off | `evidence/v4/rehearsal-fork.json` |
 | Mainnet procedure | Every step of [the runbook](MAINNET-RUNBOOK.md), with test keys, ending in one swap through the real router | Fork | Preflight `pass`, swap included | `evidence/v4/mainnet-dress-rehearsal-fork.json` |
+| Version 4 deployment | Runbook step 2 only, with a 110% gas margin, at `0xbbd6…7d3c` | Mainnet | Deployed in block 29,657,434, 4,666,365 gas. Runtime code matches the build on a re-read; the tool's own read just after the receipt did not | `evidence/v4/mainnet-deployment.json` |
 
 The rows below are **version 3 or earlier**, kept as they were.
 
@@ -65,13 +66,13 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Mainnet | The team chose testnet, for lack of funds. Under the official rule, a project not deployed on mainnet forfeits demo selection, and winners must be on mainnet to claim. Owner and agent keys hold 0 HSK at nonce 0 | The owner's decision and funds: 2.83 HSK for deployment alone, about 4.2 HSK with one swap. [The runbook](MAINNET-RUNBOOK.md) is ready and rehearsed on a fork only |
+| Mainnet trading | Version 4 is deployed on mainnet, which meets the deployment rule. The owner key holds about 0.30 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
 
 ## Not done
 
 | Item | Why |
 |---|---|
-| Version 4 on any public network | Not deployed. Testnet still has version 3, and mainnet has nothing |
+| Version 4 on testnet | Not deployed. Testnet still has version 3. Mainnet has version 4, unconfigured |
 | The model engine on a chain | Built and tested locally and on recorded data, but never run against a vault on any network, in simulate or live mode. Testnet needs the owner's approval for each transaction, and version 4 is not on testnet |
 | Arbitrage | Not built. Every trade is in one pool. The closing leg is a second trade in that same pool, later. Nothing trades on a second venue |
 | Chat for the model's mandate and the vault's new limits | Chat sets the model's sizes and on or off. The vault's share limit, cooldown and strategy pin have no admin command and no chat control |

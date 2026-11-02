@@ -2,7 +2,7 @@
 
 Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turns a plain-English strategy into a typed policy. A deterministic loop reads the pool, checks the policy and decides whether to trade. When the owner turns it on, a language model is a trading engine in that loop: it watches a snapshot of the market and proposes buy, sell or hold with a size, and the same deterministic checks judge every proposal before the vault sees it. The model is asked in the background and never holds a key; if it is slow, down or wrong, the agent holds, and a stop-loss never waits for it. The vault enforces token, per-trade, hourly, daily, lifetime, output, price-band and expiry limits, and version 4 adds a daily loss budget, a limit on its share of the balance, a minimum time between trades and a log on chain. The agent cannot withdraw funds. **The model engine is off by default and has never traded on any chain: it has run on recorded mainnet data only. No profit is shown in any lane.**
 
-No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). **The source is vault version 4, which is not deployed on any public network. It has run only on local tests and forks.** The newest public vault is version 3 on testnet, with its price guard off, and it has not traded there. The chat passes a live model check of 14 requests on one model. Profitability is not claimed.
+**Vault version 4 is deployed on HSK mainnet** ([Addresses](#addresses)), but it has no limits, guardian or funds yet, so no mainnet swap has happened. Holdfast trades on HSK testnet against our own test market, not HSKSwap (see below). Version 4's trading has run only on local tests and forks. The newest public vault is version 3 on testnet, with its price guard off, and it has not traded there. The chat passes a live model check of 14 requests on one model. Profitability is not claimed.
 
 Start with [docs/STATUS.md](docs/STATUS.md), which says what is done, tested, blocked and left for later. [docs/SECURITY.md](docs/SECURITY.md) has the threat model and [docs/READINESS.md](docs/READINESS.md) the deployment checklist, and [docs/MAINNET-RUNBOOK.md](docs/MAINNET-RUNBOOK.md) the exact mainnet steps and their cost, rehearsed on a fork only.
 
@@ -38,7 +38,7 @@ The India rules name completeness, technical maturity and innovation, and publis
 | Completeness | India rules | Monitor, decide and execute work on testnet. The model engine and the version 4 vault have run on local tests, forks and recorded data only. Live chat passes 14 of 14 on one model. `render.yaml` describes the read-only site, and no public link is live today | [Evidence](#evidence) |
 | Technical maturity | India rules | Tests, an attack set and benchmarks with sample sizes and stated flaws | [BENCHMARKS.md](BENCHMARKS.md) |
 | Innovation | India rules | The vault enforces the limits, not the model. The agent reacts to flashblocks: market move to receipt P50 225.2 ms on testnet | `evidence/event-to-receipt/` |
-| Mainnet deployment | India rules | **Not met.** Testnet only | [Addresses](#addresses) |
+| Mainnet deployment | India rules | **Deployed, not configured.** Version 4 is on mainnet with no limits, guardian or funds, so it cannot trade yet | [Addresses](#addresses), `evidence/v4/mainnet-deployment.json` |
 | AI agent as the core engine | Track text | A model proposes trades from a snapshot of the market, in the background, and every proposal goes through `decide()`, the breaker, preflight and the vault. Off by default. Local tests with scripted replies, and two replays with a live model on recorded mainnet data, where it made one trade, the one the rules made. Never run on a chain | `agent/src/strategist.ts`, `agent/test/ai-engine.test.ts`, `evidence/v4/replay-model*.json` |
 | Arbitrage | Track text | **Not built.** Every trade is in one HSKSwap pool, priced against Gate's quote. The edge rule can close its own inventory in that same pool, which is a second trade later, not a second venue | `agent/src/decide.ts`, `evidence/v4/replay-rules*.json` |
 | Trading loop with no manual steps | Track text | Done on testnet, on our own market, on an older vault. The agent holds until it is given orders | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
@@ -97,7 +97,7 @@ In the REPL (`npm run agent`), a person can also set how often the agent trades 
 | Mainnet, read only | Frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished; real Swap logs decoded correctly in 284 of 284 blocks |
 | Testnet, own test market, **old vault** | 1,050 benchmark swaps, 0 reverts; 0 of 440 fast receipts changed after sealing; refusals on chain |
 
-Set `STREAM=true` to make the agent react to flashblocks as well as poll. It is off by default. The reaction has run on testnet only, and no mainnet transaction has been sent.
+Set `STREAM=true` to make the agent react to flashblocks as well as poll. It is off by default. The reaction has run on testnet only, and no mainnet trade has been sent.
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has the threat model, layers, invariants and failure modes, and corrects our own earlier claims. [BENCHMARKS.md](BENCHMARKS.md) has the method, the metric ranking, the measurement flaws we found and what these numbers do not show. Source files are in `evidence/`.
 
@@ -105,13 +105,11 @@ Attack details are in `evidence/attack-results.json`. Reentrancy is covered only
 
 ## Addresses
 
-Mainnet Holdfast vault: **not yet deployed**.
+Mainnet (chain 177) Holdfast vault, version 4: [`0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c`](https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c). Deployed by the owner key `0x1137…f489` for agent `0x6ddB…2FcA`, whose access expires 7 days after deployment unless renewed. The runtime code matches the build. No limits, guardian, price guard, loss budget or funds are set, so it cannot trade yet.
 
-Mainnet deployment transaction: **not yet run**.
+Mainnet deployment transaction: [`0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34`](https://hsk.blockscout.com/tx/0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34), block 29,657,434, 4,666,365 gas, 2.333 HSK plus a 0.0002 HSK L1 fee. Record: `evidence/v4/mainnet-deployment.json`.
 
 Mainnet swap transaction: **not yet run**.
-
-Version 4 on any public network: **not yet deployed**.
 
 Public site: [holdfast-09jn.onrender.com](https://holdfast-09jn.onrender.com), on Render's free plan, so the first visit after a quiet spell can take about a minute. It reads the **testnet** version 3 vault above (`NETWORK=testnet`), holds no wallet key, and has chat off.
 
