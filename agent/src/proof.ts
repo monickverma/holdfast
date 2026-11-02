@@ -45,9 +45,9 @@ export function readProof(evidenceDir: string) {
       findings: (Array.isArray(row.findings) ? row.findings : []).slice(0, 40).map((f: Row) => ({ severity: text(f.severity), code: text(f.code), detail: text(f.detail) })),
     }];
   });
-  const attacks = read(evidenceDir, "v3/attack-results.json")?.summary as Row | undefined;
+  const attacks = newest("attack-results.json")?.summary as Row | undefined;
   const e2e = newest("e2e.json");
-  const llm = read(evidenceDir, "v3/llm-live.json");
+  const llm = newest("llm-live.json");
   const latency = read(evidenceDir, "event-to-receipt/report.json");
   const transactions = read(evidenceDir, "public-transactions.json");
 

@@ -1,4 +1,5 @@
-# The public read-only site. It holds no wallet key. Chat stays off unless CHAT_TOKEN and ANTHROPIC_API_KEY are both set.
+# The public read-only site. It holds no wallet key. Chat stays off unless CHAT_TOKEN and a model key
+# (OPENROUTER_API_KEY or ANTHROPIC_API_KEY) are both set. Set those two in the dashboard, never here.
 services:
   - type: web
     name: holdfast

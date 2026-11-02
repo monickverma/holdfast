@@ -16,6 +16,7 @@ export interface PolicyReview {
 const usdt = (v: bigint) => formatUnits(v, 6);
 const hsk = (v: bigint) => formatUnits(v, 18);
 const orderAmount = (o: Order) => (isSell(o.kind) ? `${hsk(o.amountIn)} HSK` : `${usdt(o.amountIn)} USDT`);
+const duration = (sec: number) => (sec % 3600 === 0 ? `${sec / 3600} h` : sec % 60 === 0 ? `${sec / 60} min` : `${sec} s`);
 
 /**
  * Written by this code and never by the model, so a person approving a model's draft sees what it does and not what
@@ -28,7 +29,8 @@ export function reviewPolicy(next: Policy, current: Policy, spotPriceX18: bigint
 
   for (const order of next.orders) {
     const trigger = order.triggerPriceX18;
-    summary.push(`${order.kind}: ${orderAmount(order)}${trigger === undefined ? ", now" : ` at ${usdt(trigger)} USDT per HSK`}`);
+    const continues = current.orders.some((o) => o.id === order.id) ? ", continuing the current order, so what it already filled still counts" : "";
+    summary.push(`${order.kind}: ${orderAmount(order)}${trigger === undefined ? ", now" : ` at ${usdt(trigger)} USDT per HSK`}${continues}`);
     const limits = vault && (isSell(order.kind) ? vault.whsk : vault.usdt);
     if (limits && order.amountIn > limits.balance) risks.push(`${order.kind} for ${orderAmount(order)} is more than the vault holds.`);
     if (order.kind === "stop-loss" && trigger !== undefined) {
@@ -56,6 +58,15 @@ export function reviewPolicy(next: Policy, current: Policy, spotPriceX18: bigint
   } else {
     summary.push("edge rule off");
   }
+
+  summary.push(`spends ${next.spendTokens ? next.spendTokens.join(" and ") : "HSK and USDT"} only; the vault trades no other token`);
+  const pacing = [
+    next.minTradeIntervalSec === undefined ? null : `at least ${duration(next.minTradeIntervalSec)} between trades`,
+    next.maxTradesPerDay === undefined ? null : `at most ${next.maxTradesPerDay} trades in any 24 hours`,
+  ].filter(Boolean);
+  summary.push(pacing.length ? `pacing: ${pacing.join(", ")}. A stop-loss is never held back by this` : "no pacing: the agent may trade whenever an order or the edge rule says so");
+  if (current.minTradeIntervalSec !== undefined && (next.minTradeIntervalSec ?? 0) < current.minTradeIntervalSec) risks.push(`This shortens the gap between trades from ${duration(current.minTradeIntervalSec)} to ${next.minTradeIntervalSec === undefined ? "none" : duration(next.minTradeIntervalSec)}.`);
+  if (current.maxTradesPerDay !== undefined && (next.maxTradesPerDay ?? Infinity) > current.maxTradesPerDay) risks.push(`This raises the daily trade count from ${current.maxTradesPerDay} to ${next.maxTradesPerDay ?? "no limit"}.`);
 
   summary.push(`slippage ${next.slippageBps} bps`);
   if (next.slippageBps > WIDE_SLIPPAGE_BPS && next.slippageBps > current.slippageBps) risks.push(`Slippage of ${next.slippageBps} bps invites sandwiching. It was ${current.slippageBps}.`);

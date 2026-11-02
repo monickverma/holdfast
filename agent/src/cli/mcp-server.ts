@@ -9,7 +9,7 @@ try {
 } catch {
   // A .env file is optional; the environment may already be set.
 }
-for (const name of ["OWNER_PRIVATE_KEY", "AGENT_PRIVATE_KEY", "KEEPER_PRIVATE_KEY", "ANTHROPIC_API_KEY"]) delete process.env[name];
+for (const name of ["OWNER_PRIVATE_KEY", "AGENT_PRIVATE_KEY", "KEEPER_PRIVATE_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY"]) delete process.env[name];
 process.env.LIVE = "false";
 delete process.env.MODE;
 

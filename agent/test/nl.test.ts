@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Assistant, draftToPolicy, type LlmUsageRecord, type PolicyDraft } from "../src/nl.js";
+import { trancheSize } from "../src/decide.js";
 import { DEFAULT_POLICY } from "../src/policy.js";
 
 const SPOT = 100_000n; // 0.1 USDT per HSK
@@ -90,4 +91,42 @@ test("usage and cost are recorded for every call", async () => {
   assert.equal(records.length, 1);
   assert.equal(records[0]!.costUsd, (1000 * 4 + 100 * 20) / 1e6);
   assert.match(calls[0].messages[0].content, /FACTS/);
+});
+
+test("an order kept through a chat edit keeps what it already filled, so it cannot re-arm to full size", () => {
+  const HSK = 10n ** 18n;
+  const current = { ...DEFAULT_POLICY, version: 4, orders: [{ id: "limit-sell-4-0", kind: "limit-sell" as const, amountIn: 100n * HSK, triggerPriceX18: 90_000n }] };
+  const runtime = new Map([["limit-sell-4-0", { filled: 60n * HSK, hitStreak: 0 }]]);
+  const edited = draftToPolicy(
+    draft({ orders: [
+      { kind: "limit-sell", amount: "100", amountToken: "HSK", triggerUsdtPerHsk: "0.09" },
+      { kind: "stop-loss", amount: "10", amountToken: "HSK", triggerUsdtPerHsk: "0.08" },
+    ] }),
+    current,
+    SPOT,
+  );
+  const kept = edited.orders.find((o) => o.kind === "limit-sell")!;
+  assert.equal(trancheSize(kept, runtime.get(kept.id), undefined), 40n * HSK, "only the unfilled 40 HSK is left to sell");
+});
+
+test("moving a part-filled stop keeps its fills, a filled market order stays filled, and a new order starts empty", () => {
+  const HSK = 10n ** 18n;
+  const current = {
+    ...DEFAULT_POLICY,
+    version: 7,
+    orders: [
+      { id: "stop-loss-6-0", kind: "stop-loss" as const, amountIn: 50n * HSK, triggerPriceX18: 80_000n },
+      { id: "market-sell-7-1", kind: "market-sell" as const, amountIn: 5n * HSK },
+    ],
+  };
+  const edited = draftToPolicy(
+    draft({ orders: [
+      { kind: "stop-loss", amount: "50", amountToken: "HSK", triggerUsdtPerHsk: "0.075" },
+      { kind: "market-sell", amount: "5", amountToken: "HSK", triggerUsdtPerHsk: null },
+      { kind: "market-sell", amount: "6", amountToken: "HSK", triggerUsdtPerHsk: null },
+    ] }),
+    current,
+    SPOT,
+  );
+  assert.deepEqual(edited.orders.map((o) => o.id), ["stop-loss-6-0", "market-sell-7-1", "market-sell-8-2"]);
 });

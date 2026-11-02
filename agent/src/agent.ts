@@ -58,6 +58,20 @@ export function strategyHashOf(policy: Policy): Hex {
   return keccak256(stringToHex(canonicalJson(policy)));
 }
 
+/**
+ * Block times of the trades the agent has sent, for the policy's pacing. A reverted trade counts, since it spent gas
+ * and the next try would too. One dropped before sending, or that expired unsent, does not.
+ */
+export function tradeTimes(intents: readonly Intent[]): number[] {
+  const times: number[] = [];
+  for (const intent of intents) {
+    if (!["signed", "broadcast", "included", "reverted"].includes(intent.status) || !intent.decisionBody) continue;
+    const blockTime = Number((JSON.parse(intent.decisionBody) as { blockTime?: string }).blockTime);
+    if (Number.isFinite(blockTime)) times.push(blockTime);
+  }
+  return times;
+}
+
 export class Agent {
   readonly rpc: RpcClient;
   readonly ledger: Ledger;
@@ -422,6 +436,7 @@ export class Agent {
       maxMarkAgeMs: config.maxMarkAgeMs,
       unsealed: readMode === "stream",
       edgeInventoryHsk: tradingResult(edgeIntents(this.ledger.all()), 0n).whskDelta,
+      tradeTimes: tradeTimes(this.ledger.all()),
     };
     if (this.edgeTaken && !input.unsealed && edgeHasClosed(input)) this.edgeTaken = false;
     input.edgeTaken = this.edgeTaken;

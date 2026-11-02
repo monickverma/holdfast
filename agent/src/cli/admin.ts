@@ -8,6 +8,7 @@
 //   guard    --window 600 --band-ticks 100, or --window 0 to turn it off
 //   daily    --token whsk|usdt --amount 400, or --amount 0 to remove the cap
 //   guardian --address <address>, or the zero address to remove it
+//   loss     --mark 0.087 --amount 1 --max-age 86400, a daily loss budget in USDT against your own price, or --mark 0 to turn it off
 //   stop     --token whsk --trigger-price 0.08 --tranche 50 --total 200 --floor-price 0.05 --band-ticks 500 --cooldown 300
 //   disarm | halt | revoke
 //   offer-ownership --to <address>, then accept-ownership signed by that address
@@ -70,6 +71,8 @@ const { values, positionals } = parseArgs({
     token: { type: "string" },
     amount: { type: "string" },
     to: { type: "string" },
+    mark: { type: "string" },
+    "max-age": { type: "string", default: "86400" },
   },
 });
 
@@ -239,6 +242,14 @@ switch (positionals[0]) {
   case "guardian":
     await run([vaultCall(`guardian ${required("address")}`, "setGuardian", [required("address")])]);
     break;
+  case "loss": {
+    if (Number(required("mark")) === 0) {
+      await run([vaultCall("turn off the loss guard", "setLossGuard", [0n, 0n, 0])]);
+      break;
+    }
+    await run([vaultCall(`loss budget: ${required("amount")} USDT a day against a mark of ${required("mark")}, good for ${required("max-age")} s`, "setLossGuard", [parseUnits(required("mark"), 6), parseUnits(required("amount"), 6), Number(required("max-age"))])]);
+    break;
+  }
   case "stop": {
     if (required("token") !== "whsk") throw new Error("A stop here sells WHSK. A stop on the other side has no trigger price in these units yet: call armStop directly.");
     const trigger = tickForPrice(required("trigger-price"));
@@ -264,5 +275,5 @@ switch (positionals[0]) {
     await run([vaultCall("accept ownership", "acceptOwnership", [])]);
     break;
   default:
-    throw new Error("Commands: deploy, renew, limits, fund, withdraw, pause, unpause, guard, daily, guardian, stop, disarm, halt, revoke, offer-ownership, accept-ownership");
+    throw new Error("Commands: deploy, renew, limits, fund, withdraw, pause, unpause, guard, daily, guardian, loss, stop, disarm, halt, revoke, offer-ownership, accept-ownership");
 }

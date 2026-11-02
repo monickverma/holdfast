@@ -58,6 +58,11 @@ export function planDeployment(facts: DeployFacts): DeployPlan {
   return { gasLimit, costWei, blockers };
 }
 
+/** A new vault has no guardian, guard or loss budget yet. Those are the next steps, so here they are reported and do not fail it. */
+export function wiredAfterDeploy(checks: ReadonlyArray<Pick<VenueReport["checks"][number], "name" | "status">>): boolean {
+  return checks.every((c) => c.status === "pass" || c.status === "warn" || c.name === "guardian" || c.name === "price guard" || c.name === "loss guard");
+}
+
 interface Artifact {
   abi: Abi;
   bytecode: { object: Hex };
@@ -180,8 +185,7 @@ export async function runDeploy(argv: string[], env: Record<string, string | und
     const match = runtimeMatches(code, artifact);
     const after = await verifyVenue(rpc, { ...config, vault: receipt.contractAddress }, getAddress(agent));
     const explorer = explorerFor(config.chainId);
-    // A new vault has no guardian or guard yet. Those are the next steps, so here they are reported and do not fail it.
-    const wired = after.checks.every((c) => c.status === "pass" || c.status === "warn" || c.name === "guardian" || c.name === "price guard");
+    const wired = wiredAfterDeploy(after.checks);
     writeFileSync(out, `${JSON.stringify({
       ...record,
       status: match.matches && wired ? "verified" : "deployed, verification failed",
@@ -198,7 +202,7 @@ export async function runDeploy(argv: string[], env: Record<string, string | und
     console.log(`runtime    ${match.matches ? `matches the build, ${match.maskedSlots} immutable slots masked` : "DOES NOT MATCH THE BUILD"}`);
     console.log(`venue      ${after.verdict}`);
     console.log(`record     ${out}`);
-    console.log("Next: limits, a guardian and a guard, in that order. The vault has no trading limits until you set them.");
+    console.log("Next: limits, a guardian, a guard and a loss budget, in that order. The vault has no trading limits until you set them.");
     return match.matches && wired ? 0 : 1;
   } finally {
     rpc.close();

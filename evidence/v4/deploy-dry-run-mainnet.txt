@@ -1,8 +1,8 @@
 chain      177  (https://mainnet.hsk.xyz)
 venue      pass
 owner      0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489
-agent      0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA  expires 1794175755 (7 days)
-build      0x8ac27bade41a554cf0a9d46cf2914c8a25490b2219a161c7f8dd51c4a4c49bd8
-gas        3898557 estimated, limit 4678268
-cost       about 2.339138678268 HSK, holding 0 HSK
-BLOCKED    The owner holds 0 HSK and this needs about 2.339138678268.
+agent      0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA  expires 1794207411 (7 days)
+build      0x063ed1104bfdff98693497538481299ed10aea4a48719cf4b082913808d61b11
+gas        4704567 estimated, limit 5645480
+cost       about 2.82274564548 HSK, holding 0 HSK
+BLOCKED    The owner holds 0 HSK and this needs about 2.82274564548.

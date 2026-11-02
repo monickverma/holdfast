@@ -1,6 +1,6 @@
 # Status of the system
 
-What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet, and no live model call has been tested. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
+What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet, and no live model call has been tested. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
 
 ## What the audit found
 
@@ -16,9 +16,25 @@ We did not take the README's word for anything. The vault's limits held under re
 | Medium | A trade between the owner's read and write could silently change the agent's allowance | `setLimitsIfRemaining` | `test_attack_tradeBetweenReadAndWriteCannotBePapered` |
 | Medium | One key could stop things only by being the owner, and a typo could lose ownership | A guardian that can only stop things, and a two-step handover | `test_attack_guardianHasNoOtherPower`, `test_ownerHandoverNeedsTheNewOwnerToAccept` |
 | Medium | Our own test market had no real price history or post-swap quote, so it could not exercise any of this | Real observation history and post-swap prices | `contracts/test/TestMarket.t.sol` |
+| Medium | A chat edit gave every order a new id, and fills are counted by id, so a part-filled order could re-arm to its full size. An outside review found it by reading the code, and a test confirmed it. A person still had to approve the edit, and the vault's caps still applied | A drafted order that matches a current one keeps its id, and the review shown before approval says so | `agent/test/nl.test.ts`, "cannot re-arm to full size" |
 | Low | `/api/evidence` walked the disk and read the chain on each request | A short shared cache and a rate limit | `viewer.test.ts`, "do not walk the disk again" |
 
 ## Completed and tested
+
+| Area | What now exists | Lane | Result | Evidence |
+|---|---|---|---|---|
+| Contract | Version 4: version 3 plus a daily loss budget with a breaker, a gapless log on chain, a share-of-balance limit, a minimum time between trades, a strategy pin and log anchoring | Local | 165 of 165 | `evidence/v4/verification.json` |
+| Contract | Version 4 against the real pool and router | Fork | 7 of 7 | `evidence/v4/verification.json` |
+| Agent to receipt | Version 4: observe, sell, buy, stop-loss, crash recovery, on-chain refusals | Fork | 8 of 8 | `evidence/v4/e2e.json` |
+| Agent to receipt | Version 4 on our own market contracts | Local | 18 of 18 | `evidence/v4/e2e.json` |
+| Agent | The history verifier, the chat fix below, chat-set pacing and token choice, the OpenRouter connection, and everything in the version 3 row below | Local | 412 of 412 | `agent/test/`, `evidence/v4/verification.json` |
+| Do the tests catch bugs | 55 deliberate bugs in the version 4 vault | Local | 55 of 55 caught | `evidence/v4/mutation-check.json` |
+| Static analysis | Slither 0.11.6 on version 4 | Local | 34 findings, 0 untriaged. 4 were new on version 4 and we triaged them: one exact comparison with zero, and writes after the router call under the reentrancy lock. Our triage, not an audit | `evidence/v4/slither.json`, `scripts/slither-check.mjs` |
+| Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
+| Whole lifecycle | Version 4: deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps, with the loss budget, share limit and cooldown off | `evidence/v4/rehearsal-fork.json` |
+| Mainnet procedure | Every step of [the runbook](MAINNET-RUNBOOK.md), with test keys, ending in one swap through the real router | Fork | Preflight `pass`, swap included | `evidence/v4/mainnet-dress-rehearsal-fork.json` |
+
+The rows below are **version 3 or earlier**, kept as they were.
 
 | Area | What now exists | Lane | Result | Evidence |
 |---|---|---|---|---|
@@ -42,15 +58,18 @@ We did not take the README's word for anything. The vault's limits held under re
 
 | Item | Why | What it needs |
 |---|---|---|
-| Live model call | `ANTHROPIC_API_KEY` is empty, and no local model is installed. `npm run llm:live` writes `BLOCKED` to `evidence/v3/llm-live.json`. **We make no claim that the LLM integration works end to end.** Only scripted replies are tested | A key, then that one command |
-| Mainnet | The team chose testnet, for lack of funds. This may not meet the hackathon's mainnet rule | The owner's decision and funds |
+| Live model call | No model key is set: `OPENROUTER_API_KEY` and `ANTHROPIC_API_KEY` are both empty, and no local model is installed. `npm run llm:live` writes `BLOCKED` to `evidence/v4/llm-live.json`. **We make no claim that the LLM integration works end to end.** Only scripted replies are tested | An OpenRouter or Anthropic key, then that one command. It now also checks pacing and token choice in English |
+| Mainnet | The team chose testnet, for lack of funds. Under the official rule, a project not deployed on mainnet forfeits demo selection, and winners must be on mainnet to claim. Owner and agent keys hold 0 HSK at nonce 0 | The owner's decision and funds: 2.83 HSK for deployment alone, about 4.2 HSK with one swap. [The runbook](MAINNET-RUNBOOK.md) is ready and rehearsed on a fork only |
 
 ## Not done
 
 | Item | Why |
 |---|---|
+| Version 4 on any public network | Not deployed. Testnet still has version 3, and mainnet has nothing |
+| AI in the trading loop | Not built, deliberately. The loop is rules. The model only answers and drafts, which is a weak answer to a track asking for an AI agent as its core engine |
 | Version 3 in use on testnet | Deployed at `0x9b31…1b28`, using 7,886,252 gas and 0.00789 test HSK. Guard off, no guardian, no stop armed, no swaps. The agent key holds about 0.00003 test HSK, too little to trade |
-| Deploying the site | `render.yaml` is written. Merging it changes the live site, which is the owner's call |
+| Public chat on the site | The site is live at holdfast-09jn.onrender.com and reads the testnet vault. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
+| Demo video | None in the repository. [A script](DEMO-SCRIPT.md) is ready for the owner to record |
 | Contract source verification on the explorer | Not attempted. The runtime code was compared with the build instead, and matched |
 | External audit | None. Everything here is our own review |
 | A real wallet on the owner controls | Tested with a mock provider in a browser |
@@ -61,7 +80,7 @@ We did not take the README's word for anything. The vault's limits held under re
 
 ## Decisions, and what we rejected
 
-- **One contract, not several.** Authority, policy and execution in one place are easier to reason about, cheaper per swap, and need no cross-contract trust. The cost is real: 3.87M gas to deploy and 17,420 of the 24,576 bytes allowed, so little room is left to grow.
+- **One contract, not several.** Authority, policy and execution in one place are easier to reason about, cheaper per swap, and need no cross-contract trust. The cost is real: version 4 takes 4.67M gas to deploy on a fork and 21,021 of the 24,576 bytes allowed, so little room is left to grow.
 - **No EIP-712 mandates.** See [SECURITY.md](SECURITY.md#replay-and-stale-trades).
 - **No net-asset-value daily loss limit.** See [SECURITY.md](SECURITY.md#pool-and-oracle-manipulation).
 - **No keeper fee.** It would add a pot to steal and a reason to fire. The cost is that a stop may sit uncalled.
@@ -83,14 +102,14 @@ We read [Vyuh](https://github.com/Sandesh13fr/vyuh) as a reference, the source a
 | When price falls with the agent offline | Anyone can fire a stop that **sells** into the vault, above its floor | Anyone can **halt** with an on-chain proof. It halts and does not sell |
 | Agent's choice of fee tier | Fixed at deployment | The agent chooses |
 | Tooling | Own stdio MCP, SDK, keeper, monitor, plain web page | MCP SDK, keeper, Ponder indexer, Next.js console, published guard SDK. **Its tooling is broader, and an indexer is something we lack** |
-| Verification | 129 contract tests, 7 invariants at 25,600 calls each, 37 of 37 mutants, Slither triage, attack set, 26-step rehearsal | By its own documents, 52 Solidity tests and 4 of 4 fork tests, with deploy, indexer and console wallet flows "not yet verified" |
+| Verification | Version 4: 165 contract tests and a fork end-to-end run. Version 3: 7 invariants at 25,600 calls each, 37 of 37 mutants, Slither triage, attack set, 26-step rehearsal | By its own documents, 52 Solidity tests and 4 of 4 fork tests, with deploy, indexer and console wallet flows "not yet verified" |
 | Deployed | Older vault on testnet, 1,050 swaps and refusals on chain. **Version 3 deployed on testnet, no swaps yet** | We did not confirm a deployment |
 
 **Where Vyuh is ahead:** flexibility, a factory that serves many users, an indexer, and a more complete-looking product. A team wanting configurable policy across many vaults would prefer it.
 
 **Where Holdfast is ahead:** a smaller thing to trust, a defence and a stop that act rather than only halting, much deeper verification, and measured numbers from real networks with their flaws stated.
 
-**One thing we could not reconcile:** its documents say the relevant pools hold under $0.01 of USDT. The 0.3% WHSK/USDT pool we read holds about 4.99M WHSK and 436,795 USDT at fork block 29605306. They may mean other pools, so we do not call this an error.
+**A mismatch explained:** its documents say the relevant pools hold under $0.01 of USDT. The 0.3% WHSK/USDT pool we read holds about 4.99M WHSK and 436,795 USDT at fork block 29605306. [A later comparison](reviews/2026-11-02-repository-comparison.md) found the two projects read different pools, on different factories, so both figures are right. It did not tie either router to `app.hskswap.com`.
 
 Neither project has been audited, and neither should hold real funds on the strength of its own tests.
 
@@ -126,6 +145,10 @@ npm run check:transactions
 
 ```bash
 npm run llm:live
+```
+
+```bash
+node scripts/mainnet-dress-rehearsal.mjs
 ```
 
 The fork commands read from the public mainnet RPC, which rate-limits. Run them one at a time, or the fork stalls.

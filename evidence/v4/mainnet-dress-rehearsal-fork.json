@@ -1,0 +1,85 @@
+{
+  "wallTime": "2026-11-02T06:55:22.680Z",
+  "lane": "fork",
+  "chainId": 177,
+  "note": "A local Anvil fork of HSK mainnet with Anvil's public test keys. Hashes exist only on the fork. Nothing was broadcast to a public network. Gas price and L1 fee are mainnet reads.",
+  "vaultOnFork": "0x38a024c0b412b9d1db8bc398140d00f5af3093d4",
+  "runtimeMatchesBuild": true,
+  "gasPriceWei": "500001000000",
+  "deployL1FeeWei": "212572698168455",
+  "ownerGas": "5166354",
+  "agentGas": "202215",
+  "costHskAtThatPrice": {
+    "ownerGas": 2.5831821663539998,
+    "deployL1Fee": 0.000212572698168455,
+    "agentGas": 0.101107702215
+  },
+  "steps": [
+    {
+      "name": "deploy dry run",
+      "command": "deploy-vault --owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --agent 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "gasUsed": 0,
+      "output": "venue      pass\nagent      0x70997970C51812dc3A010C7d01b50e0d17dc79C8  expires 1794207267 (7 days)\nbuild      0x063ed1104bfdff98693497538481299ed10aea4a48719cf4b082913808d61b11\ngas        4666365 estimated, limit 5599638\ncost       about 1.647525293589649914 HSK, holding 10000 HSK\nDry run. Nothing was signed or sent. Add --broadcast to send."
+    },
+    {
+      "name": "deploy",
+      "command": "deploy-vault --owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --agent 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 --out C:\\Users\\KIIT\\AppData\\Local\\Temp\\holdfast-dress-V4dn7I\\vault.json --broadcast --confirm-mainnet",
+      "gasUsed": 4666365,
+      "output": "sent       0xa2b40afac197ae05eddbcec0433160df8022bce0595d17625d189be1c7714526\nvault      0x38a024c0b412b9d1db8bc398140d00f5af3093d4\nruntime    matches the build, 34 immutable slots masked\nvenue      fail\nrecord     C:\\Users\\KIIT\\AppData\\Local\\Temp\\holdfast-dress-V4dn7I\\vault.json\nNext: limits, a guardian, a guard and a loss budget, in that order. The vault has no trading limits until you set them."
+    },
+    {
+      "name": "limits",
+      "command": "admin limits --max-trade-hsk 1 --lifetime-hsk 2 --hourly-hsk 2 --max-trade-usdt 0.1 --lifetime-usdt 0.2 --hourly-usdt 0.2 --broadcast --confirm-mainnet",
+      "gasUsed": 151796,
+      "output": "spot 87552 micro-USDT per HSK. Floors: sell at 83174, buy at 10850694444444444444444444444443 (out per 1e18 in).\nok: set WHSK limits, block 29627674, gas 75867, tx 0xf803c18abd3a57b13548e1016be5e9e7568d4b8677c277715c6792444f6cec45\nok: set USDT limits, block 29627675, gas 75929, tx 0x04dddf015ede59f642115c95fc82540e3d6ce194bc620a8e4af0b367fe9622da"
+    },
+    {
+      "name": "daily budget",
+      "command": "admin daily --token whsk --amount 2 --broadcast --confirm-mainnet",
+      "gasUsed": 53774,
+      "output": "ok: daily budget of 2 whsk, block 29627679, gas 53774, tx 0x71ac67a313976027c81b360c9d6f79870e6064c73c47fe883d8b24465a164a21"
+    },
+    {
+      "name": "price guard",
+      "command": "admin guard --window 600 --band-ticks 100 --broadcast --confirm-mainnet",
+      "gasUsed": 72768,
+      "output": "ok: guard: stay within 100 ticks of the 600 s TWAP, block 29627685, gas 72768, tx 0x56043effe85c652344aead353739774d726e60277073c49e7ed00ef59390e4be"
+    },
+    {
+      "name": "guardian",
+      "command": "admin guardian --address 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC --broadcast --confirm-mainnet",
+      "gasUsed": 47238,
+      "output": "ok: guardian 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC, block 29627691, gas 47238, tx 0x570f38f89f2f262d80be6b926bcd3be4ac6b2882cbddb0ee4dde5e474ccdc65b"
+    },
+    {
+      "name": "loss budget",
+      "command": "admin loss --mark 0.087552 --amount 1 --max-age 86400 --broadcast --confirm-mainnet",
+      "gasUsed": 75943,
+      "output": "ok: loss budget: 1 USDT a day against a mark of 0.087552, good for 86400 s, block 29627698, gas 75943, tx 0xa8b416554d96514b81ed990fedeb1da15cb002e6a13cdb7a86189bd733f07383"
+    },
+    {
+      "name": "fund",
+      "command": "admin fund --hsk 1 --broadcast --confirm-mainnet",
+      "gasUsed": 98470,
+      "output": "ok: wrap 1 HSK, block 29627704, gas 51856, tx 0x57b160883b0bb5987a3fe0ff890e6421b0846e2721ba8405f59e01c7bccede4e\nok: send 1 WHSK to the vault, block 29627705, gas 46614, tx 0x52b25668eff05fb623de6aaa22bbf13dc0fed43071d283c3df2a1e81741ad2f3"
+    },
+    {
+      "name": "preflight",
+      "command": "preflight --agent 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "gasUsed": 0,
+      "output": "pinned batch  n=12 P50=4.7ms max=612.5ms\nrpc stats     {\"httpRequests\":60,\"logicalCalls\":384,\"newSockets\":3,\"reusedSockets\":57,\"rateLimited\":0,\"retries\":0}\nvault    0x38a024c0b412b9d1db8bc398140d00f5af3093d4 {\"paused\":false,\"agentExpiry\":\"1794207269\",\"whsk\":{\"balance\":\"1000000000000000000\",\"maxTrade\":\"1000000000000000000\",\"remaining\":\"2000000000000000000\",\"floorPriceX18\":\"83174\",\"hourlyBudget\":\"2000000000000000000\",\"available\":\"2000000000000000000\",\"dailyBudget\":\"2000000000000000000\",\"dailyAvailable\":\"2000000000000000000\"},\"usdt\":{\"balance\":\"0\",\"maxTrade\":\"100000\",\"remaining\":\"200000\",\"floorPriceX18\":\"10850694444444444444444444444443\",\"hourlyBudget\":\"200000\",\"available\":\"200000\",\"dailyBudget\":\"0\",\"dailyAvailable\":\"4722366482869645213695\"},\"guard\":{\"windowSec\":600,\"bandTicks\":100,\"oracleOk\":true,\"twapTick\":-300681}}\nfalse      authoritative  vault-call     OverTradeCap\ntrade    held: preflight-refused: The vault would refuse this trade: OverTradeCap.\nlatency  n=8 P50=2.2ms max=3.6ms"
+    },
+    {
+      "name": "swap preview",
+      "command": "swap-once sell 1",
+      "gasUsed": 0,
+      "output": "Would trade at block 29627719: quoted out 0.087289, min out 86852. Nothing sent. Add --broadcast to send."
+    },
+    {
+      "name": "swap",
+      "command": "swap-once sell 1 --broadcast --confirm-mainnet",
+      "gasUsed": 202215,
+      "output": "tx 0xe691f7429aea6ec1777b9d1b0b016daa44a1d10aa9d2b9e2453e6a073e86b937\nincluded: block 29627722, 1 blocks after broadcast, gas 202215, fee 0.00024817640609814 HSK, out 87289\nhttps://hsk.blockscout.com/tx/0xe691f7429aea6ec1777b9d1b0b016daa44a1d10aa9d2b9e2453e6a073e86b937"
+    }
+  ]
+}

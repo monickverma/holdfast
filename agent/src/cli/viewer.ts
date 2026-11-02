@@ -1,5 +1,4 @@
 // Read-only evidence server. No signer, executor or policy writer is loaded, and private keys never enter this process.
-import Anthropic from "@anthropic-ai/sdk";
 import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
@@ -11,7 +10,7 @@ import type { Agent } from "../agent.js";
 import { MAINNET_MARKET as HSKSWAP, loadConfig, testMarket, networkProfile } from "../config.js";
 import { DEMO_ATTACKS, runDemo, type RpcRequest } from "../demo.js";
 import { buildFacts } from "../facts.js";
-import { Assistant, DEFAULT_MODEL } from "../nl.js";
+import { assistantFromEnv, MODEL_KEYS, NO_MODEL_KEY, type Assistant } from "../nl.js";
 import { DEFAULT_POLICY } from "../policy.js";
 import { readProof } from "../proof.js";
 import { VAULT_ABI, readHead, readMarket } from "../reader.js";
@@ -289,7 +288,7 @@ export function createViewer(options: {
   const chatToday = { day: "", used: 0 };
   const llmLog = new JsonlLog(join(dataDir, "llm.jsonl"));
   const assistant = options.assistant === undefined
-    ? (process.env.ANTHROPIC_API_KEY ? new Assistant(new Anthropic(), process.env.LLM_MODEL ?? DEFAULT_MODEL, (record) => llmLog.append(record)) : null)
+    ? assistantFromEnv(process.env, (record) => llmLog.append(record))
     : options.assistant;
   const address = options.vaultAddress ?? process.env.VAULT_ADDRESS ?? (networkProfile().network === "testnet" ? testMarket().vault : undefined);
   const evidence = cached(cacheMs, async () => ({ ...readEvidence(dataDir), vault: await vaultLimits(address) }));
@@ -331,9 +330,11 @@ export function createViewer(options: {
         ...extra,
       });
       let text = type === "application/json" ? JSON.stringify(body) : String(body);
-      // The API key is never returned, including when echoed by a model or evidence field. The vault address is public.
-      const secret = process.env.ANTHROPIC_API_KEY;
-      if (secret) text = text.split(secret).join("[redacted]");
+      // The API keys are never returned, including when echoed by a model or evidence field. The vault address is public.
+      for (const name of MODEL_KEYS) {
+        const secret = process.env[name];
+        if (secret) text = text.split(secret).join("[redacted]");
+      }
       res.end(text);
     };
     try {
@@ -360,7 +361,7 @@ export function createViewer(options: {
       if (req.method === "GET" && path === "/api/evidence") {
         return send(200, {
           ...await evidence(), network: profile.network,
-          chat: !assistant ? "ANTHROPIC_API_KEY is missing. Chat is unavailable." : chatOpen ? "Questions only. Answers are model output." : "Chat is off on this public server, because each answer costs money.",
+          chat: !assistant ? `${NO_MODEL_KEY}. Chat is unavailable.` : chatOpen ? "Questions only. Answers are model output." : "Chat is off on this public server, because each answer costs money.",
           chatOpen,
         });
       }
@@ -386,7 +387,7 @@ export function createViewer(options: {
         ) {
           return send(403, { error: "Origin refused." });
         }
-        if (!assistant) return send(503, { error: "ANTHROPIC_API_KEY is missing. Chat is unavailable." });
+        if (!assistant) return send(503, { error: `${NO_MODEL_KEY}. Chat is unavailable.` });
         // Each answer spends the operator's money, and an Origin header is only a browser's word. Off this machine, a
         // caller must hold the token. With no token set, public chat does not exist.
         if (!local) {
@@ -421,7 +422,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   // Only these names are taken from .env, so the wallet keys stay out of this process.
   if (existsSync(join(root, ".env"))) {
     const file = parseEnv(readFileSync(join(root, ".env"), "utf8"));
-    for (const name of ["VAULT_ADDRESS", "ANTHROPIC_API_KEY", "LLM_MODEL", "CHAT_TOKEN", "CHAT_DAILY_LIMIT"]) if (file[name] && !process.env[name]) process.env[name] = file[name];
+    for (const name of ["VAULT_ADDRESS", ...MODEL_KEYS, "LLM_MODEL", "CHAT_TOKEN", "CHAT_DAILY_LIMIT"]) if (file[name] && !process.env[name]) process.env[name] = file[name];
   }
   const port = Number(process.env.PORT ?? 4177);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid viewer port.");

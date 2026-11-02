@@ -28,7 +28,15 @@ export interface Policy {
   stopConfirmBlocks: number;
   /** Most a market order may pay against spot, fee included. Absent means DEFAULT_MAX_IMPACT_BPS. Stops ignore it. */
   maxImpactBps?: number;
+  /** Least time between two trades the agent sends, in chain seconds. Absent means no spacing. Stops ignore it. */
+  minTradeIntervalSec?: number;
+  /** Most trades the agent sends in any 24 hours of chain time. Absent means no count. Stops ignore it. */
+  maxTradesPerDay?: number;
+  /** Which of the pool's two tokens the agent may spend. Absent means both. The vault trades no other token. */
+  spendTokens?: SpendToken[];
 }
+
+export type SpendToken = "HSK" | "USDT";
 
 export const DEFAULT_POLICY: Policy = {
   version: 1,
@@ -47,6 +55,11 @@ export function isSell(kind: OrderKind): boolean {
   return SELL_KINDS.has(kind);
 }
 
+/** Whether this policy lets the agent spend the token: HSK for a sell, USDT for a buy. */
+export function maySpend(policy: Pick<Policy, "spendTokens">, sell: boolean): boolean {
+  return !policy.spendTokens || policy.spendTokens.includes(sell ? "HSK" : "USDT");
+}
+
 export class PolicyError extends Error {}
 
 /**
@@ -55,7 +68,7 @@ export class PolicyError extends Error {}
  */
 export function parsePolicy(input: unknown): Policy {
   const root = record(input, "policy");
-  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks", "maxImpactBps"], "policy");
+  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks", "maxImpactBps", "minTradeIntervalSec", "maxTradesPerDay", "spendTokens"], "policy");
   const orders = root.orders;
   if (!Array.isArray(orders) || orders.length > 16) throw new PolicyError("orders must be a list of at most 16");
   const parsed = orders.map(parseOrder);
@@ -64,6 +77,14 @@ export function parsePolicy(input: unknown): Policy {
   const edge = record(root.edge, "edge");
   allowKeys(edge, ["enabled", "sizeUsdt", "minNetUsdt", "maxInventoryUsdt"], "edge");
   if (typeof edge.enabled !== "boolean") throw new PolicyError("edge.enabled must be true or false");
+
+  const spendTokens = root.spendTokens === undefined ? undefined : tokens(root.spendTokens);
+  // Refused here rather than held later, so the person approving sees the conflict before it is active.
+  parsed.forEach((order, i) => {
+    if (spendTokens && !maySpend({ spendTokens }, isSell(order.kind))) {
+      throw new PolicyError(`orders[${i}] spends ${isSell(order.kind) ? "HSK" : "USDT"}, which spendTokens does not allow`);
+    }
+  });
 
   return {
     version: int(root.version, "version", 1, 1_000_000),
@@ -78,7 +99,17 @@ export function parsePolicy(input: unknown): Policy {
     maxTwapDeviationBps: int(root.maxTwapDeviationBps, "maxTwapDeviationBps", 1, 2_000),
     stopConfirmBlocks: int(root.stopConfirmBlocks, "stopConfirmBlocks", 1, 30),
     ...(root.maxImpactBps === undefined ? {} : { maxImpactBps: int(root.maxImpactBps, "maxImpactBps", 1, 5_000) }),
+    ...(root.minTradeIntervalSec === undefined ? {} : { minTradeIntervalSec: int(root.minTradeIntervalSec, "minTradeIntervalSec", 1, 7 * 86_400) }),
+    ...(root.maxTradesPerDay === undefined ? {} : { maxTradesPerDay: int(root.maxTradesPerDay, "maxTradesPerDay", 1, 10_000) }),
+    ...(spendTokens === undefined ? {} : { spendTokens }),
   };
+}
+
+function tokens(value: unknown): SpendToken[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 2 || value.some((t) => t !== "HSK" && t !== "USDT") || new Set(value).size !== value.length) {
+    throw new PolicyError("spendTokens must list HSK, USDT or both, once each");
+  }
+  return value as SpendToken[];
 }
 
 export function serializePolicy(policy: Policy): unknown {

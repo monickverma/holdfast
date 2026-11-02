@@ -1,22 +1,20 @@
 {
-  "wallTime": "2026-11-01T22:39:33.290Z",
+  "wallTime": "2026-11-02T08:01:32.226Z",
   "lane": "local",
   "mutants": 55,
-  "killed": 54,
+  "killed": 55,
   "didNotCompile": 0,
-  "survived": [
-    "log records the asked amount"
-  ],
+  "survived": [],
   "note": "Hand-picked mutants of the security checks, not exhaustive mutation testing.",
   "results": [
     {
       "name": "agent check removed",
       "outcome": "killed",
       "killedBy": [
-        "testFuzz_nobodyButTheAgentTrades",
-        "test_attack_guardianHasNoOtherPower",
         "test_attack_replacedKeyLosesEverythingAtOnce",
         "test_attack_strangerCannotTrade",
+        "testFuzz_nobodyButTheAgentTrades",
+        "test_attack_guardianHasNoOtherPower",
         "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut",
         "invariant_2_noTradeSpentOverTheCap"
       ]
@@ -35,9 +33,9 @@
       "name": "expiry ignored",
       "outcome": "killed",
       "killedBy": [
-        "test_aRevokedKeyCannotTradeOrAnchorAndAPausedOneCanStillAnchor",
         "test_attack_expiredKeyCannotTrade",
         "test_revokeEndsTheKeyInTheSameBlock",
+        "test_aRevokedKeyCannotTradeOrAnchorAndAPausedOneCanStillAnchor",
         "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut",
         "invariant_2_noTradeSpentOverTheCap",
         "invariant_4_noOtherAssetEverMoved"
@@ -47,9 +45,9 @@
       "name": "expiry off by one",
       "outcome": "killed",
       "killedBy": [
-        "test_aRevokedKeyCannotTradeOrAnchorAndAPausedOneCanStillAnchor",
         "test_revokeEndsTheKeyInTheSameBlock",
         "test_attack_expiredKeyCannotTrade",
+        "test_aRevokedKeyCannotTradeOrAnchorAndAPausedOneCanStillAnchor",
         "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut",
         "invariant_2_noTradeSpentOverTheCap",
         "invariant_4_noOtherAssetEverMoved"
@@ -85,9 +83,9 @@
       "name": "trade cap removed",
       "outcome": "killed",
       "killedBy": [
-        "test_aDonationCannotLiftATradeAboveTheAbsoluteCap",
         "test_attack_noFloorMeansNoTrade",
         "test_attack_overTradeCap",
+        "test_aDonationCannotLiftATradeAboveTheAbsoluteCap",
         "invariant_2_noTradeSpentOverTheCap"
       ]
     },
@@ -103,11 +101,11 @@
       "outcome": "killed",
       "killedBy": [
         "test_anHourlyBudgetIsARealRollingLimitWithNoBoundaryToExploit",
-        "test_attack_stolenKeySpendingItsBudgetLeavesTheStopAllowance",
         "test_attack_budgetStopsABurstInOneBlock",
         "test_attack_changingALimitDoesNotHandOutASecondBudget",
         "test_budgetRefillsInProportionToTime",
-        "test_zeroBudgetMeansNoTrading"
+        "test_zeroBudgetMeansNoTrading",
+        "test_attack_stolenKeySpendingItsBudgetLeavesTheStopAllowance"
       ]
     },
     {
@@ -122,10 +120,10 @@
       "name": "floor removed",
       "outcome": "killed",
       "killedBy": [
-        "test_stopSellsUnderTheAgentFloor",
         "testFuzz_acceptsOnlyTradesAboveFloor",
         "test_attack_oneWeiBelowFloorRejected",
         "test_attack_zeroMinOutRejected",
+        "test_stopSellsUnderTheAgentFloor",
         "invariant_everyAgentSaleClearedTheFloor"
       ]
     },
@@ -140,12 +138,12 @@
       "name": "lifetime not charged",
       "outcome": "killed",
       "killedBy": [
+        "test_attack_tradeBetweenReadAndWriteCannotBePapered",
         "testFuzz_cannotSpendPastLifetimeCap",
         "test_attack_lifetimeCapDoesNotRenew",
         "test_lockClearsBetweenCalls",
         "test_trade_paysVaultAndSpendsCap",
-        "test_trade_sellsTokenThatReturnsNothing",
-        "test_trade_worksTwiceWithUsdtStyleApprove"
+        "test_trade_sellsTokenThatReturnsNothing"
       ]
     },
     {
@@ -167,9 +165,9 @@
         "test_aFeeOnTransferOutputIsMeasuredNotAssumed",
         "test_aFullFillReportedButNotPaidIsRefused",
         "test_everyTradeAdvancesTheLogAndAFailedTradeLeavesNoEntry",
-        "test_attack_feeOnTransferOutputIsMeasuredByBalance",
         "testFuzz_acceptsOnlyTradesAboveFloor",
-        "test_attack_routerLiesAboutOutput"
+        "test_attack_routerLiesAboutOutput",
+        "test_attack_routerShortPays"
       ]
     },
     {
@@ -184,24 +182,24 @@
       "name": "agent can withdraw",
       "outcome": "killed",
       "killedBy": [
+        "test_attack_agentCannotWithdraw",
+        "test_attack_routerReentersWithdraw",
         "testFuzz_agentNeverGainsWithdrawalPower",
         "test_attack_guardianHasNoOtherPower",
         "test_ownerHandoverNeedsTheNewOwnerToAccept",
-        "test_attack_agentCannotWithdraw",
-        "test_attack_routerReentersWithdraw",
-        "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut"
+        "invariant_agentSpendStaysInsideEveryCap"
       ]
     },
     {
       "name": "anyone can set limits",
       "outcome": "killed",
       "killedBy": [
-        "test_attack_guardianHasNoOtherPower",
         "test_attack_agentCannotChangeLimits",
-        "invariant_agentSpendStaysInsideEveryCap",
-        "invariant_everyAgentSaleClearedTheFloor",
-        "invariant_everyStopSaleClearedItsFloorAndTotal",
-        "invariant_fundsOnlyLeaveThroughTheRouterOrTheOwner"
+        "test_attack_guardianHasNoOtherPower",
+        "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut",
+        "invariant_2_noTradeSpentOverTheCap",
+        "invariant_4_noOtherAssetEverMoved",
+        "invariant_6_budgetsAreNeverResetByAnyTransition"
       ]
     },
     {
@@ -227,18 +225,19 @@
       "name": "band has the wrong sign",
       "outcome": "killed",
       "killedBy": [
-        "test_vaultGuardAcceptsThisPoolAndRefusesASaleIntoAPush",
         "testFuzz_guardNeverPassesASalePastItsBand",
         "test_attack_guardRefusesABuyIntoAPushedPool",
         "test_attack_guardRefusesASaleIntoAPushedPool",
         "test_attack_guardRefusesASalePastTheBand",
-        "test_attack_sandwichedStopIsRefusedByItsBand"
+        "test_attack_sandwichedStopIsRefusedByItsBand",
+        "test_failedStopSpendsNoneOfItsAllowance"
       ]
     },
     {
       "name": "band off by one",
       "outcome": "killed",
       "killedBy": [
+        "testFuzz_guardNeverPassesASalePastItsBand",
         "test_guardBoundaryIsExact",
         "test_guardHandlesPoolWithTokensTheOtherWayRound",
         "test_guardLetsANormalTradeThrough"
@@ -363,6 +362,7 @@
       "name": "trades leave no log entry",
       "outcome": "killed",
       "killedBy": [
+        "test_aPartialPullLeavesNoAllowanceAndTheEventReportsWhatLeft",
         "test_anIntentCannotBeUsedTwiceSoOneDecisionCannotTradeTwice",
         "test_everyTradeAdvancesTheLogAndAFailedTradeLeavesNoEntry",
         "invariant_8_theOnChainLogMatchesAShadowOfEveryExecution"
@@ -370,8 +370,10 @@
     },
     {
       "name": "log records the asked amount",
-      "outcome": "SURVIVED",
-      "killedBy": []
+      "outcome": "killed",
+      "killedBy": [
+        "test_aPartialPullLeavesNoAllowanceAndTheEventReportsWhatLeft"
+      ]
     },
     {
       "name": "stops leave no log entry",
@@ -480,8 +482,11 @@
       "outcome": "killed",
       "killedBy": [
         "test_aNewMarkDoesNotRefillTheBudgetEither",
-        "invariant_2_noTradeSpentOverTheCap",
-        "invariant_6_budgetsAreNeverResetByAnyTransition"
+        "invariant_1_theAgentHoldsNothingAndOnlyTheOwnerTakesAssetsOut",
+        "invariant_4_noOtherAssetEverMoved",
+        "invariant_6_budgetsAreNeverResetByAnyTransition",
+        "invariant_8_theOnChainLogMatchesAShadowOfEveryExecution",
+        "invariant_fundsAccountedForInBothTokens"
       ]
     },
     {
