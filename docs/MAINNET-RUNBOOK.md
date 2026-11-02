@@ -19,7 +19,11 @@ Read from mainnet on 2 November 2026: the base fee is 500 gwei, and recent trans
 - The agent must hold at least 0.5 HSK to send a swap, because the agent reserves 500,000 gas at twice the base fee. A swap spends about 0.1, and the rest stays with the agent.
 - **Deployment alone**, which is what the mainnet rule asks for, needs 2.83 HSK on the owner and no agent funds.
 
-These replace the 2.34 HSK in the 2 November reviews, which came from a dry run before the last version 4 edits. The base fee can change, so read the dry run's figure on the day.
+These replace the 2.34 HSK in the 2 November reviews, which came from a dry run before the last version 4 edits. The base fee can change, so read the dry run's figure on the day. A dry run on 3 November read the same 500 gwei, the same build hash and the same 2.82 HSK: [`evidence/v4/deploy-dry-run-mainnet.txt`](../evidence/v4/deploy-dry-run-mainnet.txt).
+
+## Deploy only
+
+The mainnet rule asks for a deployment, not a trade. With about 3 HSK on the owner key, run the build below, then steps 1 and 2, and stop. The vault has no limits and holds nothing until steps 3 to 8, and the agent key it names expires in 7 days unless renewed with `admin renew`.
 
 | Key | Address | State on 2 November (mainnet read) |
 | --- | --- | --- |
@@ -28,8 +32,8 @@ These replace the 2.34 HSK in the 2 November reviews, which came from a dry run 
 
 ## Before you start
 
-1. Run these from a checkout of this branch. `main` does not have the `loss` command or the mainnet flag on `swap-once` yet.
-2. Keep the keys in `.env` in that folder, and never show it on screen. Set `VAULT_GENERATION=4`.
+1. Run these from a checkout of `main`, which has the `loss` command and the mainnet flag on `swap-once` since monickverma/holdfast#5.
+2. Keep the keys in `.env` in that folder, and never show it on screen. Set `VAULT_GENERATION=4`. The tools read `.env` from the folder they run in. From another checkout, such as a worktree, pass the file with `node --env-file=<path to .env>` instead of copying the keys. If `.env` still holds the testnet `VAULT_ADDRESS`, replace it with the mainnet address after step 2, or steps 3 to 11 will point at the wrong vault.
 3. Choose a guardian address: a wallet other than the owner and agent. It can only stop things. The live agent refuses to start on mainnet without one.
 4. Build:
 
