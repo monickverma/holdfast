@@ -1,6 +1,48 @@
 # Holdfast benchmarks
 
-Every number here names its lane (mainnet read only, fork, or testnet), its sample size and its source file in `evidence/`. Nothing has been deployed or traded on mainnet. The testnet venue is our own test market, not HSKSwap, so its prices and P&L mean nothing.
+Every number here names its lane (mainnet read only, fork, replay, live model, or testnet), its sample size and its source file in `evidence/`. Nothing has been deployed or traded on mainnet. The testnet venue is our own test market, not HSKSwap, so its prices and P&L mean nothing. **Replay** means recorded mainnet reads run through the real `decide()`, with simulated fills: no transaction was sent.
+
+## Version 4
+
+The vault gained a daily loss budget against the owner's price, a share-of-balance limit, a cooldown, a strategy pin and a hash-chained log on chain. Fork of the real HSKSwap router, median of 20 rounds, `evidence/v4/gas-compare.json`, 1 November 2026. Every arm was measured again in this run, so the version 3 rows differ from the table below by about 20 gas.
+
+| Arm | Sell, gas | Buy, gas | Sell, over the router alone |
+|---|---:|---:|---:|
+| Router alone, no vault | 104,740 | 104,305 | |
+| Version 3, guard off | 133,554 | 133,209 | 28,814 |
+| Version 3, guard, daily budget and decision hash | 154,900 | 154,506 | 50,160 |
+| Version 4, guard off | 141,959 | 141,614 | 37,219 |
+| Version 4, guard on | 154,615 | 154,221 | 49,875 |
+| Version 4, guard, daily budget, share limit, loss budget charged, hash | 172,896 | 168,356 | 68,156 |
+
+Version 4 costs about 8,400 gas a trade more than version 3 with every optional check off, mostly for the on-chain log, which is always on. With every check on and a loss charged, version 4 costs about 18,000 gas more a sell than version 3's full arm, about $0.0008 at 500 gwei and $0.0874/HSK. A trade the vault refuses costs 31,178 gas. Anchoring the agent's log costs 31,884 gas a call.
+
+**Deployment:** 4,666,365 gas and 21,021 runtime bytes, against 3,866,702 and 17,420 for version 3. The limit is 24,576 bytes, so about 3,500 are left.
+
+**No version 4 latency or gas has been measured on any public network**, because version 4 is on none.
+
+## Strategy replay
+
+Recorded mainnet samples (`evidence/shadow/`), run through the real `decide()` and breaker with fills simulated from the quotes recorded at each sample, `npm run replay:strategy`. Open inventory at the end is valued at the outside bid or ask, which no trade in this pool is promised. The caveats are written into each file: the pool would have moved after our own trade, a size not recorded is scaled from the next larger one, and network cost is the one recorded.
+
+Two windows, both read on mainnet by `npm run shadow`, read only: 1 November 12:40 to 13:24 UTC, 992 samples, 0.72 hours (`evidence/shadow/shadow-samples.jsonl`); 2 November 17:49 to 18:49 UTC, 1,598 samples, 1.0 hours, no failed reads (`evidence/shadow/shadow-2026-11-02/`). Sizes and minimums were chosen before either replay ran. Net is the window's USDT result with what is still held valued at the outside bid or ask at the end.
+
+| Window | Engine | Model calls | Trades | Net at the end, USDT | Held at the end | File |
+|---|---|---:|---|---:|---:|---|
+| 1 Nov | Edge rule, $15, no closing leg | | 1 buy: 15 USDT for 170.74 HSK, passing the gate by 0.0076 | −0.0436 | +170.74 HSK | `replay-rules-2026-11-01.json` |
+| 1 Nov | Edge rule, $15, closing leg on | | The same buy; closing never paid | −0.0436 | +170.74 HSK | same |
+| 1 Nov | Edge rule, $5, closing leg on | | None | 0 | 0 | same |
+| 1 Nov | Model, DeepSeek V4 Pro | 19, $0.0502, 1 timeout | None: held all 18 answers | 0 | 0 | `replay-model-2026-11-01.json` |
+| 2 Nov | Edge rule, $15, no closing leg | | 1 sell: 171.39 HSK for 14.953 USDT, passing the gate by 0.0015 | −0.0242 | −171.39 HSK | `replay-rules-2026-11-02.json` |
+| 2 Nov | Edge rule, $15, closing leg on | | The same sell; closing never paid | −0.0242 | −171.39 HSK | same |
+| 2 Nov | Edge rule, $5, closing leg on | | 1 sell: 57.13 HSK for 4.985 USDT | −0.0135 | −57.13 HSK | same |
+| 2 Nov | Model, DeepSeek V4 Pro | 13, $0.0519 | 1 sell, the same trade the rules made, one block later; then held at its inventory limit, because closing would have lost 0.0999 USDT and it was allowed 0 | −0.0242 | −171.39 HSK | `replay-model-2026-11-02.json` |
+
+**No engine ended above zero in either window.** The best result was 0, by not trading. Each trade passed the gate by a fraction of a cent against the outside price at the time, was worth less by the end of the window, and no closing leg in this pool paid within it. The model engine, at best, matched the rules. Two windows of under an hour each are not evidence of anything in the long run.
+
+**What limits these model runs.** Each was capped at $0.05, and the cap ran out before the window ended: on 1 November the model was last asked at block 29595552 of 29596151, so it was not asked when the rules bought at 29595615; on 2 November, at block 29647750 of 29649118. After that every block holds. Calls with the corrected prompt cost about $0.0040 each, against $0.0026 before.
+
+**What the replays found.** The first 2 November model run held all 19 times while selling would have netted +0.0015 to +0.0169 USDT. Its reasons said an inventory of 0 HSK left nothing to sell. Inventory is the model's own net position, and the vault's balance, which was in the snapshot, is what a sell spends. The prompt now says so, a test covers it, and the run above is the one after the fix. Both runs before the fix are kept: `replay-model-2026-11-02-before-prompt-fix.json`, and `replay-model-2026-11-01-before-prompt-fix.json`, which also predates logging the model's answers.
 
 ## Version 3
 
@@ -365,7 +407,13 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/v3/rehearsal-fork.json` | 26-step deployment rehearsal, and the cost of pushing the real pool |
 | `evidence/v3/attack-results.json` | Attack set on version 3, on a fork |
 | `evidence/v3/mutation-check.json`, `slither.json` | Deliberate bugs caught by the tests, and static analysis triage |
-| `evidence/v3/llm-live.json` | Live model call. Records `BLOCKED` until a key is available |
+| `evidence/v3/llm-live.json` | Live model call as of version 3, `BLOCKED`: no key was available then |
+| `evidence/v4/verification.json`, `e2e.json` | Counts from every suite on version 4 |
+| `evidence/v4/gas-compare.json` | Fork gas for every vault version, version 4 included |
+| `evidence/v4/attack-results.json`, `rehearsal-fork.json` | Attack set and rehearsal on version 4, its new limits off |
+| `evidence/v4/mutation-check.json`, `slither.json` | Deliberate bugs caught on version 4, and static analysis triage |
+| `evidence/v4/llm-live.json` | Live chat check, 14 of 14, DeepSeek V4 Pro through OpenRouter. The run before the fix it found is `llm-live-before-risk-fix.json` |
+| `evidence/v4/replay-rules*.json`, `replay-model*.json` | Strategy replays on recorded mainnet samples, rules and live model |
 | `evidence/market/` | The 7-day pool activity read and the scripts behind it |
 | `evidence/shadow/` | Shadow report and every sample |
 | `evidence/frame-drift/` | Frame Drift report, the earlier run's mismatch and the Swap log check |

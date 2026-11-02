@@ -8,7 +8,7 @@ Before recording: close `.env`, clear terminal history, and start the site with 
 | --- | --- | --- |
 | 0:00 | First lines of the README | "Giving a trading agent a wallet means trusting it with everything. Holdfast keeps the agent's key inside limits a contract enforces, whatever the agent is told to do." |
 | 0:15 | `contracts/HoldfastVault.sol`, the limits | "The vault owns the funds. The agent can only ask for a swap, and the vault checks caps, budgets, a price floor, a price band, a daily loss budget and a key that expires. Only the owner can withdraw." |
-| 0:40 | Architecture graph, or `agent/src/decide.ts` | "I'll be exact about the AI. The trading loop is rules, with no model in it, so a bad model answer can't place a trade. The model sits outside: it answers questions and drafts a policy, and a person approves it. This is a rule-based guarded trader." |
+| 0:40 | Architecture graph, or `agent/src/decide.ts` | "I'll be exact about the AI. The rules decide every trade. An optional model engine, off by default, can propose one, and the same rules, the breaker and the vault judge it, so a bad model answer can't break a limit. The chat model drafts a policy, and a person approves it." |
 | 1:00 | **If deployed:** the vault on `hsk.blockscout.com` | "This is version 4 on HSK Chain mainnet, at this address." |
 | | **If not deployed:** the README's Addresses section | "It is not deployed on mainnet. That means it doesn't meet the rule for demo selection, and I'm saying so plainly. What follows ran on a fork of mainnet, a local copy of the chain." |
 | 1:15 | **If a swap happened:** that transaction on the explorer | "This is one real swap through HSKSwap, signed by the agent key, inside the limits. One swap, not a track record." |
@@ -28,3 +28,12 @@ Before recording: close `.env`, clear terminal history, and start the site with 
 ## The existing explainer
 
 `submission-video/holdfast-explainer.mp4` in the main checkout was made before version 4 and isn't in the repository. Its narration says nothing has been deployed on mainnet, the testnet vault is the older contract, and chat edits can re-arm a finished order (fixed in version 4 source since). If any of those has since changed, record again rather than reuse it. `submission-video/SUBMISSION.md` makes the same statements, so check it before pasting.
+
+## The generated explainer
+
+`python video/make_video.py` renders a narrated explainer, to `video/build/holdfast-explainer.mp4`. It needs `pip install playwright pillow imageio-ffmpeg` and Windows speech.
+
+- **How it is made:** each graph is drawn with WebGL in `video/scenes.html`. The script reads its figures from `evidence/` where a file holds them, so a rerun after new results updates both the graphs and the narration. `--stills` writes one frame per scene for a quick check.
+- **What it shows:** each scene names where its result ran.
+- **What it claims:** it says a model can only propose trades that the rules judge, and that nothing has been sent on mainnet. If either stops being true, change `narration()` and the scene, then render again.
+- **What it keeps from the old video:** the old `submission-video/holdfast-explainer.mp4`, described above, had five scenes this one lacked: what goes wrong with an agent's key, the hot path piece by piece, the seven techniques, the fixes measured before and after, and the caveats. They are redrawn in this style, in `EXTRA` in `video/scenes.html`; `SCENES` there sets the running order.

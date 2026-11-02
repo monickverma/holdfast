@@ -174,7 +174,8 @@ export class Executor {
 
   private async submitOwned(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce: number | undefined, isCurrent: () => boolean, context?: DecisionContext): Promise<Intent> {
     if (!isCurrent()) throw new StaleDecision("decision changed while preparing submission");
-    const deadline = market.head.timestamp + (decision.trigger === "edge" ? EDGE_TTL_SEC : INTENT_TTL_SEC);
+    // A model trade and an unwind are priced like an edge, on what the pool and the mark say now, so they expire as fast.
+    const deadline = market.head.timestamp + (["edge", "unwind", "model"].includes(decision.trigger) ? EDGE_TTL_SEC : INTENT_TTL_SEC);
     const intentId = this.ledger.get(key)?.intentId ?? this.ledger.nextIntentId();
     const bodyHash = keccak256(
       encodeAbiParameters(

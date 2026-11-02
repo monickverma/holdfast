@@ -1,0 +1,831 @@
+{
+ "lane": "mainnet, read only, simulated fills",
+ "venue": "HSKSwap WHSK/USDT against the Gate HSK/USDT top of book",
+ "policy": "Edge rule at $15, chosen before collecting data",
+ "assumptions": {
+  "hedgeFeeBps": "Assumed 20 bps taker fee on the outside venue",
+  "gas": "200,000 gas at the current base fee, plus the L1 fee"
+ },
+ "reads": 1598,
+ "refusedStraddledReads": 0,
+ "failedReads": 0,
+ "lastFailure": "",
+ "markFailures": 0,
+ "samples": 1598,
+ "usable": 1598,
+ "hours": 0.9994186111111111,
+ "blocks": 1597,
+ "spreadBps": {
+  "p10": 24.855392016494005,
+  "p50": 34.04987102321621,
+  "p90": 46.14325068870606
+ },
+ "decisions": {
+  "trade": 170,
+  "uneconomic": 1428
+ },
+ "rows": [
+  {
+   "side": "buy",
+   "sizeUsdt": 1,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 1,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 5,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 5,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 15,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 15,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 50,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 50,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 150,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 150,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  }
+ ],
+ "noHedgeFee": [
+  {
+   "side": "buy",
+   "sizeUsdt": 1,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 1,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 5,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 5,
+   "samples": 1598,
+   "samplesProfitable": 58,
+   "opportunities": 3,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0.002632633890000244,
+     "trades": 3,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0.0020201144900002087,
+     "trades": 1,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0.0023263741900002265,
+     "trades": 2,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0.0003062597000000177,
+     "trades": 1,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": -0.008793064709999845,
+    "worst": -0.00826301425000005,
+    "losers": 2,
+    "trades": 3
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 15,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 15,
+   "samples": 1598,
+   "samplesProfitable": 170,
+   "opportunities": 18,
+   "lifetimeMsP50": 1995,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0.14044613760000507,
+     "trades": 18,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0.07193692360000184,
+     "trades": 9,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0.09782517880000297,
+     "trades": 11,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0.07022306880000165,
+     "trades": 9,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0.015334737200010625,
+    "worst": -0.016191403999999146,
+    "losers": 9,
+    "trades": 18
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 50,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 50,
+   "samples": 1598,
+   "samplesProfitable": 277,
+   "opportunities": 31,
+   "lifetimeMsP50": 0,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0.5790601644997904,
+     "trades": 31,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0.3233650096799133,
+     "trades": 13,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0.29893574235988607,
+     "trades": 17,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0.24259668393989556,
+     "trades": 15,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": -0.12362030432013722,
+    "worst": -0.06037913556000192,
+    "losers": 18,
+    "trades": 31
+   }
+  },
+  {
+   "side": "buy",
+   "sizeUsdt": 150,
+   "samples": 1598,
+   "samplesProfitable": 0,
+   "opportunities": 0,
+   "lifetimeMsP50": null,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0,
+     "trades": 0,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0,
+    "worst": null,
+    "losers": 0,
+    "trades": 0
+   }
+  },
+  {
+   "side": "sell",
+   "sizeUsdt": 150,
+   "samples": 1598,
+   "samplesProfitable": 194,
+   "opportunities": 24,
+   "lifetimeMsP50": 2179,
+   "arms": [
+    {
+     "delayMs": 0,
+     "netUsdt": 1.8863203234196466,
+     "trades": 24,
+     "unknown": 0
+    },
+    {
+     "delayMs": 2000,
+     "netUsdt": 1.028183797359808,
+     "trades": 13,
+     "unknown": 0
+    },
+    {
+     "delayMs": 5000,
+     "netUsdt": 1.3103007352397953,
+     "trades": 14,
+     "unknown": 0
+    },
+    {
+     "delayMs": 10000,
+     "netUsdt": 0.8752750740798377,
+     "trades": 11,
+     "unknown": 0
+    }
+   ],
+   "afterHedgeLag": {
+    "netUsdt": 0.0010800412196303594,
+    "worst": -0.19776240668001707,
+    "losers": 11,
+    "trades": 24
+   }
+  }
+ ]
+}

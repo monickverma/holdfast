@@ -17,6 +17,33 @@ export interface EdgeRule {
   minNetUsdt: bigint;
   /** The most HSK the rule may hold or owe, valued in USDT micro-units. Absent means one trade's worth. */
   maxInventoryUsdt?: bigint;
+  /**
+   * Close what the rule holds in this same pool once that round trip nets above minNetUsdt after fees and gas. Absent
+   * means off: nothing closes an edge trade, and the rule stops at its inventory limit.
+   */
+  unwind?: boolean;
+}
+
+/**
+ * Bounds on trades a language model proposes. The model chooses whether to trade, which side and how much; every
+ * proposal still passes decide(), the preflight and the vault. Absent or disabled means the model never trades.
+ */
+export interface AiRule {
+  enabled: boolean;
+  /** Most one proposed trade may spend, in USDT micro-units, HSK valued at spot. */
+  maxSizeUsdt: bigint;
+  /** Most HSK the model's trades may hold or owe, valued in USDT micro-units. */
+  maxInventoryUsdt: bigint;
+  /** A trade that adds inventory must net above this against the outside price, after fees and gas. */
+  minEdgeUsdt: bigint;
+  /** Most a trade that closes inventory in this pool may lose on its round trip, after this leg's gas. */
+  maxUnwindLossUsdt: bigint;
+  /** A proposal is void this many blocks after the block it was made from. */
+  proposalTtlBlocks: number;
+  /** Least blocks between two model calls. */
+  minBlocksBetweenCalls: number;
+  /** Most model calls in any 24 hours. */
+  maxCallsPerDay: number;
 }
 
 export interface Policy {
@@ -34,9 +61,23 @@ export interface Policy {
   maxTradesPerDay?: number;
   /** Which of the pool's two tokens the agent may spend. Absent means both. The vault trades no other token. */
   spendTokens?: SpendToken[];
+  /** Trades a model proposes. Absent means none. */
+  ai?: AiRule;
 }
 
 export type SpendToken = "HSK" | "USDT";
+
+/** What chat turns the model on with, before the user sets a size. Small, and closing at no loss. */
+export const DEFAULT_AI: AiRule = {
+  enabled: false,
+  maxSizeUsdt: 5_000_000n,
+  maxInventoryUsdt: 10_000_000n,
+  minEdgeUsdt: 0n,
+  maxUnwindLossUsdt: 0n,
+  proposalTtlBlocks: 30,
+  minBlocksBetweenCalls: 30,
+  maxCallsPerDay: 200,
+};
 
 export const DEFAULT_POLICY: Policy = {
   version: 1,
@@ -68,15 +109,16 @@ export class PolicyError extends Error {}
  */
 export function parsePolicy(input: unknown): Policy {
   const root = record(input, "policy");
-  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks", "maxImpactBps", "minTradeIntervalSec", "maxTradesPerDay", "spendTokens"], "policy");
+  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks", "maxImpactBps", "minTradeIntervalSec", "maxTradesPerDay", "spendTokens", "ai"], "policy");
   const orders = root.orders;
   if (!Array.isArray(orders) || orders.length > 16) throw new PolicyError("orders must be a list of at most 16");
   const parsed = orders.map(parseOrder);
   if (new Set(parsed.map((o) => o.id)).size !== parsed.length) throw new PolicyError("order ids must be unique");
 
   const edge = record(root.edge, "edge");
-  allowKeys(edge, ["enabled", "sizeUsdt", "minNetUsdt", "maxInventoryUsdt"], "edge");
+  allowKeys(edge, ["enabled", "sizeUsdt", "minNetUsdt", "maxInventoryUsdt", "unwind"], "edge");
   if (typeof edge.enabled !== "boolean") throw new PolicyError("edge.enabled must be true or false");
+  if (edge.unwind !== undefined && typeof edge.unwind !== "boolean") throw new PolicyError("edge.unwind must be true or false");
 
   const spendTokens = root.spendTokens === undefined ? undefined : tokens(root.spendTokens);
   // Refused here rather than held later, so the person approving sees the conflict before it is active.
@@ -94,6 +136,7 @@ export function parsePolicy(input: unknown): Policy {
       sizeUsdt: amount(edge.sizeUsdt, "edge.sizeUsdt", true),
       minNetUsdt: amount(edge.minNetUsdt, "edge.minNetUsdt", false),
       ...(edge.maxInventoryUsdt === undefined ? {} : { maxInventoryUsdt: amount(edge.maxInventoryUsdt, "edge.maxInventoryUsdt", false) }),
+      ...(edge.unwind === undefined ? {} : { unwind: edge.unwind }),
     },
     slippageBps: int(root.slippageBps, "slippageBps", 0, 500),
     maxTwapDeviationBps: int(root.maxTwapDeviationBps, "maxTwapDeviationBps", 1, 2_000),
@@ -102,7 +145,27 @@ export function parsePolicy(input: unknown): Policy {
     ...(root.minTradeIntervalSec === undefined ? {} : { minTradeIntervalSec: int(root.minTradeIntervalSec, "minTradeIntervalSec", 1, 7 * 86_400) }),
     ...(root.maxTradesPerDay === undefined ? {} : { maxTradesPerDay: int(root.maxTradesPerDay, "maxTradesPerDay", 1, 10_000) }),
     ...(spendTokens === undefined ? {} : { spendTokens }),
+    ...(root.ai === undefined ? {} : { ai: parseAi(root.ai) }),
   };
+}
+
+function parseAi(input: unknown): AiRule {
+  const ai = record(input, "ai");
+  allowKeys(ai, ["enabled", "maxSizeUsdt", "maxInventoryUsdt", "minEdgeUsdt", "maxUnwindLossUsdt", "proposalTtlBlocks", "minBlocksBetweenCalls", "maxCallsPerDay"], "ai");
+  if (typeof ai.enabled !== "boolean") throw new PolicyError("ai.enabled must be true or false");
+  const rule: AiRule = {
+    enabled: ai.enabled,
+    maxSizeUsdt: amount(ai.maxSizeUsdt, "ai.maxSizeUsdt", true),
+    maxInventoryUsdt: amount(ai.maxInventoryUsdt, "ai.maxInventoryUsdt", false),
+    minEdgeUsdt: amount(ai.minEdgeUsdt, "ai.minEdgeUsdt", false),
+    maxUnwindLossUsdt: amount(ai.maxUnwindLossUsdt, "ai.maxUnwindLossUsdt", false),
+    proposalTtlBlocks: int(ai.proposalTtlBlocks, "ai.proposalTtlBlocks", 1, 300),
+    minBlocksBetweenCalls: int(ai.minBlocksBetweenCalls, "ai.minBlocksBetweenCalls", 1, 100_000),
+    maxCallsPerDay: int(ai.maxCallsPerDay, "ai.maxCallsPerDay", 1, 2_000),
+  };
+  // Below one trade's worth the model could open nothing, and a limit nobody can reach reads as a mistake.
+  if (rule.maxInventoryUsdt < rule.maxSizeUsdt) throw new PolicyError("ai.maxInventoryUsdt must be at least ai.maxSizeUsdt");
+  return rule;
 }
 
 function tokens(value: unknown): SpendToken[] {

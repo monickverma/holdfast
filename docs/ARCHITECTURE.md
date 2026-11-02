@@ -2,11 +2,50 @@
 
 Holdfast trades WHSK/USDT on HSKSwap from a vault that limits what its agent key can do. This document covers what it defends against, what each layer promises, how each layer fails, what was wrong, and what was built, in what order and why.
 
-The contract is not audited. Nothing here claims profit. Version 3 is deployed on testnet with its price guard off and has not traded there. The public swaps came from an older vault.
+The contract is not audited. Nothing here claims profit. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet with its price guard off and has not traded there. The public swaps came from an older vault. Nothing is on mainnet.
 
-**This document describes vault version 2 and its layers, and much of it still applies. Version 3 adds a guardian, a two-step owner handover, a daily budget, a price guard, a stop anyone can fire, and a halt.** Where they differ, trust these instead: [SECURITY.md](SECURITY.md) has the current threat model, [READINESS.md](READINESS.md) the deployment checklist and [STATUS.md](STATUS.md) what was done, tested and left open. Line numbers below refer to version 2 and are kept in `contracts/baseline/HoldfastVaultV2.sol`.
+**The first section below describes the system as it is now: vault version 4, and an agent whose trading engine can be a language model. Everything after it describes vault version 2 and its layers, as written then, and much of it still applies.** Where they differ, trust the first section, [SECURITY.md](SECURITY.md) for the threat model, [READINESS.md](READINESS.md) for the deployment checklist and [STATUS.md](STATUS.md) for what was done, tested and left open. Line numbers after the first section refer to version 2 and are kept in `contracts/baseline/HoldfastVaultV2.sol`.
 
-Each number names its lane and sample size: **local** (no network), **fork** (anvil over a mainnet read), **mainnet read** (no transactions), **testnet** (the old deployed vault).
+Each number names its lane and sample size: **local** (no network), **fork** (anvil over a mainnet read), **mainnet read** (no transactions), **replay** (recorded mainnet reads, simulated fills), **live model** (a real model call, no chain), **testnet** (the old deployed vault).
+
+## The system now
+
+```
+ owner ──── limits, expiry, pause, loss guard, pin, withdraw ────────────────────┐
+ chat ─ model ─ draft ─ parser ─ review written by code ─ owner says yes ─ policy │
+                                                                     │           │
+ data ─ reader, mark ─► decide (pure) ─► breaker ─► preflight ─► executor ─► vault ─► router
+          │                ▲                                        ledger   (the only hard limit)
+          │                │ latest proposal, if the policy's ai rule is on
+          └─ after each sealed decision ─► strategist ─► model ─► parseProposal
+                             (in the background, rate-limited, never awaited)
+```
+
+**Three engines decide, in this order, on every block.** Each produces a trade or a reason to hold, and only the first trade goes on.
+
+1. **The owner's orders.** Stop-losses first, then limit and market orders. A stop-loss is never held back by pacing, by the model, or by an outside price that disagrees for more than about a minute.
+2. **The model engine**, when the policy's `ai` rule is on (`agent/src/strategist.ts`). After each sealed-block decision, the agent hands the strategist what it decided on. If the policy's cadence and the day's budget allow, and the signal has changed (the pool's gap to the outside mid in 10 bps steps, which side would pay, the sign of the model's inventory), the strategist sends the model a snapshot of numbers code computed: spot, the outside bid and ask, recent gaps, what each side would net now at the model's largest size, and what closing its inventory would realize. The model answers buy, sell or hold with a size. Code parses that into a proposal in base units, which lives a fixed number of blocks. `decide()` then judges it as it judges everything else.
+3. **The edge rule** (`decide.ts`), when on: trade one side when it nets above a minimum against the outside price after fees and gas. With `unwind` on, it also closes its own inventory **in this same pool** once that round trip nets above the minimum. Closing needs no outside price, since it is judged on this pool's quote against what the inventory cost.
+
+**This is not arbitrage.** Neither engine trades on a second venue. An edge trade or a model trade that adds inventory is one leg, valued against Gate's price; the closing leg, when there is one, is a second trade in the same pool, later, at whatever the pool then pays. Until it closes, the vault holds inventory, and the owner's stop-loss is what protects it.
+
+**What the model may do, and what stops it.**
+
+| Step | What is checked | Where |
+|---|---|---|
+| Snapshot | Numbers only: no address, key or transaction | `buildSnapshot`, `ai-engine.test.ts` |
+| Answer | buy, sell or hold; a decimal size no larger than `maxSizeUsdt`; nothing else | `parseProposal` |
+| Failure | Timeout (45 s), provider error, cut-off, refusal or bad answer: no proposal, so hold | `Strategist.ask` |
+| Freshness | Void after `proposalTtlBlocks`, used once | `decideProposal`, `Agent.act` |
+| Adding inventory | Beats the outside price after the pool fee and gas, on the side worst for it; fresh and sane outside price within 150 bps of the pool; `maxInventoryUsdt` | `decideProposal` |
+| Closing inventory | The round trip in this pool loses at most `maxUnwindLossUsdt` (zero by default), after this leg's gas | `roundTrip`, `roundTripMinOut` |
+| Every trade | Token choice, pacing, TWAP deviation, price impact, caps, budgets, floor, band; a minimum output that keeps the gate at the worst fill | `decide.ts` |
+| Then | The breaker (model trades counted apart), preflight, the strategy pin | `breaker.ts`, `preflight.ts`, `agent.ts` |
+| Last | The vault | `contracts/HoldfastVault.sol` |
+
+**Cost.** One call at most every `minBlocksBetweenCalls` blocks (30 by default, about a minute), only on a signal change or after 600 quiet blocks, at most `maxCallsPerDay` (200), and at most `AI_MAX_USD_PER_DAY` dollars (0.50). On recorded data, DeepSeek V4 Pro cost about $0.0040 a call (`evidence/v4/replay-model-2026-11-02.json`), so the default cap of $0.50 buys about 125 calls a day.
+
+**Vault version 4.** Version 3 plus a daily loss budget valued at a price the owner posts, which refuses a trade whose worst allowed fill would exceed what is left and pauses the agent at half; a share-of-balance limit per trade; a minimum time between trades per token; a strategy pin the agent checks before trading; and a hash-chained log on chain that every trade and stop advances, which the agent can anchor its own decision log to. 165 of 165 forge tests local, 7 of 7 against the real pool and router on a fork (`evidence/v4/verification.json`). It takes 4.67M gas to deploy on a fork and 21,021 of the 24,576 bytes allowed.
 
 ## Threat model
 
@@ -99,6 +138,8 @@ Every send goes through a ledger written before anything leaves the machine.
 
 ### 5. Model interface: `agent/src/nl.ts`, `policy-review.ts`, `main.ts`
 
+*As written for version 2. The model engine described in [The system now](#the-system-now) changes the first sentence: a model can now propose trades, and still never sits on the path from a block to a trade.*
+
 The model never touches the trading loop. It can only propose a policy. `decide` is pure, so a prompt cannot reach it except through a policy the owner approved. The facts it reads are computed numbers and internal strings, so market data carries no text into the prompt.
 
 | Invariant | Where |
@@ -176,10 +217,11 @@ It found nothing in truncating casts, refill overflow, bricking through `setLimi
 |---|---|
 | No keeper is running for stops while the agent is offline | Version 3 adds the stop and `npm run keeper`, but someone still has to run it |
 | A stop can be blocked by its own floor in a crash | Deliberate: the floor is the backstop, because this thin pool's price cannot be fully trusted |
-| No closing leg for edge trades | No exchange code; would need exchange keys |
-| One outside price source | A second venue would only help after a real disagreement is seen |
+| No hedge on another venue | The edge rule can now close in the same pool (`edge.unwind`), but nothing closes a leg on Gate or anywhere else; that would need exchange keys. So none of this is arbitrage |
+| One outside price source | A second venue would only help after a real disagreement is seen. Every gate that adds inventory, the model's included, trusts it |
 | A replaced-underpriced transaction only clears at its deadline | No fee-bump cancel |
-| No live model test | No API key |
+| The model engine has never traded on a chain | Run only on recorded mainnet data: one trade in two windows, the one the rules made |
+| No profit shown | Two replay windows of recorded mainnet data, under an hour each: one or no trades per engine, ending at 0 or −0.01 to −0.04 USDT (`evidence/v4/replay-*.json`, [BENCHMARKS.md](../BENCHMARKS.md#strategy-replay)) |
 | Testnet may not meet the mainnet rule | The user cannot fund mainnet |
 
 ## Sources
