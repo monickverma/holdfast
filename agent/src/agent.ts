@@ -2,9 +2,9 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { decodeFunctionResult, encodeFunctionData, keccak256, stringToHex, type Address, type Hex } from "viem";
-import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey } from "./breaker.js";
+import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey, isModelKey, modelIntents } from "./breaker.js";
 import { HSKSWAP, type Config } from "./config.js";
-import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime, type TradeDecision } from "./decide.js";
+import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Inventory, type Mark, type ModelProposal, type OrderRuntime, type QuoteContext, type TradeDecision } from "./decide.js";
 import { canonicalJson, Executor, StaleDecision, SubmissionBusy, type SendMode } from "./executor.js";
 import { ChainedLog } from "./audit-log.js";
 import { Ledger, type Intent } from "./ledger.js";
@@ -15,6 +15,7 @@ import { hasMulticall, poolReserves, readHead, readMarket, readTick, VAULT_ABI, 
 import { tradingResult } from "./position.js";
 import { RpcClient, sleep } from "./rpc.js";
 import { FlashblockStream, FrameContinuity, lastSwap, liquidityChanged, overlayMarket, poolTransfers, type ConstantProductState, type Frame, type PoolState, type StreamBreak } from "./stream.js";
+import type { ProposalSource } from "./strategist.js";
 import { JsonlLog, Trace, type Lane } from "./trace.js";
 
 /** How often the send lane and signer run between trades. A warm signature takes about 0.5 ms and the first one about 5 ms. */
@@ -34,6 +35,11 @@ export interface AgentOptions {
   onDecision?: (record: DecisionRecord) => void;
   onVenue?: (report: VenueReport) => void;
   sendMode?: SendMode;
+  /**
+   * Where model proposals come from, when the policy's ai rule is on. The agent reads the latest one and tells it about
+   * each sealed block, and never waits for it, so the model is never on the path from a block to a trade.
+   */
+  strategist?: ProposalSource;
 }
 
 export interface DecisionRecord {
@@ -50,6 +56,14 @@ export interface DecisionRecord {
   snapshot?: { blockTime: bigint; spotPriceX18: bigint; tick: number; twapTick: number; liquidity: bigint; baseFeePerGas: bigint };
   mark?: { askX18: bigint; bidX18: bigint; ageMs: number };
   readMode?: string;
+  /** The model proposal this decision saw, if the ai rule is on. */
+  proposal?: ModelProposal;
+}
+
+/** One strategy's fills, netted into what it holds and what that cost. */
+export function inventoryOf(intents: readonly Intent[]): Inventory {
+  const { whskDelta, usdtDelta } = tradingResult(intents, 0n);
+  return { hsk: whskDelta, usdt: usdtDelta };
 }
 
 /** The deterministic loop: new block, one pinned read, a pure decision, then sign and send. No model on this path. */
@@ -344,7 +358,7 @@ export class Agent {
 
     const policy = this.options.policy();
     const pool: PoolState | null = config.poolKind === "v3" ? lastSwap(frame, HSKSWAP.pool) : this.reservesNow();
-    const quotes = plannedQuotes(policy, this.warm?.market ?? null, this.runtime);
+    const quotes = plannedQuotes(policy, this.warm?.market ?? null, this.runtime, this.quoteContext(policy));
     const market = this.warm && pool ? overlayMarket(this.warm.market, frame, pool, quotes, HSKSWAP.whsk, HSKSWAP.fee) : null;
     if (!market) {
       this.localQuoteMisses++;
@@ -383,7 +397,7 @@ export class Agent {
     await this.settleInFlight();
 
     const policy = this.options.policy();
-    const quotes = plannedQuotes(policy, this.lastMarket, this.runtime);
+    const quotes = plannedQuotes(policy, this.lastMarket, this.runtime, this.quoteContext(policy));
     this.multicall ??= await hasMulticall(this.rpc);
     const tick =
       this.readMode === "hot" && this.multicall
@@ -403,6 +417,16 @@ export class Agent {
     this.updateStreaks(policy, market);
     if (this.streaming) void this.refreshWarm(market, tick?.pendingNonce, generation).catch((error) => this.logError(error));
     return this.act(market, head, policy, trace, intended, quotes.length, tick?.pendingNonce, tick ? "hot" : "pinned", submissionGeneration, poolGeneration);
+  }
+
+  /** What the next read must quote for the edge rule's unwind and the model. */
+  private quoteContext(policy: Policy): QuoteContext {
+    const intents = this.ledger.all();
+    return {
+      edgeInventory: inventoryOf(edgeIntents(intents)),
+      aiInventory: inventoryOf(modelIntents(intents)),
+      proposal: policy.ai?.enabled ? (this.options.strategist?.current() ?? null) : null,
+    };
   }
 
   /** Keeps the base a frame reaction builds on. Only the test market needs a second read, for its reserves. */
@@ -426,6 +450,7 @@ export class Agent {
     poolGeneration = this.poolGeneration,
   ): Promise<DecisionRecord> {
     const { config } = this.options;
+    const context = this.quoteContext(policy);
     const input: DecideInput = {
       market,
       policy,
@@ -435,7 +460,10 @@ export class Agent {
       maxStateAgeMs: config.maxStateAgeMs,
       maxMarkAgeMs: config.maxMarkAgeMs,
       unsealed: readMode === "stream",
-      edgeInventoryHsk: tradingResult(edgeIntents(this.ledger.all()), 0n).whskDelta,
+      edgeInventoryHsk: context.edgeInventory!.hsk,
+      edgeInventory: context.edgeInventory,
+      aiInventory: context.aiInventory,
+      proposal: context.proposal,
       tradeTimes: tradeTimes(this.ledger.all()),
     };
     if (this.edgeTaken && !input.unsealed && edgeHasClosed(input)) this.edgeTaken = false;
@@ -475,6 +503,7 @@ export class Agent {
       snapshot: { blockTime: head.timestamp, spotPriceX18: market.spotPriceX18, tick: market.tick, twapTick: market.twapTick, liquidity: market.liquidity, baseFeePerGas: head.baseFeePerGas },
       ...(input.mark ? { mark: { askX18: input.mark.askX18, bidX18: input.mark.bidX18, ageMs: input.nowMs - input.mark.fetchedAtMs } } : {}),
       readMode,
+      ...(input.proposal ? { proposal: input.proposal } : {}),
     };
 
     if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
@@ -482,6 +511,8 @@ export class Agent {
       this.submissionGeneration++;
       try {
         if (decision.trigger === "edge") this.edgeTaken = true;
+        // A proposal is carried out once, whatever happens to the transaction.
+        if (decision.proposalId) this.options.strategist?.consume(decision.proposalId);
         // Whatever happens next changes the vault's balances and limits, so the next frame must read them first.
         this.warm = null;
         this.minWarmBlock = head.number + 1n;
@@ -513,13 +544,24 @@ export class Agent {
     trace.attrs.block = head.number;
     trace.attrs.action = record.decision.action;
     trace.attrs.quotes = quoteCount;
+    // Still zero with the model on: it is asked after the decision, in the background, and only on sealed blocks.
     trace.attrs.modelCalls = 0;
     this.traces.append(trace.toRecord());
     this.decisions.append({ wallTime: new Date().toISOString(), ...record });
     this.lastDecision = record;
     this.options.onDecision?.(record);
+    if (policy.ai?.enabled && readMode !== "stream") this.considerModel(input);
     await this.maybeAnchor(market);
     return record;
+  }
+
+  /** A strategist that throws is logged and otherwise ignored: the loop, and every stop, run the same without it. */
+  private considerModel(input: DecideInput): void {
+    try {
+      this.options.strategist?.consider(input);
+    } catch (error) {
+      this.logError(error);
+    }
   }
 
   /** Anchoring is optional and pays gas, so it is off unless configured, and a failure here never touches trading. */
@@ -663,6 +705,7 @@ export class Agent {
    * piece of work can never be live on the chain twice.
    */
   private intentKey(decision: Extract<Decision, { action: "trade" }>, policy: Policy): string {
+    if (decision.trigger === "model") return `ai:${this.ledger.all().filter((i) => isModelKey(i.key)).length}`;
     if (!decision.orderId) return `edge:${this.ledger.all().filter((i) => isEdgeKey(i.key)).length}`;
     const base = `order:${policy.version}:${decision.orderId}`;
     const attempts = this.ledger.all().filter((i) => i.key.startsWith(`${base}:`)).length;

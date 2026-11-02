@@ -1,0 +1,291 @@
+{
+ "wallTime": "2026-11-02T18:53:52.248Z",
+ "source": "evidence/shadow/shadow-2026-11-02/shadow-samples.jsonl",
+ "samplesSpan": {
+  "first": "2026-11-02T17:49:34.158Z",
+  "last": "2026-11-02T18:49:32.065Z",
+  "hours": 0.9994186111111111
+ },
+ "caveats": [
+  "Fills are simulated at the quotes recorded from the real pool. Our own trades do not move later quotes, so a gap our fill would have closed stays open in the replay.",
+  "A size that was not recorded is scaled from the next larger recorded size on the same side, which has the worse average price.",
+  "Vault limits are open, as in the shadow run, and the vault's price band and the preflight are not simulated. decide(), the policy's pacing and the agent's breaker are the real ones.",
+  "Gas per trade is the recorded estimate: 200,000 gas at the base fee then, plus the L1 fee.",
+  "Open inventory at the end is valued at the outside bid if long and the outside ask if short, the side least favourable to it."
+ ],
+ "lane": "replay: recorded mainnet reads, simulated fills, live model",
+ "engine": "model",
+ "model": {
+  "asked": 13,
+  "failures": 0,
+  "costUsd": 0.051859564245,
+  "proposals": {
+   "sell": 1,
+   "hold": 12
+  }
+ },
+ "limits": {
+  "maxCalls": 25,
+  "maxUsd": 0.05,
+  "note": "The model was asked only when the signal changed and at most once every 30 blocks, as live."
+ },
+ "policy": {
+  "version": 1,
+  "orders": [],
+  "edge": {
+   "enabled": false,
+   "sizeUsdt": "1000000",
+   "minNetUsdt": "0"
+  },
+  "slippageBps": 50,
+  "maxTwapDeviationBps": 200,
+  "stopConfirmBlocks": 2,
+  "ai": {
+   "enabled": true,
+   "maxSizeUsdt": "15000000",
+   "maxInventoryUsdt": "15000000",
+   "minEdgeUsdt": "0",
+   "maxUnwindLossUsdt": "0",
+   "proposalTtlBlocks": 30,
+   "minBlocksBetweenCalls": 30,
+   "maxCallsPerDay": 25
+  }
+ },
+ "samples": 1598,
+ "decided": 1598,
+ "holds": {
+  "no-signal": 27,
+  "model-hold": 318,
+  "proposal-stale": 1252
+ },
+ "fills": [
+  {
+   "block": "29647320",
+   "atMs": 1793641776390,
+   "trigger": "model",
+   "side": "sell",
+   "amountIn": "171.385480222115582367",
+   "amountOut": "14.95332",
+   "networkUsdt": "0.008754",
+   "reason": "Model proposal m-29647319-0 nets 1465 micro-USDT against the outside price after fees and gas. Model: Selling the max $15 nets +0.001465 USDT after the 0.3% fee and $0.008754 gas, with the pool 48.5 bps above the outside mid (0.087522 vs 0.08710)."
+  }
+ ],
+ "fillsByTrigger": {
+  "model": 1
+ },
+ "hskDelta": "-171.385480222115582367",
+ "usdtDelta": "14.95332",
+ "gasUsdt": "0.008754",
+ "netUsdt": "-0.024241",
+ "openInventoryHsk": "-171.385480222115582367",
+ "answers": [
+  {
+   "block": "29647319",
+   "poolVsOutsideMidBps": 48.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.141777",
+    "sellNetUsdtAtMaxSize": "0.001465"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "sell",
+   "amountIn": "171385480222115582367",
+   "reason": "Selling the max $15 nets +0.001465 USDT after the 0.3% fee and $0.008754 gas, with the pool 48.5 bps above the outside mid (0.087522 vs 0.08710)."
+  },
+  {
+   "block": "29647349",
+   "poolVsOutsideMidBps": 53.1,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.140069",
+    "sellNetUsdtAtMaxSize": "0.01689"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Inventory is already short about 15.0 USDT (-171.39 HSK at 0.087522), so selling more would exceed maxInventoryUsdt despite sellNetUsdtAtMaxSize 0.01689, while buying to unwind shows closeNowUsdt -0.099912, worse than maxUnwindLossUsdt 0."
+  },
+  {
+   "block": "29647380",
+   "poolVsOutsideMidBps": 59.4,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.158864",
+    "sellNetUsdtAtMaxSize": "0.01689"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Inventory is already -171.385 HSK (about -15.00 USDT, at limits.maxInventoryUsdt), while selling only nets 0.01689 USDT at max size, buying nets -0.158864 USDT, and closing now would lose -0.099912 USDT against a zero unwind-loss limit, so no trade is allowed."
+  },
+  {
+   "block": "29647411",
+   "poolVsOutsideMidBps": 34.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.119565",
+    "sellNetUsdtAtMaxSize": "-0.017387"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Sell edge -0.017387 USDT is negative and closing the short loses 0.099912 USDT, exceeding maxUnwindLossUsdt 0; both possible trades are refused."
+  },
+  {
+   "block": "29647441",
+   "poolVsOutsideMidBps": 36.9,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.121274",
+    "sellNetUsdtAtMaxSize": "-0.012245"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: buying to close the -171.39 HSK inventory shows closeNowUsdt -0.099912 versus maxUnwindLossUsdt 0, while selling adds inventory with sellNetUsdtAtMaxSize -0.012245 despite the pool being 36.9 bps above the outside mid."
+  },
+  {
+   "block": "29647472",
+   "poolVsOutsideMidBps": 28.3,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.109313",
+    "sellNetUsdtAtMaxSize": "-0.025956"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: the pool is 28.3 bps above outside mid, buy edge is -0.109313 USDT and sell edge is -0.025956 USDT at max size, while closing the -171.385 HSK inventory would lose 0.099912 USDT against a 0 max unwind loss."
+  },
+  {
+   "block": "29647502",
+   "poolVsOutsideMidBps": 37.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.129817",
+    "sellNetUsdtAtMaxSize": "-0.019101"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: closing the -171.39 HSK short shows closeNowUsdt -0.099912 versus maxUnwindLossUsdt 0, while selling to add inventory has sellNetUsdtAtMaxSize -0.019101, so neither side qualifies."
+  },
+  {
+   "block": "29647597",
+   "poolVsOutsideMidBps": 34.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.11273",
+    "sellNetUsdtAtMaxSize": "-0.010532"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Closing the -171.385 HSK short would lose -0.099912 USDT, exceeding maxUnwindLossUsdt=0, while the 34.6 bps pool-vs-outside gap is below the ~0.6% round-trip cost, so hold."
+  },
+  {
+   "block": "29647628",
+   "poolVsOutsideMidBps": 12.8,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.097352",
+    "sellNetUsdtAtMaxSize": "-0.060233"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Selling loses 0.060233 USDT edge below minEdgeUsdt 0, and buying to close the short loses 0.099912 USDT exceeding maxUnwindLossUsdt 0, so hold."
+  },
+  {
+   "block": "29647658",
+   "poolVsOutsideMidBps": 41,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.1264",
+    "sellNetUsdtAtMaxSize": "-0.00539"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: the buy edge is -0.1264 USDT and sell edge is -0.00539 USDT at max size, while closing the -171.385 HSK inventory now would lose 0.099912 USDT against a 0 max unwind loss, so no trade is acceptable."
+  },
+  {
+   "block": "29647690",
+   "poolVsOutsideMidBps": 46.7,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.129817",
+    "sellNetUsdtAtMaxSize": "0.008321"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Selling would breach the 15 USDT max inventory (short already 171.385 HSK   15.00 USDT), while buying to unwind loses 0.099912 USDT against maxUnwindLossUsdt 0 and the buy edge is -0.129817 USDT, so neither side is acceptable."
+  },
+  {
+   "block": "29647720",
+   "poolVsOutsideMidBps": 30.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.10077",
+    "sellNetUsdtAtMaxSize": "-0.010532"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Pool sits 30.6 bps above outside mid, but selling at max size nets -0.010532 USDT (worse than minEdge 0) and buying to close the -171.385 HSK short loses -0.099912 USDT (worse than maxUnwindLoss 0), so hold."
+  },
+  {
+   "block": "29647750",
+   "poolVsOutsideMidBps": 39.2,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.124691",
+    "sellNetUsdtAtMaxSize": "-0.008818"
+   },
+   "inventory": {
+    "hsk": "-171.385480222115582367",
+    "usdtFlow": "14.95332",
+    "closeNowUsdt": "-0.099912"
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Selling at max size nets -0.008818 USDT and closing the short now costs -0.099912 USDT against maxUnwindLossUsdt 0, so with the pool only 39.2 bps from outside mid neither direction clears costs."
+  }
+ ]
+}
