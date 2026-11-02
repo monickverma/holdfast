@@ -1,6 +1,6 @@
 # Status of the system
 
-What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet, and no live model call has been tested. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
+What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet. One live model check has passed: 8 of 8 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
 
 ## What the audit found
 
@@ -27,7 +27,8 @@ We did not take the README's word for anything. The vault's limits held under re
 | Contract | Version 4 against the real pool and router | Fork | 7 of 7 | `evidence/v4/verification.json` |
 | Agent to receipt | Version 4: observe, sell, buy, stop-loss, crash recovery, on-chain refusals | Fork | 8 of 8 | `evidence/v4/e2e.json` |
 | Agent to receipt | Version 4 on our own market contracts | Local | 18 of 18 | `evidence/v4/e2e.json` |
-| Agent | The history verifier, the chat fix below, chat-set pacing and token choice, the OpenRouter connection, and everything in the version 3 row below | Local | 412 of 412 | `agent/test/`, `evidence/v4/verification.json` |
+| Agent | The history verifier, the chat fix below, chat-set pacing and token choice, the OpenRouter connection and its retry after a cut-off reply, and everything in the version 3 row below | Local | 413 of 413 | `agent/test/`, `evidence/v4/verification.json` |
+| Live model call | 8 English requests: a stop-loss, a question, a missing amount, a withdrawal request, an injection, pacing, a token choice, and an asset the vault cannot trade. Each answer goes through the schema, `parsePolicy` and the review | Live model, no chain: OpenRouter, `deepseek/deepseek-v4-pro` | 8 of 8, $0.009, one run on 2 November 2026. No Claude model has been tested live | `evidence/v4/llm-live.json` |
 | Do the tests catch bugs | 55 deliberate bugs in the version 4 vault | Local | 55 of 55 caught | `evidence/v4/mutation-check.json` |
 | Static analysis | Slither 0.11.6 on version 4 | Local | 34 findings, 0 untriaged. 4 were new on version 4 and we triaged them: one exact comparison with zero, and writes after the router call under the reentrancy lock. Our triage, not an audit | `evidence/v4/slither.json`, `scripts/slither-check.mjs` |
 | Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
@@ -58,7 +59,6 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Live model call | No model key is set: `OPENROUTER_API_KEY` and `ANTHROPIC_API_KEY` are both empty, and no local model is installed. `npm run llm:live` writes `BLOCKED` to `evidence/v4/llm-live.json`. **We make no claim that the LLM integration works end to end.** Only scripted replies are tested | An OpenRouter or Anthropic key, then that one command. It now also checks pacing and token choice in English |
 | Mainnet | The team chose testnet, for lack of funds. Under the official rule, a project not deployed on mainnet forfeits demo selection, and winners must be on mainnet to claim. Owner and agent keys hold 0 HSK at nonce 0 | The owner's decision and funds: 2.83 HSK for deployment alone, about 4.2 HSK with one swap. [The runbook](MAINNET-RUNBOOK.md) is ready and rehearsed on a fork only |
 
 ## Not done
