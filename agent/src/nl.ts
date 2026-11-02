@@ -101,7 +101,12 @@ export interface LlmUsageRecord {
   outputTokens: number;
   costUsd: number;
   kind: string;
+  /** The first reply was cut off, so the request was sent again with RETRY_MAX_TOKENS. Tokens and cost cover both. */
+  retried?: boolean;
 }
+
+const MAX_TOKENS = 4_000;
+const RETRY_MAX_TOKENS = 16_000;
 
 /** Dollars per million tokens, input then output, as listed on 2026-10-06. */
 const PRICES: Record<string, [number, number]> = {
@@ -181,37 +186,50 @@ export class Assistant {
     const started = performance.now();
     const params = {
       model: this.model,
-      max_tokens: 4000,
+      max_tokens: MAX_TOKENS,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "low", format: { type: "json_schema", schema: REPLY_SCHEMA } },
       system: SYSTEM,
       messages: [{ role: "user", content: `FACTS\n${JSON.stringify(facts)}\n\nMESSAGE\n${message}` }],
     };
-    const response = await this.client.beta.messages.create(params as never);
-    const usage = (response as { usage?: { input_tokens?: number; output_tokens?: number; cost_usd?: number } }).usage;
-    const stop = (response as { stop_reason?: string }).stop_reason;
+    const [inputPrice, outputPrice] = PRICES[this.model] ?? [0, 0];
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let costUsd = 0;
+    const call = async (maxTokens: number) => {
+      const response = await this.client.beta.messages.create({ ...params, max_tokens: maxTokens } as never);
+      const usage = (response as { usage?: { input_tokens?: number; output_tokens?: number; cost_usd?: number } }).usage;
+      inputTokens += usage?.input_tokens ?? 0;
+      outputTokens += usage?.output_tokens ?? 0;
+      // A provider that reports what it billed is believed over the price table.
+      costUsd += usage?.cost_usd ?? ((usage?.input_tokens ?? 0) * inputPrice + (usage?.output_tokens ?? 0) * outputPrice) / 1e6;
+      return { response, stop: (response as { stop_reason?: string }).stop_reason };
+    };
+
+    // A model that reasons first can spend its budget before it answers. It gets one more try with a larger budget,
+    // and a reply cut off twice is refused, so a half-written policy never reaches the parser.
+    let { response, stop } = await call(MAX_TOKENS);
+    const retried = stop === "max_tokens";
+    if (retried) ({ response, stop } = await call(RETRY_MAX_TOKENS));
 
     const reply = this.interpret(response, stop, current, spotPriceX18);
-    const [inputPrice, outputPrice] = PRICES[this.model] ?? [0, 0];
-    const inputTokens = usage?.input_tokens ?? 0;
-    const outputTokens = usage?.output_tokens ?? 0;
     this.onUsage?.({
       wallTime: new Date().toISOString(),
       model: this.model,
       latencyMs: performance.now() - started,
       inputTokens,
       outputTokens,
-      // A provider that reports what it billed is believed over the price table.
-      costUsd: usage?.cost_usd ?? (inputTokens * inputPrice + outputTokens * outputPrice) / 1e6,
+      costUsd,
       kind: reply.kind,
+      ...(retried ? { retried } : {}),
     });
     return reply;
   }
 
   private interpret(response: unknown, stop: string | undefined, current: Policy, spotPriceX18: bigint): AssistantReply {
     if (stop === "refusal") return { kind: "refused", text: "The model declined this request. No policy changed." };
-    if (stop === "max_tokens") return { kind: "refused", text: "The model's reply was cut off. No policy changed." };
+    if (stop === "max_tokens") return { kind: "refused", text: "The model's reply was cut off twice, so it was not used. No policy changed." };
     const blocks = (response as { content?: Array<{ type: string; text?: string }> }).content ?? [];
     const text = blocks.find((b) => b.type === "text")?.text;
     let parsed: { kind?: unknown; text?: unknown; draft?: PolicyDraft | null };

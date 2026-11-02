@@ -22,7 +22,7 @@ There is no revenue and there are no customers. The fee level is not decided.
 ## What comes next
 
 1. Deploy version 4 on HSK Chain mainnet with small caps, and trade through the real HSKSwap router: [the runbook](docs/MAINNET-RUNBOOK.md). It needs about 4.2 HSK, 2.83 for deployment alone.
-2. Test the live model call for chat and for strategy changes.
+2. Test the chat on more models and many more requests. So far one run of 8 English requests through OpenRouter to `deepseek/deepseek-v4-pro` passed 8 of 8 on 2 November 2026, for $0.009. No Claude model has been tested live.
 3. Measure net result on HSKSwap: fill price against the price at the signal, after gas. Latency alone does not show that a trade was good.
 4. Trade through a guarded version 4 vault with a guardian set, so these run on a public chain. They have only run on forks so far.
 5. Run a keeper for the on-chain stop. The stop exists, and it fires only when someone calls it.
@@ -41,7 +41,7 @@ The India rules name completeness, technical maturity and innovation, and publis
 | Trading loop with no manual steps | Track text | Done on testnet, on our own market, on an older vault. The agent holds until it is given orders | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
 | Risk control and stop-loss | Track text | Vault caps are enforced on chain. The agent has a stop-loss, and version 3 adds one on chain that anyone can fire, so far on forks only. Version 4 adds a daily loss budget | `evidence/v3/rehearsal-fork.json`, `evidence/v4/`, [Evidence](#evidence) |
 | Sustained profitability | Track text | **Not shown.** No result on a real market | [Known limits](#known-limits) |
-| Chat for positions, P&L and strategy | Track text | Built, including chat control of trade frequency (a gap between trades, a daily count) and of which of the pool's two tokens the agent may spend. Not tested with a live model. Policy changes happen only in a terminal | `agent/src/nl.ts`, `agent/test/controls.test.ts`, `evidence/v4/llm-live.json` |
+| Chat for positions, P&L and strategy | Track text | Built, including chat control of trade frequency (a gap between trades, a daily count) and of which of the pool's two tokens the agent may spend. Live model check: one run of 8 English requests through OpenRouter to `deepseek/deepseek-v4-pro` passed 8 of 8 on 2 November 2026, for $0.009. Policy changes happen only in a terminal | `agent/src/nl.ts`, `agent/test/controls.test.ts`, `evidence/v4/llm-live.json` |
 | Whether it works, real problem | Hong Kong event | Refusals are public testnet transactions. The problem has no user evidence yet | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
 | Commercial potential, user experience | Japan event, Mumbai outline | Proposal above. A public site with a refusal demo, vault status and owner controls | This section and the viewer |
 
@@ -84,7 +84,7 @@ In the REPL (`npm run agent`), a person can also set how often the agent trades 
 | Fork, real HSKSwap router, vault version 2, median of 20 rounds | Gas above a plain router swap: first vault 51,760, older vault 25,097, version 2 28,375. Version 2 is worse than the older vault, the cost of key expiry and the hourly budget |
 | Fork, vault version 2 | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
 | Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
-| Local, vault version 4 | Forge 165/165; agent 412/412; test-market E2E 18/18; 55 of 55 deliberate bugs caught; Slither 0.11.6, 34 findings, 0 untriaged, 4 of them first seen on version 4 and triaged by us in `scripts/slither-check.mjs`. `evidence/v4/verification.json`, `e2e.json`, `mutation-check.json`, `slither.json` |
+| Local, vault version 4 | Forge 165/165; agent 413/413; test-market E2E 18/18; 55 of 55 deliberate bugs caught; Slither 0.11.6, 34 findings, 0 untriaged, 4 of them first seen on version 4 and triaged by us in `scripts/slither-check.mjs`. `evidence/v4/verification.json`, `e2e.json`, `mutation-check.json`, `slither.json` |
 | Fork, vault version 4 | Forge 7/7 against the real pool; E2E 8/8, including crash recovery. Every step of the [mainnet runbook](docs/MAINNET-RUNBOOK.md), ending in one swap through the real router: `evidence/v4/mainnet-dress-rehearsal-fork.json`. Attack set: 120/120 contained and 120/120 benign completed, 0 cap violations. 26-step lifecycle rehearsal passed. Both ran with version 4's loss budget, share limit and cooldown left off, so those are tested only in the Foundry suite. `attack-results.json`, `rehearsal-fork.json` |
 | Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 289/289; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
 | Fork, vault version 3 | Forge 6/6 against the real pool; E2E 8/8; attack set 120/120 contained and 120/120 benign completed, 0 cap violations; 26-step lifecycle rehearsal. `evidence/v3/` |
@@ -124,7 +124,7 @@ The edge rule trades one leg against an outside price, and nothing closes that t
 
 Benchmark swaps are self-trades in a thin pool. They are not volume or traction. No sustained profitability is claimed. Sparse samples cannot support tail claims. Order-statistic intervals assume independent observations; RPC delays may be correlated.
 
-The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It has no accounts: everything it serves is public, and its one paid endpoint is closed off this machine. Refresh to reload saved evidence. No live model check has run: the chat layer is tested with scripted replies only.
+The viewer does not infer missing lanes, synthesize trades or combine cohorts across lanes. Oversized, malformed or unreadable evidence may be withheld. It has no accounts: everything it serves is public, and its one paid endpoint is closed off this machine. Refresh to reload saved evidence. The chat layer is tested with scripted replies, and live in one run of 8 English requests through OpenRouter to `deepseek/deepseek-v4-pro` passed 8 of 8 on 2 November 2026, for $0.009. That is one small run on one model, not a measure of reliability.
 
 ## HSK testnet: our own test market
 

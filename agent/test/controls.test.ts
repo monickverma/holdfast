@@ -155,6 +155,30 @@ test("an OpenRouter cut-off or refusal changes no policy, and an error is raised
   await assert.rejects(new Assistant(openRouterClient("k", failed.fetcher)).handle("x", {}, DEFAULT_POLICY, PRICE), /OpenRouter answered 401: No auth credentials found/);
 });
 
+test("a reply cut off once is asked again with a larger budget, and cut off twice is refused", async () => {
+  const answer = { kind: "answer", text: "Zero.", draft: null };
+  const replies = [{ stop_reason: "max_tokens", text: "{\"kind\":" }, { stop_reason: "end_turn", text: JSON.stringify(answer) }];
+  const budgets: number[] = [];
+  const usage: Array<{ retried?: boolean; outputTokens: number }> = [];
+  const client = (queue: typeof replies) => ({ beta: { messages: { create: async (params: { max_tokens: number }) => {
+    budgets.push(params.max_tokens);
+    const next = queue.shift()!;
+    return { stop_reason: next.stop_reason, usage: { input_tokens: 500, output_tokens: 300 }, content: [{ type: "text", text: next.text }] };
+  } } } }) as never;
+
+  const saved = await new Assistant(client([...replies]), "m", (r) => usage.push(r)).handle("trades?", {}, DEFAULT_POLICY, PRICE);
+  assert.equal(saved.kind, "answer");
+  assert.deepEqual(budgets, [4_000, 16_000]);
+  assert.equal(usage[0]!.retried, true);
+  assert.equal(usage[0]!.outputTokens, 600, "both calls are counted");
+
+  budgets.length = 0;
+  const twice = await new Assistant(client([replies[0]!, replies[0]!, replies[1]!])).handle("trades?", {}, DEFAULT_POLICY, PRICE);
+  assert.equal(twice.kind, "refused");
+  assert.match(twice.text, /cut off twice/);
+  assert.deepEqual(budgets, [4_000, 16_000], "never a third call");
+});
+
 test("the OpenRouter key is preferred when both are set, and no key means no assistant", () => {
   assert.equal(assistantFromEnv({}), null);
   assert.ok(assistantFromEnv({ OPENROUTER_API_KEY: "k", ANTHROPIC_API_KEY: "a" }) instanceof Assistant);
