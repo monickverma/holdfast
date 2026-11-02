@@ -1,10 +1,10 @@
 # Holdfast
 
-Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turns a plain-English strategy into a typed policy. A deterministic loop reads the pool, checks the policy and decides whether to trade. The LLM stays outside that hot path. The vault enforces token, per-trade, hourly, daily, lifetime, output, price-band and expiry limits. The agent cannot withdraw funds.
+Holdfast is an HSKSwap trading agent for the **AI Agent Trading** track. It turns a plain-English strategy into a typed policy. A deterministic loop reads the pool, checks the policy and decides whether to trade. The LLM stays outside that hot path. The vault enforces token, per-trade, hourly, daily, lifetime, output, price-band and expiry limits, and version 4 adds a daily loss budget, a limit on its share of the balance, a minimum time between trades and a log on chain. The agent cannot withdraw funds. **This is a rule-based guarded trader: no model is in the trading loop, and no profit is shown.**
 
-No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). **Version 3 of the vault is deployed on testnet with its price guard off, and has not traded there yet. Its stop, guard and swaps have only run on local tests and forks.** The real LLM call is not yet tested. Profitability is not claimed.
+No mainnet deployment or swap has happened yet. Holdfast is live on HSK testnet against our own test market, not HSKSwap (see below). **The source is vault version 4, which is not deployed on any public network. It has run only on local tests and forks.** The newest public vault is version 3 on testnet, with its price guard off, and it has not traded there. The real LLM call is not yet tested. Profitability is not claimed.
 
-Start with [docs/STATUS.md](docs/STATUS.md), which says what is done, tested, blocked and left for later. [docs/SECURITY.md](docs/SECURITY.md) has the threat model and [docs/READINESS.md](docs/READINESS.md) the deployment checklist.
+Start with [docs/STATUS.md](docs/STATUS.md), which says what is done, tested, blocked and left for later. [docs/SECURITY.md](docs/SECURITY.md) has the threat model and [docs/READINESS.md](docs/READINESS.md) the deployment checklist, and [docs/MAINNET-RUNBOOK.md](docs/MAINNET-RUNBOOK.md) the exact mainnet steps and their cost, rehearsed on a fork only.
 
 ## Who this is for
 
@@ -21,10 +21,10 @@ There is no revenue and there are no customers. The fee level is not decided.
 
 ## What comes next
 
-1. Deploy the vault on HSK Chain mainnet with small caps, and trade through the real HSKSwap router.
+1. Deploy version 4 on HSK Chain mainnet with small caps, and trade through the real HSKSwap router: [the runbook](docs/MAINNET-RUNBOOK.md). It needs about 4.2 HSK, 2.83 for deployment alone.
 2. Test the live model call for chat and for strategy changes.
 3. Measure net result on HSKSwap: fill price against the price at the signal, after gas. Latency alone does not show that a trade was good.
-4. Turn on the version 3 guard on testnet, set a guardian, and trade through it, so these run on a public chain. They have only run on forks so far.
+4. Trade through a guarded version 4 vault with a guardian set, so these run on a public chain. They have only run on forks so far.
 5. Run a keeper for the on-chain stop. The stop exists, and it fires only when someone calls it.
 6. Get an external audit before the caps go up.
 
@@ -34,14 +34,14 @@ The India rules name completeness, technical maturity and innovation, and publis
 
 | Criterion | Source | Where it stands | Evidence |
 |---|---|---|---|
-| Completeness | India rules | Monitor, decide and execute work on testnet. Live chat is untested. `render.yaml` hosts the read-only site | [Evidence](#evidence) |
+| Completeness | India rules | Monitor, decide and execute work on testnet. Live chat is untested. `render.yaml` describes the read-only site, and no public link is live today | [Evidence](#evidence) |
 | Technical maturity | India rules | Tests, an attack set and benchmarks with sample sizes and stated flaws | [BENCHMARKS.md](BENCHMARKS.md) |
 | Innovation | India rules | The vault enforces the limits, not the model. The agent reacts to flashblocks: market move to receipt P50 225.2 ms on testnet | `evidence/event-to-receipt/` |
 | Mainnet deployment | India rules | **Not met.** Testnet only | [Addresses](#addresses) |
-| Trading loop with no manual steps | Track text | Done on testnet, on our own market | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
-| Risk control and stop-loss | Track text | Vault caps are enforced on chain. The agent has a stop-loss, and version 3 adds one on chain that anyone can fire, so far on forks only | `evidence/v3/rehearsal-fork.json`, [Evidence](#evidence) |
+| Trading loop with no manual steps | Track text | Done on testnet, on our own market, on an older vault. The agent holds until it is given orders | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
+| Risk control and stop-loss | Track text | Vault caps are enforced on chain. The agent has a stop-loss, and version 3 adds one on chain that anyone can fire, so far on forks only. Version 4 adds a daily loss budget | `evidence/v3/rehearsal-fork.json`, `evidence/v4/`, [Evidence](#evidence) |
 | Sustained profitability | Track text | **Not shown.** No result on a real market | [Known limits](#known-limits) |
-| Chat for positions, P&L and strategy | Track text | Built. Not tested with a live model | `agent/src/nl.ts` |
+| Chat for positions, P&L and strategy | Track text | Built. Not tested with a live model. Policy changes happen only in a terminal, and it has no control for frequency or target assets | `agent/src/nl.ts`, `evidence/v4/llm-live.json` |
 | Whether it works, real problem | Hong Kong event | Refusals are public testnet transactions. The problem has no user evidence yet | [Public testnet results](#public-testnet-results-2026-11-01-chain-133) |
 | Commercial potential, user experience | Japan event, Mumbai outline | Proposal above. A public site with a refusal demo, vault status and owner controls | This section and the viewer |
 
@@ -79,10 +79,11 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Mainnet, read only, real HSKSwap Quoter | Local quote math matched the Quoter in 250 of 250 comparisons |
 | Testnet, 72 + 72 alternating swaps | Tick-to-receipt P50 795.0 → 509.3 ms (−35.9%), P95 1,025.9 → 728.7 ms (−29.0%) |
 | Mainnet, read only, real HSKSwap pool, 400 + 400 | Market read P50 364.2 → 203.9 ms, P95 453.7 → 218.0 ms, P99 513.6 → 244.9 ms; 3 HTTP requests → 1; 0 mismatches in 80 compared blocks |
-| Fork, real HSKSwap router, current source, median of 20 rounds | Gas above a plain router swap: first vault 51,760, old vault 25,097, current 28,375. The current figure is worse than the old vault, the cost of key expiry and the hourly budget |
-| Fork, current source | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
+| Fork, real HSKSwap router, vault version 2, median of 20 rounds | Gas above a plain router swap: first vault 51,760, older vault 25,097, version 2 28,375. Version 2 is worse than the older vault, the cost of key expiry and the hourly budget |
+| Fork, vault version 2 | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
 | Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
-| Fork, current source | E2E 8/8, including crash recovery |
+| Local, vault version 4 | Forge 165/165; agent 398/398; test-market E2E 18/18. `evidence/v4/verification.json`, `e2e.json` |
+| Fork, vault version 4 | Forge 7/7 against the real pool; E2E 8/8, including crash recovery. Every step of the [mainnet runbook](docs/MAINNET-RUNBOOK.md), ending in one swap through the real router: `evidence/v4/mainnet-dress-rehearsal-fork.json`. **On version 4 the attack set, mutation check and Slither have not been rerun.** Their last full results are the version 3 rows below |
 | Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 289/289; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
 | Fork, vault version 3 | Forge 6/6 against the real pool; E2E 8/8; attack set 120/120 contained and 120/120 benign completed, 0 cap violations; 26-step lifecycle rehearsal. `evidence/v3/` |
 | Earlier, vault version 2 | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
@@ -105,7 +106,11 @@ Mainnet deployment transaction: **not yet run**.
 
 Mainnet swap transaction: **not yet run**.
 
-Testnet (chain 133) Holdfast vault, version 3: [`0x9b31aeda4839747a4251d623ddfee4152c961b28`](https://testnet-explorer.hskchain.net/address/0x9b31aeda4839747a4251d623ddfee4152c961b28). Its runtime code matches the current build. Price guard off, no guardian, no stop armed. Addresses are in `evidence/v3/testnet-deployment.json`.
+Version 4 on any public network: **not yet deployed**.
+
+Public site: **no live link**. `holdfast.onrender.com`, a guess from `render.yaml`, returned 503 "Service Suspended" on 2 November 2026.
+
+Testnet (chain 133) Holdfast vault, version 3: [`0x9b31aeda4839747a4251d623ddfee4152c961b28`](https://testnet-explorer.hskchain.net/address/0x9b31aeda4839747a4251d623ddfee4152c961b28). Its runtime code matched the build when it was deployed, and differs from today's version 4 source. Price guard off, no guardian, no stop armed. Addresses are in `evidence/v3/testnet-deployment.json`.
 
 Older testnet vault, where the public swaps and refusals below happened: [`0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89`](https://testnet-explorer.hskchain.net/address/0x4bfc3aff6795f7a1cccd00a95f29d24356ceee89). It has no key expiry or hourly budget, and the agent reads it in a legacy mode.
 

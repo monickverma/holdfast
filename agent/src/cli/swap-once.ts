@@ -1,13 +1,14 @@
 import { networkProfile } from "../config.js";
-// One real swap through the vault, on the same path the agent uses. Previews unless --broadcast is given.
+// One real swap through the vault, on the same path the agent uses. Previews unless --broadcast is given. Chain 177 also needs --confirm-mainnet.
 //   swap:once -- sell 11        sells 11 HSK
 //   swap:once -- buy 1          buys HSK with 1 USDT
 import { parseArgs } from "node:util";
 import { formatUnits, parseUnits } from "viem";
 import { Agent } from "../agent.js";
+import { assertChainForBroadcast } from "../chain-guard.js";
 import { loadConfig } from "../config.js";
 import { DEFAULT_POLICY, type Policy } from "../policy.js";
-import { sleep } from "../rpc.js";
+import { RpcClient, sleep } from "../rpc.js";
 
 try {
   process.loadEnvFile();
@@ -15,12 +16,19 @@ try {
   // A .env file is optional; the environment may already be set.
 }
 
-const { values, positionals } = parseArgs({ allowPositionals: true, options: { broadcast: { type: "boolean", default: false } } });
+const { values, positionals } = parseArgs({ allowPositionals: true, options: { broadcast: { type: "boolean", default: false }, "confirm-mainnet": { type: "boolean", default: false } } });
 const [side, amount] = positionals;
-if ((side !== "sell" && side !== "buy") || !amount) throw new Error("Usage: swap:once -- sell|buy <amount> [--broadcast]");
+if ((side !== "sell" && side !== "buy") || !amount) throw new Error("Usage: swap:once -- sell|buy <amount> [--broadcast] [--confirm-mainnet]");
 
 const config = { ...loadConfig(), live: values.broadcast };
 if (!config.vault || !config.agentKey) throw new Error("Set VAULT_ADDRESS and AGENT_PRIVATE_KEY in your local .env");
+
+if (values.broadcast) {
+  const rpc = new RpcClient(config.rpcUrl);
+  const chainId = Number(await rpc.call<string>("eth_chainId"));
+  rpc.close();
+  assertChainForBroadcast(chainId, config.chainId, values["confirm-mainnet"]!);
+}
 
 const id = `once-${Date.now()}`;
 const policy: Policy = {

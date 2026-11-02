@@ -1,5 +1,5 @@
 // Real calls to the model, end to end: English in, through the schema and the policy parser, out as a reviewed policy.
-// Nothing here can sign or send. It costs a few cents and needs ANTHROPIC_API_KEY. Writes evidence/v3/llm-live.json.
+// Nothing here can sign or send. It costs a few cents and needs ANTHROPIC_API_KEY. Writes evidence/v4/llm-live.json.
 //   npm run llm:live
 import Anthropic from "@anthropic-ai/sdk";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -13,10 +13,10 @@ try {
   // A .env file is optional; the environment may already be set.
 }
 
-const OUT = "evidence/v3/llm-live.json";
+const OUT = "evidence/v4/llm-live.json";
 const SPOT = 87_000n;
 const model = process.env.LLM_MODEL ?? DEFAULT_MODEL;
-mkdirSync("evidence/v3", { recursive: true });
+mkdirSync("evidence/v4", { recursive: true });
 
 if (!process.env.ANTHROPIC_API_KEY) {
   const blocked = { wallTime: new Date().toISOString(), status: "BLOCKED", reason: "ANTHROPIC_API_KEY is not set, so no model was called. Nothing about the live model is claimed." };

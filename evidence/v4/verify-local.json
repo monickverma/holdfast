@@ -1,0 +1,17 @@
+{
+  "wallTime": "2026-11-02T06:52:43.595Z",
+  "lane": "local",
+  "where": "A vault on a local Anvil chain with a test market, not a public network.",
+  "status": "PASS",
+  "findings": [],
+  "checked": {
+    "logEntries": 5,
+    "trades": 4,
+    "tradesMatched": 4,
+    "stops": 0,
+    "anchors": 1,
+    "records": 4,
+    "localLogRecords": 10,
+    "localLogAnchoredThrough": 10
+  }
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Hex } from "viem";
-import { planDeployment, runtimeMatches, type DeployFacts } from "../src/cli/deploy-vault.js";
+import { planDeployment, runtimeMatches, wiredAfterDeploy, type DeployFacts } from "../src/cli/deploy-vault.js";
 
 const OWNER = "0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489";
 const AGENT = "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA";
@@ -62,4 +62,11 @@ test("runtime comparison ignores immutable slots and nothing else", () => {
   assert.equal(runtimeMatches("0x6001bbbb6000", artifact).matches, false, "a changed byte outside the slot");
   assert.equal(runtimeMatches("0x6000bbbb600000", artifact).matches, false, "a different length");
   assert.equal(runtimeMatches("0x6000aaaa6000", { deployedBytecode: { object: "0x6000aaaa6000" } }).matches, true);
+});
+
+test("a new vault's unset guardian, guard and loss budget are next steps, and anything else failing is a failed deployment", () => {
+  const unset = ["guardian", "price guard", "loss guard"].map((name) => ({ name, status: "fail" as const }));
+  assert.equal(wiredAfterDeploy([{ name: "vault router", status: "pass" }, { name: "whsk limits", status: "warn" }, ...unset]), true);
+  assert.equal(wiredAfterDeploy([...unset, { name: "vault router", status: "fail" }]), false);
+  assert.equal(wiredAfterDeploy([{ name: "vault code", status: "unverified" }]), false);
 });

@@ -51,5 +51,6 @@ if (process.argv.includes("--e2e")) {
   for (const r of runs) console.log(`${r.failed ? "FAIL" : "PASS"} ${r.name}: ${r.passed} passed, ${r.failed} failed, ${r.seconds} s`);
   failed += runs.reduce((sum, r) => sum + r.failed, 0);
 }
-if (existsSync("evidence/v3/llm-live.json")) console.log(`Live model call: ${JSON.parse(readFileSync("evidence/v3/llm-live.json", "utf8")).status}`);
+const llm = ["evidence/v4/llm-live.json", "evidence/v3/llm-live.json"].find(existsSync);
+if (llm) console.log(`Live model call: ${JSON.parse(readFileSync(llm, "utf8")).status}`);
 if (failed) process.exit(1);

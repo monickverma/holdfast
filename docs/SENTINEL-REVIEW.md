@@ -85,6 +85,7 @@ None of this is a claim that Sentinel is unsafe in use. No real money is in it, 
 | Multi-agent or ensemble | Yes | No | Off chain | Sentinel on features, no evidence of better results (below) |
 | Setup | Factory, registry | Deploy command, admin CLI | Both | **Sentinel** |
 | Backtest and evidence | Fixture, 10 bps fee, no liquidity model | Fork attack set, rehearsal, gas, mutation | Both | Holdfast on rigour |
+| Mainnet deployment | Yes. Registry and factory, source-verified, with 0 vaults and 0 trades | **No.** Owner and agent keys at nonce 0 with 0 HSK, read on 2 November 2026 | Neither, a fact about the chain | **Sentinel.** Under the official rule this row decides demo selection, whatever the rest of the table says |
 | Real-pool execution | None on mainnet | None on mainnet. Fork against the real router | Neither | Same: **no mainnet trade exists for either** |
 
 **Both are missing:** an external audit, a verified independent HSK/USDT feed, real trades on HSKSwap, and evidence of profit.
