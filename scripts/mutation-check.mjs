@@ -5,6 +5,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 const FILE = "contracts/HoldfastVault.sol";
 const original = readFileSync(FILE, "utf8");
+// A Windows checkout may have CRLF line endings. The patterns below are written with LF.
+const eol = original.includes("\r\n") ? "\r\n" : "\n";
 const MUTANTS = [
   ["agent check removed", "if (msg.sender != agent) revert NotAgent();", ""],
   ["pause ignored", "if (paused) revert IsPaused();", ""],
@@ -82,7 +84,8 @@ const results = [];
 try {
   const base = run();
   if (base.outcome !== "SURVIVED") throw new Error(`the unmutated suite must pass first: ${JSON.stringify(base)}`);
-  for (const [name, from, to] of MUTANTS) {
+  for (const [name, lfFrom, lfTo] of MUTANTS) {
+    const [from, to] = [lfFrom, lfTo].map((text) => text.replaceAll("\n", eol));
     if (!original.includes(from)) throw new Error(`mutant "${name}" no longer matches the source`);
     writeFileSync(FILE, original.replace(from, to));
     const result = run();

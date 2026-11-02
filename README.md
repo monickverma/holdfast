@@ -82,8 +82,8 @@ Ledger rows use an explicit lane, a decision's matching trace, or their run dire
 | Fork, real HSKSwap router, vault version 2, median of 20 rounds | Gas above a plain router swap: first vault 51,760, older vault 25,097, version 2 28,375. Version 2 is worse than the older vault, the cost of key expiry and the hourly budget |
 | Fork, vault version 2 | Attack set: 120/120 contained and 120/120 benign completed; 0 cap violations. A stolen key selling into a pool pushed to the floor: 60 HSK sold, $2.23 lost; with the budget at a third of the cap, 20 HSK, $0.74 lost; one run each |
 | Mainnet read replay, 992 samples, simulated, no outside fee | Edge fills at $15 if a gap stays open: 53 → 11 per gap → 1 with the inventory limit |
-| Local, vault version 4 | Forge 165/165; agent 398/398; test-market E2E 18/18. `evidence/v4/verification.json`, `e2e.json` |
-| Fork, vault version 4 | Forge 7/7 against the real pool; E2E 8/8, including crash recovery. Every step of the [mainnet runbook](docs/MAINNET-RUNBOOK.md), ending in one swap through the real router: `evidence/v4/mainnet-dress-rehearsal-fork.json`. **On version 4 the attack set, mutation check and Slither have not been rerun.** Their last full results are the version 3 rows below |
+| Local, vault version 4 | Forge 165/165; agent 400/400; test-market E2E 18/18; 55 of 55 deliberate bugs caught; Slither 0.11.6, 34 findings, 0 untriaged, 4 of them first seen on version 4 and triaged by us in `scripts/slither-check.mjs`. `evidence/v4/verification.json`, `e2e.json`, `mutation-check.json`, `slither.json` |
+| Fork, vault version 4 | Forge 7/7 against the real pool; E2E 8/8, including crash recovery. Every step of the [mainnet runbook](docs/MAINNET-RUNBOOK.md), ending in one swap through the real router: `evidence/v4/mainnet-dress-rehearsal-fork.json`. Attack set: 120/120 contained and 120/120 benign completed, 0 cap violations. 26-step lifecycle rehearsal passed. Both ran with version 4's loss budget, share limit and cooldown left off, so those are tested only in the Foundry suite. `attack-results.json`, `rehearsal-fork.json` |
 | Local, vault version 3 | Forge 129/129 including 7 invariants at 25,600 calls each; agent 289/289; test-market E2E 7/7; 37 of 37 deliberate bugs caught. `evidence/v3/verification.json`, `e2e.json`, `mutation-check.json` |
 | Fork, vault version 3 | Forge 6/6 against the real pool; E2E 8/8; attack set 120/120 contained and 120/120 benign completed, 0 cap violations; 26-step lifecycle rehearsal. `evidence/v3/` |
 | Earlier, vault version 2 | Forge 51/51, plus a separate fork test; agent 191/191; test-market E2E 7/7 |
@@ -117,6 +117,8 @@ Older testnet vault, where the public swaps and refusals below happened: [`0x4bf
 ## Known limits
 
 The contract has not been audited. Limits stop at 72 bits, about 4,722 tokens with 18 decimals; larger values are refused. A stolen agent key can sell at the floor inside its limits until it expires, up to the hourly budget. Under the floor, the agent's stop-loss is blocked too, and it can only raise an alert. The on-chain stop in version 3 fires only when someone calls it, sells only above its own floor, and can be fired by a price held off the market for a whole window: the pool is thin enough that this is cheap, as [measured](BENCHMARKS.md#version-3). It is deployed on testnet but not armed. Gas exposure is separate from token caps. Fork results do not establish mainnet execution or profit.
+
+The edge rule trades one leg against an outside price, and nothing closes that trade on another venue, so it is not arbitrage and leaves the vault holding inventory. On the real pool, one wallet made about 94% of the swaps over 7 days.
 
 Benchmark swaps are self-trades in a thin pool. They are not volume or traction. No sustained profitability is claimed. Sparse samples cannot support tail claims. Order-statistic intervals assume independent observations; RPC delays may be correlated.
 

@@ -1,0 +1,282 @@
+{
+  "wallTime": "2026-11-02T07:51:17.188Z",
+  "lane": "local",
+  "tool": "slither 0.11.6",
+  "scope": "contracts/HoldfastVault.sol",
+  "findings": 34,
+  "untriaged": 0,
+  "results": [
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "Balances are read either side of the router call on purpose, to trust balances over the return value. Every path into _swap holds the reentrancy lock, and test_attack_* covers a reentering token."
+    },
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "Balances are read either side of the router call on purpose, to trust balances over the return value. Every path into _swap holds the reentrancy lock, and test_attack_* covers a reentering token."
+    },
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "Balances are read either side of the router call on purpose, to trust balances over the return value. Every path into _swap holds the reentrancy lock, and test_attack_* covers a reentering token."
+    },
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "Balances are read either side of the router call on purpose, to trust balances over the return value. Every path into _swap holds the reentrancy lock, and test_attack_* covers a reentering token."
+    },
+    {
+      "check": "reentrancy-balance",
+      "impact": "High",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "Balances are read either side of the router call on purpose, to trust balances over the return value. Every path into _swap holds the reentrancy lock, and test_attack_* covers a reentering token."
+    },
+    {
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "confidence": "High",
+      "function": "triggerStop",
+      "line": 290,
+      "triage": "Refuses a zero amount, which is exact by design."
+    },
+    {
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "confidence": "High",
+      "function": "stopReady",
+      "line": 547,
+      "triage": "Compares a remaining allowance with zero, which is exact by design and cannot be forced past."
+    },
+    {
+      "check": "incorrect-equality",
+      "impact": "Medium",
+      "confidence": "High",
+      "function": "_chargeLoss",
+      "line": 351,
+      "triage": "Skips the write when a trade lost nothing against the mark. Zero is exact by design, and a trade cannot force the comparison either way."
+    },
+    {
+      "check": "reentrancy-no-eth",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "function": "execute",
+      "line": 264,
+      "triage": "The loss charge and the log are written after the router call on purpose, because they use the measured output. execute holds the reentrancy lock, the router and both tokens are fixed at deployment, and every unlocked function that changes state needs the owner, guardian, agent or pending owner, which none of those contracts is."
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "function": "_swap",
+      "line": 362,
+      "triage": "The router's return value is ignored on purpose: amounts are measured from balances."
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "function": "priceGuardTicks",
+      "line": 534,
+      "triage": "Only the tick of slot0 is needed."
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "function": "_requireInBand",
+      "line": 482,
+      "triage": "Only the tick of slot0 is needed."
+    },
+    {
+      "check": "unused-return",
+      "impact": "Medium",
+      "confidence": "Medium",
+      "function": "_twapTick",
+      "line": 463,
+      "triage": "The per-liquidity values of observe are not needed."
+    },
+    {
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "setGuardian",
+      "line": 634,
+      "triage": "Zero means no guardian, which is a supported setting."
+    },
+    {
+      "check": "missing-zero-check",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "transferOwnership",
+      "line": 638,
+      "triage": "Zero cancels an offer, and acceptOwnership refuses the zero address."
+    },
+    {
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "execute",
+      "line": 264,
+      "triage": "Same as reentrancy-no-eth on execute: the post-trade log needs the measured output, under the reentrancy lock."
+    },
+    {
+      "check": "reentrancy-benign",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "triggerStop",
+      "line": 290,
+      "triage": "The stop's log is written after the swap because it records the measured output. triggerStop holds the reentrancy lock, and the router and tokens are fixed."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_setLimits",
+      "line": 673,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_admit",
+      "line": 391,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "stopReady",
+      "line": 547,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_requireLossFits",
+      "line": 343,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_chargeLoss",
+      "line": 351,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_spendDaily",
+      "line": 435,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "anchorLog",
+      "line": 321,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_availableNow",
+      "line": 447,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "setLossGuard",
+      "line": 616,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_spend",
+      "line": 407,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_dailyNow",
+      "line": 452,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "setDailyBudget",
+      "line": 707,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_setAgent",
+      "line": 595,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "pause",
+      "line": 561,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "triggerStop",
+      "line": 290,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "timestamp",
+      "impact": "Low",
+      "confidence": "Medium",
+      "function": "_lossAgainstMark",
+      "line": 335,
+      "triage": "Deadlines, budgets and expiry work in minutes and hours, far above the seconds a sequencer can shift a timestamp."
+    },
+    {
+      "check": "low-level-calls",
+      "impact": "Informational",
+      "confidence": "High",
+      "function": "_call",
+      "line": 787,
+      "triage": "The token call has to tolerate tokens that return nothing. It checks the code size and the returned value."
+    }
+  ]
+}

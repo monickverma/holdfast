@@ -28,7 +28,8 @@ export function reviewPolicy(next: Policy, current: Policy, spotPriceX18: bigint
 
   for (const order of next.orders) {
     const trigger = order.triggerPriceX18;
-    summary.push(`${order.kind}: ${orderAmount(order)}${trigger === undefined ? ", now" : ` at ${usdt(trigger)} USDT per HSK`}`);
+    const continues = current.orders.some((o) => o.id === order.id) ? ", continuing the current order, so what it already filled still counts" : "";
+    summary.push(`${order.kind}: ${orderAmount(order)}${trigger === undefined ? ", now" : ` at ${usdt(trigger)} USDT per HSK`}${continues}`);
     const limits = vault && (isSell(order.kind) ? vault.whsk : vault.usdt);
     if (limits && order.amountIn > limits.balance) risks.push(`${order.kind} for ${orderAmount(order)} is more than the vault holds.`);
     if (order.kind === "stop-loss" && trigger !== undefined) {

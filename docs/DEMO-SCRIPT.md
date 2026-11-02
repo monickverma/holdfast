@@ -28,4 +28,4 @@ Before recording: close `.env`, clear terminal history, and start the site with 
 
 ## The existing explainer
 
-`submission-video/holdfast-explainer.mp4` in the main checkout was made before version 4 and isn't in the repository. Its narration says nothing has been deployed on mainnet, the testnet vault is the older contract, and chat edits can re-arm a finished order. If any of those has since changed, record again rather than reuse it. `submission-video/SUBMISSION.md` makes the same statements, so check it before pasting.
+`submission-video/holdfast-explainer.mp4` in the main checkout was made before version 4 and isn't in the repository. Its narration says nothing has been deployed on mainnet, the testnet vault is the older contract, and chat edits can re-arm a finished order (fixed in version 4 source since). If any of those has since changed, record again rather than reuse it. `submission-video/SUBMISSION.md` makes the same statements, so check it before pasting.

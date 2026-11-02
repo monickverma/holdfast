@@ -16,6 +16,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Medium | A trade between the owner's read and write could silently change the agent's allowance | `setLimitsIfRemaining` | `test_attack_tradeBetweenReadAndWriteCannotBePapered` |
 | Medium | One key could stop things only by being the owner, and a typo could lose ownership | A guardian that can only stop things, and a two-step handover | `test_attack_guardianHasNoOtherPower`, `test_ownerHandoverNeedsTheNewOwnerToAccept` |
 | Medium | Our own test market had no real price history or post-swap quote, so it could not exercise any of this | Real observation history and post-swap prices | `contracts/test/TestMarket.t.sol` |
+| Medium | A chat edit gave every order a new id, and fills are counted by id, so a part-filled order could re-arm to its full size. An outside review found it by reading the code, and a test confirmed it. A person still had to approve the edit, and the vault's caps still applied | A drafted order that matches a current one keeps its id, and the review shown before approval says so | `agent/test/nl.test.ts`, "cannot re-arm to full size" |
 | Low | `/api/evidence` walked the disk and read the chain on each request | A short shared cache and a rate limit | `viewer.test.ts`, "do not walk the disk again" |
 
 ## Completed and tested
@@ -26,10 +27,14 @@ We did not take the README's word for anything. The vault's limits held under re
 | Contract | Version 4 against the real pool and router | Fork | 7 of 7 | `evidence/v4/verification.json` |
 | Agent to receipt | Version 4: observe, sell, buy, stop-loss, crash recovery, on-chain refusals | Fork | 8 of 8 | `evidence/v4/e2e.json` |
 | Agent to receipt | Version 4 on our own market contracts | Local | 18 of 18 | `evidence/v4/e2e.json` |
-| Agent | The history verifier and everything in the version 3 row below | Local | 398 of 398 | `agent/test/`, `evidence/v4/verification.json` |
+| Agent | The history verifier, the chat fix below, and everything in the version 3 row below | Local | 400 of 400 | `agent/test/`, `evidence/v4/verification.json` |
+| Do the tests catch bugs | 55 deliberate bugs in the version 4 vault | Local | 55 of 55 caught | `evidence/v4/mutation-check.json` |
+| Static analysis | Slither 0.11.6 on version 4 | Local | 34 findings, 0 untriaged. 4 were new on version 4 and we triaged them: one exact comparison with zero, and writes after the router call under the reentrancy lock. Our triage, not an audit | `evidence/v4/slither.json`, `scripts/slither-check.mjs` |
+| Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
+| Whole lifecycle | Version 4: deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps, with the loss budget, share limit and cooldown off | `evidence/v4/rehearsal-fork.json` |
 | Mainnet procedure | Every step of [the runbook](MAINNET-RUNBOOK.md), with test keys, ending in one swap through the real router | Fork | Preflight `pass`, swap included | `evidence/v4/mainnet-dress-rehearsal-fork.json` |
 
-The rows below are **version 3 or earlier**. On version 4, the attack set, the final mutation check, the rehearsal and Slither have not been rerun.
+The rows below are **version 3 or earlier**, kept as they were.
 
 | Area | What now exists | Lane | Result | Evidence |
 |---|---|---|---|---|

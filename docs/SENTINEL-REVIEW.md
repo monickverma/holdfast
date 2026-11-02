@@ -144,7 +144,7 @@ Ranked by security effect first, then correctness and verification strength, the
 
 ## Remaining risks in what was added
 
-- **Not yet rerun on version 4:** the fork contract tests, including the new real-pool test, the final mutation check, the fork end-to-end run, the rehearsal, the attack set and Slither. `evidence/v4/verification.json` predates version 4. The verifier has not been run against the public testnet vault. Local results at this commit are 165 of 165 contract tests, 397 of 397 agent tests and, on the run before the last edits, 18 of 18 test-market scenarios. The first mutation run caught 54 of 55, and a test for the survivor was added afterwards but not re-scored.
+- **Rerun on version 4 on 2 November 2026:** 165 of 165 contract tests, 7 of 7 fork contract tests, 400 of 400 agent tests, 8 of 8 fork end-to-end, 18 of 18 test-market end-to-end, 55 of 55 mutants caught, Slither with 34 findings and 0 untriaged, the attack set with 120 of 120 contained, and the 26-step rehearsal. The attack set and rehearsal ran with the loss budget, share limit and cooldown off. The four Slither findings new on version 4 were triaged by us, not by an auditor. The verifier has not been run against the public testnet vault.
 - Version 4 is not deployed anywhere public. The testnet vault is still version 3.
 
 - The vault doesn't enforce the strategy pin. A stolen agent key ignores it, and only the verifier catches that, afterwards.

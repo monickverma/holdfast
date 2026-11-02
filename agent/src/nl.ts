@@ -171,13 +171,17 @@ export class Assistant {
  */
 export function draftToPolicy(draft: PolicyDraft, current: Policy, spotPriceX18: bigint): Policy {
   const version = current.version + 1;
+  const taken = new Set<string>();
   const orders = draft.orders.map((order, i) => {
     const sell = order.kind !== "limit-buy" && order.kind !== "market-buy";
+    const amountIn = inputAmount(order, sell, spotPriceX18);
+    const trigger = order.triggerUsdtPerHsk === null ? undefined : decimal(order.triggerUsdtPerHsk, 6, "trigger");
+    const kept = keptOrder(current, taken, order.kind, amountIn, trigger);
     return {
-      id: `${order.kind}-${version}-${i}`,
+      id: kept ?? `${order.kind}-${version}-${i}`,
       kind: order.kind,
-      amountIn: inputAmount(order, sell, spotPriceX18).toString(),
-      ...(order.triggerUsdtPerHsk === null ? {} : { triggerPriceX18: decimal(order.triggerUsdtPerHsk, 6, "trigger").toString() }),
+      amountIn: amountIn.toString(),
+      ...(trigger === undefined ? {} : { triggerPriceX18: trigger.toString() }),
     };
   });
   return parsePolicy({
@@ -191,6 +195,20 @@ export function draftToPolicy(draft: PolicyDraft, current: Policy, spotPriceX18:
     },
     slippageBps: draft.slippageBps ?? current.slippageBps,
   });
+}
+
+/**
+ * Fills are counted by order id, and the model returns every order again on each edit. A drafted order that is a current
+ * one keeps its id, so what it already filled still counts and an edit cannot re-arm it to full size. A stop or limit
+ * order is the same order if its kind and its amount or trigger match. A market order must match exactly.
+ */
+function keptOrder(current: Policy, taken: Set<string>, kind: OrderKind, amountIn: bigint, trigger: bigint | undefined): string | undefined {
+  const candidates = current.orders.filter((o) => o.kind === kind && !taken.has(o.id));
+  const exact = candidates.find((o) => o.amountIn === amountIn && o.triggerPriceX18 === trigger);
+  const near = kind === "market-sell" || kind === "market-buy" ? undefined : candidates.find((o) => o.amountIn === amountIn || o.triggerPriceX18 === trigger);
+  const match = exact ?? near;
+  if (match) taken.add(match.id);
+  return match?.id;
 }
 
 function inputAmount(order: DraftOrder, sell: boolean, spotPriceX18: bigint): bigint {
