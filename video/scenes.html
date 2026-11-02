@@ -149,18 +149,18 @@ const EXTRA = {
     frame(910, 136, 330, 560, C.teal, z * 0.7, 16, 2); T(930, 146, "ON CHAIN: HOLDS ANYWAY", { size: 14, w: 700, col: C.teal, sp: 1.5, a: z });
     const edges = [
       [1.6, [[254, 222], [276, 222], [276, 318], [300, 318]]], [1.8, [[254, 332], [300, 332]]], [2.0, [[254, 442], [276, 442], [276, 346], [300, 346]]],
-      [3.0, [[460, 332], [490, 332]]], [4.0, [[650, 332], [680, 332]]], [5.0, [[855, 332], [932, 332]]], [5.8, [[767, 382], [767, 440]]], [7.0, [[1075, 482], [1075, 556]]],
+      [3.0, [[460, 332], [490, 332]]], [4.0, [[650, 332], [680, 332]]], [5.0, [[855, 332], [932, 332]]], [2.6, [[380, 252], [380, 280]]], [5.8, [[767, 382], [767, 440]]], [7.0, [[1075, 482], [1075, 556]]],
       [8.4, [[254, 632], [300, 632]]], [8.8, [[400, 600], [400, 384]]],
     ];
-    edges.forEach(([s, pts], k) => path(t, s, pts, k >= 8 ? C.blue : C.teal, k * 0.13));
+    edges.forEach(([s, pts], k) => path(t, s, pts, k === 6 || k >= 9 ? C.blue : C.teal, k * 0.13));
     [
       [1.0, 64, 180, 190, 84, "Flashblock stream", "200 ms frames", C.teal], [1.2, 64, 290, 190, 84, "Pool read", "One atomic request", C.teal],
       [1.4, 64, 400, 190, 84, "Gate price", "Age and gap limits", C.teal], [9.6, 64, 510, 190, 70, "Shadow + Frame Drift", "Read only, no key", C.orange],
-      [2.4, 300, 280, 160, 104, "Decide", "Pure code\nNo model", C.teal], [3.4, 490, 280, 160, 104, "Guards", "Breaker\nInventory limit", C.orange],
+      [2.4, 300, 280, 160, 104, "Decide", "Rules judge\nevery proposal", C.teal], [2.2, 300, 168, 160, 84, "Model engine", "Optional, proposes", C.blue], [3.4, 490, 280, 160, 104, "Guards", "Breaker\nInventory limit", C.orange],
       [4.4, 680, 280, 175, 104, "Execute", "Sign once\nSync send", C.teal], [5.4, 680, 440, 175, 84, "Ledger", "Crash recovery", C.teal],
       [6.2, 932, 180, 286, 302, "HoldfastVault v4", "Key expires\nHourly and daily budgets\nPer-trade and lifetime caps\nPrice floor and band\nDaily loss budget\nNo withdrawal by the key\nFixed pool", C.teal],
       [6.8, 932, 556, 286, 84, "HSKSwap router", "Output returns to the vault", C.line],
-      [8.0, 64, 600, 190, 66, "Chat model", "Only drafts", C.blue], [8.4, 300, 600, 200, 66, "A person approves", "Plain risk review", C.blue],
+      [8.0, 64, 600, 190, 66, "Chat model", "Drafts a policy", C.blue], [8.4, 300, 600, 200, 66, "A person approves", "Plain risk review", C.blue],
     ].forEach(([s, x, y, w, h, title, sub, col]) => node(x, y, w, h, title, sub, col, at(t, s)));
   },
   // Seven techniques, each with its result and a verdict
@@ -253,10 +253,10 @@ const BASE = [
   },
   // 1. Architecture: the model drafts, a person approves, rules decide, the vault enforces
   (t, D, n) => {
-    chrome(t, 1, n, "The model stays outside the trading loop", "design");
+    chrome(t, 1, n, "The model proposes, the rules decide", "design");
     const nodes = [
       ["You, in plain English", 56, 300, C.blue], ["Model drafts a policy", 296, 300, C.blue],
-      ["Code shows what it does,\nyou approve", 536, 300, C.blue], ["Rules decide\n(no model)", 776, 300, C.teal], ["Vault enforces\non chain", 1016, 300, C.teal],
+      ["Code shows what it does,\nyou approve", 536, 300, C.blue], ["Rules decide;\na model may propose", 776, 300, C.teal], ["Vault enforces\non chain", 1016, 300, C.teal],
     ];
     nodes.forEach(([label, x, y, col], i) => {
       const a = at(t, 0.5 + i * 0.55);
@@ -273,7 +273,7 @@ const BASE = [
     rect(776, 420, 448, 60, C.tealSoft, b, 12);
     T(1000, 436, "The hot path: read pool → decide → sign → vault check", { size: 16, al: "c", a: b, w: 600 });
     line(880, 352, 880, 420, 2, C.teal, b); line(1120, 352, 1120, 420, 2, C.teal, b);
-    T(80, 540, "A bad model answer cannot place a trade. Nothing changes until a person approves,\nand the vault rejects anything outside the owner's limits.", { size: 20, col: C.muted, a: at(t, 4.4) });
+    T(80, 540, "A model can only propose a trade, and only once you turn its engine on. The rules, the breaker\nand the vault judge every proposal, and nothing changes until a person approves the policy.", { size: 20, col: C.muted, a: at(t, 4.4) });
   },
   // 2. The vault's limits
   (t, D, n) => {
@@ -381,20 +381,20 @@ const BASE = [
   },
   // 7. Chat: the first live model check, case by case
   (t, D, n) => {
-    chrome(t, 7, n, "Chat passed its first live model check", `live model call through ${D.llm.provider}, off chain`);
-    const R = D.llm.results, max = Math.max(...R.map((r) => r.latencyMs)), x0 = 640;
+    chrome(t, 7, n, "Chat passed a live model check", `live model call through ${D.llm.provider}, off chain`);
+    const R = D.llm.results, max = Math.max(...R.map((r) => r.latencyMs)), x0 = 640, step = Math.min(52, 416 / R.length), fs = step < 40 ? 15 : 17;
     T(x0, 136, "seconds to answer", { size: 15, col: C.muted, w: 600 });
     R.forEach((r, i) => {
-      const y = 170 + i * 52, s = 0.5 + i * 0.38;
-      circ(76, y + 13, 12, r.pass ? C.teal : C.orange, at(t, s));
-      T(76, y + 2, r.pass ? "✓" : "✗", { size: 15, col: "#FFFFFF", w: 800, al: "c", a: at(t, s) });
-      T(100, y + 1, r.name, { size: 17, a: at(t, s) });
+      const y = 166 + i * step, s = 0.5 + i * (3.2 / R.length);
+      circ(76, y + 11, step < 40 ? 10 : 12, r.pass ? C.teal : C.orange, at(t, s));
+      T(76, y + 1, r.pass ? "✓" : "✗", { size: 13, col: "#FFFFFF", w: 800, al: "c", a: at(t, s) });
+      T(100, y, r.name, { size: fs, a: at(t, s) });
       const g = at(t, s, 0.9);
-      rect(x0, y + 3, Math.max((r.latencyMs / max) * 470 * g, 1), 20, C.blue, 1, 4);
-      T(x0 + (r.latencyMs / max) * 470 * g + 10, y + 1, `${fmt(r.latencyMs / 1000, 1)} s`, { size: 16, w: 600, a: at(t, s + 0.5) });
+      rect(x0, y + 3, Math.max((r.latencyMs / max) * 470 * g, 1), Math.min(20, step - 10), C.blue, 1, 4);
+      T(x0 + (r.latencyMs / max) * 470 * g + 10, y + 1, `${fmt(r.latencyMs / 1000, 1)} s`, { size: fs - 1, w: 600, a: at(t, s + 0.5) });
     });
     T(56, 600, `${D.llm.passed} of ${D.llm.total} passed, model ${D.llm.model}, about $${fmt(D.llm.cost, 4)} in all.`, { size: 20, w: 700, a: at(t, 4) });
-    T(56, 636, "Since the last version, chat can set how often the agent trades and which token it spends. A stop-loss is never held back.", { size: 17, col: C.muted, a: at(t, 4.6) });
+    T(56, 636, "Chat also sets sizing, a risk appetite in words and the model engine. Position and P&L come from facts code computes.", { size: 17, col: C.muted, a: at(t, 4.6) });
   },
   // 8. Mainnet readiness: the runbook on a fork, and the stream on mainnet
   (t, D, n) => {
@@ -419,7 +419,7 @@ const BASE = [
   // 9. What we do not claim
   (t, D, n) => {
     chrome(t, 9, n, "What we do not claim", "");
-    [["No profit shown", "A 43 minute simulated run on real mainnet prices found no opportunities once a 20 bps outside fee is assumed."],
+    [["No profit shown", "Replays of two recorded mainnet windows: no engine, rules or model, ended above zero. The best result was not trading."],
      ["Not audited", "Slither, mutation tests and our written reviews are our own checks, not an audit."],
      ["A quiet pool", "One wallet made 94% of the pool's 462 swaps over 7 days, so there is no speed race to win there yet."]].forEach(([h, s], i) => {
       const x = 56 + i * 400, a = at(t, 0.4 + i * 0.7);
