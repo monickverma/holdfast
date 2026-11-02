@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Holdfast explainer scenes</title>
+<!-- Every mark is drawn by WebGL2 (signed-distance rounded rectangles, rings and lines); text sits in an HTML layer above.
+     make_video.py sets window.DATA from evidence/ and calls seek(scene, seconds) once per frame. Colours follow the
+     reference deck and pass the dataviz palette checks: teal is Holdfast or "after", orange is "before" or an attacker. -->
+<style>
+  html, body { margin: 0; background: #FAF7F0; overflow: hidden; }
+  #stage { position: relative; width: 1280px; height: 720px; font-family: "Segoe UI", system-ui, sans-serif; color: #1F2B36; }
+  canvas, #ui { position: absolute; inset: 0; width: 1280px; height: 720px; }
+  #ui div { position: absolute; white-space: pre; line-height: 1.18; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="gl"></canvas><div id="ui"></div></div>
+<script>
+const W = 1280, H = 720, DPR = window.devicePixelRatio || 1;
+const C = { bg: "#FAF7F0", panel: "#FFFDF8", ink: "#1F2B36", muted: "#636F77", line: "#E5DED2", teal: "#008C85", orange: "#C9651E", blue: "#2F6DB5", tealSoft: "#DCEFEA" };
+const cv = document.getElementById("gl");
+cv.width = W * DPR; cv.height = H * DPR;
+const gl = cv.getContext("webgl2", { antialias: true, preserveDrawingBuffer: true, premultipliedAlpha: false });
+
+const VS = `#version 300 es
+layout(location=0) in vec2 q; layout(location=1) in vec4 r; layout(location=2) in vec4 c; layout(location=3) in vec3 p;
+out vec2 lp; out vec2 hs; out vec4 col; out vec2 rs;
+void main() {
+  vec2 s = r.zw + 2.0; vec2 v = q * s; float ca = cos(p.y), sa = sin(p.y);
+  vec2 pos = r.xy + vec2(v.x * ca - v.y * sa, v.x * sa + v.y * ca);
+  lp = v; hs = r.zw * 0.5; col = c; rs = vec2(p.x, p.z);
+  gl_Position = vec4(pos.x / ${W}.0 * 2.0 - 1.0, 1.0 - pos.y / ${H}.0 * 2.0, 0.0, 1.0);
+}`;
+const FS = `#version 300 es
+precision highp float; in vec2 lp; in vec2 hs; in vec4 col; in vec2 rs; out vec4 o;
+void main() {
+  float rad = min(rs.x, min(hs.x, hs.y)); vec2 d = abs(lp) - hs + rad;
+  float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - rad;
+  float a = clamp(0.5 - dist, 0.0, 1.0);
+  if (rs.y > 0.0) a *= clamp(0.5 + dist + rs.y, 0.0, 1.0);
+  o = vec4(col.rgb, col.a * a);
+}`;
+function shader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog); gl.useProgram(prog);
+const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-.5, -.5, .5, -.5, -.5, .5, .5, .5]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const inst = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, inst);
+const STRIDE = 11 * 4;
+[[1, 4, 0], [2, 4, 16], [3, 3, 32]].forEach(([loc, n, off]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, STRIDE, off); gl.vertexAttribDivisor(loc, 1); });
+gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+let shapes = [], texts = [];
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+function push(x, y, w, h, col, a, rad, ang = 0, stroke = 0) { if (a <= 0.001 || w <= 0 || h <= 0) return; shapes.push(x, y, w, h, ...rgb(col), a, rad, ang, stroke); }
+/** Rounded rectangle by its top-left corner. */
+const rect = (x, y, w, h, col, a = 1, rad = 4) => push(x + w / 2, y + h / 2, w, h, col, a, rad);
+const circ = (x, y, r, col, a = 1) => push(x, y, 2 * r, 2 * r, col, a, r);
+const ring = (x, y, r, width, col, a = 1) => push(x, y, 2 * r, 2 * r, col, a, r, 0, width);
+const frame = (x, y, w, h, col, a = 1, rad = 10, width = 1.5) => push(x + w / 2, y + h / 2, w, h, col, a, rad, 0, width);
+function line(x1, y1, x2, y2, width, col, a = 1) { const dx = x2 - x1, dy = y2 - y1; push((x1 + x2) / 2, (y1 + y2) / 2, Math.hypot(dx, dy) + width, width, col, a, width / 2, Math.atan2(dy, dx)); }
+/** Text in the HTML layer. o: size, col, w (weight), al (l, c, r), a (opacity), mono. */
+function T(x, y, s, o = {}) { texts.push({ x, y, s: String(s), ...o }); }
+
+const clamp = (v) => Math.max(0, Math.min(1, v));
+const ease = (v) => 1 - Math.pow(1 - clamp(v), 3);
+const at = (t, start, dur = 0.6) => ease((t - start) / dur);
+const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+function chrome(t, i, n, title, lane) {
+  rect(56, 112, 140 * at(t, 0.1, 0.8), 3, C.teal, 1, 1.5);
+  T(56, 26, "HOLDFAST · HSK CHAIN · TRACK 1", { size: 13, col: C.muted, w: 600, sp: 2 });
+  T(1224, 26, `${String(i).padStart(2, "0")} / ${String(n).padStart(2, "0")}`, { size: 13, col: C.muted, al: "r", w: 600 });
+  T(56, 52, title, { size: 38, w: 700, a: at(t, 0) });
+  if (lane) {
+    const a = at(t, 0.3);
+    const label = `Where it ran: ${lane}`;
+    const wpx = 18 + label.length * 7.6;
+    rect(1224 - wpx, 64, wpx, 30, C.tealSoft, a, 15);
+    T(1224 - wpx / 2, 70, label, { size: 14, col: C.ink, w: 600, al: "c", a });
+  }
+}
+
+/** Horizontal bar with a value label; grows from the baseline at x0. */
+function hbar(t, start, x0, y, len, h, col, label, value) {
+  const g = at(t, start, 1.1);
+  rect(x0, y, Math.max(len * g, 1), h, col, 1, 4);
+  T(x0 - 14, y + h / 2 - 11, label, { size: 17, col: C.ink, al: "r", a: at(t, start) });
+  T(x0 + len * g + 12, y + h / 2 - 11, value, { size: 17, col: C.ink, w: 700, a: at(t, start + 0.6) });
+}
+
+const SCENES = [
+  // 0. Title
+  (t, D) => {
+    for (let i = 0; i < 26; i++) {
+      const r = 60 + i * 26 + (t * 18) % 26;
+      ring(940, 330, r, 1.2, i % 4 === 0 ? C.teal : C.line, 0.55 * (1 - r / 760) * at(t, 0.1 + i * 0.03));
+    }
+    const a = at(t, 0.2, 0.9);
+    rect(860, 250, 160, 150, C.panel, a, 22); frame(860, 250, 160, 150, C.teal, a, 22, 5);
+    ring(940, 250, 46, 10, C.teal, a); rect(880, 244, 120, 30, C.bg, a, 0); frame(860, 250, 160, 150, C.teal, a, 22, 5);
+    circ(940, 315, 13, C.teal, a); rect(934, 318, 12, 40, C.teal, a, 4);
+    for (let k = 0; k < 14; k++) {
+      const ang = k / 14 * Math.PI * 2 + t * 0.35, rr = 190 + 10 * Math.sin(t * 2 + k);
+      circ(940 + Math.cos(ang) * rr, 330 + Math.sin(ang) * rr, 5, k % 3 ? C.teal : C.orange, at(t, 0.6));
+    }
+    T(80, 196, "HOLDFAST", { size: 104, w: 800, a: at(t, 0.2), sp: 4 });
+    T(84, 330, "An AI trading agent whose key stays inside\nlimits enforced on chain.", { size: 30, col: C.ink, a: at(t, 0.8) });
+    T(84, 430, "HSK Chain Horizon Hackathon · AI Agent Trading", { size: 20, col: C.muted, a: at(t, 1.3) });
+    T(84, 470, D.site, { size: 20, col: C.teal, w: 600, a: at(t, 1.7) });
+  },
+  // 1. Architecture: the model drafts, a person approves, rules decide, the vault enforces
+  (t, D, n) => {
+    chrome(t, 1, n, "The model stays outside the trading loop", "design");
+    const nodes = [
+      ["You, in plain English", 56, 300, C.blue], ["Model drafts a policy", 296, 300, C.blue],
+      ["Code shows what it does,\nyou approve", 536, 300, C.blue], ["Rules decide\n(no model)", 776, 300, C.teal], ["Vault enforces\non chain", 1016, 300, C.teal],
+    ];
+    nodes.forEach(([label, x, y, col], i) => {
+      const a = at(t, 0.5 + i * 0.55);
+      rect(x, y - 52, 208, 104, C.panel, a, 14); frame(x, y - 52, 208, 104, col, a, 14, 2.5);
+      T(x + 104, y - (label.includes("\n") ? 24 : 12), label, { size: 17, w: 600, al: "c", a });
+      if (i) {
+        const [px] = nodes[i - 1], la = at(t, 0.8 + i * 0.55);
+        line(px + 210, y, x - 2, y, 2.5, C.muted, la * 0.6);
+        const p = ((t * 0.55 + i * 0.2) % 1);
+        circ(px + 210 + (x - px - 212) * p, y, 6, col, la);
+      }
+    });
+    const b = at(t, 3.6);
+    rect(776, 420, 448, 60, C.tealSoft, b, 12);
+    T(1000, 436, "The hot path: read pool → decide → sign → vault check", { size: 16, al: "c", a: b, w: 600 });
+    line(880, 352, 880, 420, 2, C.teal, b); line(1120, 352, 1120, 420, 2, C.teal, b);
+    T(80, 540, "A bad model answer cannot place a trade. Nothing changes until a person approves,\nand the vault rejects anything outside the owner's limits.", { size: 20, col: C.muted, a: at(t, 4.4) });
+  },
+  // 2. The vault's limits
+  (t, D, n) => {
+    chrome(t, 2, n, "What vault version 4 enforces", "local and fork tests");
+    const cx = 330, cy = 410;
+    const a = at(t, 0.3);
+    circ(cx, cy, 112, C.panel, a); ring(cx, cy, 112, 4, C.teal, a);
+    T(cx, cy - 34, "VAULT", { size: 30, w: 800, al: "c", a, sp: 3 });
+    T(cx, cy + 10, "owns the funds", { size: 17, col: C.muted, al: "c", a });
+    const L = D.limits;
+    L.forEach((name, i) => {
+      const ang = -Math.PI / 2 + i / L.length * Math.PI * 2, la = at(t, 0.8 + i * 0.32);
+      const x = cx + Math.cos(ang) * 190, y = cy + Math.sin(ang) * 178;
+      line(cx + Math.cos(ang) * 116, cy + Math.sin(ang) * 116, x - Math.cos(ang) * 14, y - Math.sin(ang) * 14, 2, C.teal, la * 0.5);
+      circ(x, y, 13, C.teal, la);
+      T(x, y - 10, String(i + 1), { size: 14, col: "#FFFFFF", w: 700, al: "c", a: la });
+    });
+    L.forEach((name, i) => {
+      const la = at(t, 0.8 + i * 0.32), col = i < 5 ? 0 : 1;
+      const x = 650 + col * 300, y = 170 + (i % 5) * 92;
+      circ(x, y + 14, 13, C.teal, la);
+      T(x, y + 4, String(i + 1), { size: 14, col: "#FFFFFF", w: 700, al: "c", a: la });
+      T(x + 26, y + 2, name, { size: 18, w: 600, a: la });
+    });
+    const p = (t * 0.4) % 1, w = at(t, 4.5);
+    T(650, 640, "And only the owner can withdraw. The agent key cannot.", { size: 19, col: C.orange, w: 700, a: w });
+    circ(cx + Math.cos(p * 6.283) * 140, cy + Math.sin(p * 6.283) * 140, 6, C.orange, w);
+  },
+  // 3. Speed, two lanes, two panels on their own axes
+  (t, D, n) => {
+    chrome(t, 3, n, "Faster to react, faster to read", "testnet and mainnet, read only");
+    const S = D.speed;
+    S.forEach((panel, k) => {
+      const x = 56 + k * 600, a = at(t, 0.3 + k * 2.2);
+      rect(x, 150, 568, 420, C.panel, a, 14); frame(x, 150, 568, 420, C.line, a, 14, 1.5);
+      T(x + 26, 170, panel.title, { size: 21, w: 700, a });
+      T(x + 26, 200, panel.lane, { size: 15, col: C.muted, a });
+      const max = Math.max(...panel.rows.flatMap((r) => [r.before, r.after]));
+      panel.rows.forEach((r, j) => {
+        const y = 270 + j * 130, s0 = 0.8 + k * 2.2 + j * 0.6, scale = 330 / max;
+        T(x + 26, y - 26, r.metric, { size: 15, col: C.muted, w: 600, a: at(t, s0) });
+        hbar(t, s0, x + 120, y, r.before * scale, 26, C.orange, "before", `${fmt(r.before, 1)} ms`);
+        hbar(t, s0 + 0.5, x + 120, y + 36, r.after * scale, 26, C.teal, "after", `${fmt(r.after, 1)} ms`);
+        T(x + 548, y + 64, `−${fmt((1 - r.after / r.before) * 100, 1)}%`, { size: 22, w: 800, col: C.teal, al: "r", a: at(t, s0 + 1.4) });
+      });
+      T(x + 26, 528, panel.how, { size: 15, col: C.muted, a: at(t, 1.8 + k * 2.2) });
+    });
+  },
+  // 4. Gas: what the safety costs, one axis
+  (t, D, n) => {
+    chrome(t, 4, n, "What the safety costs in gas", "fork of mainnet, real HSKSwap router, median of 20");
+    const G = D.gas, max = Math.max(...G.map((g) => g.gas)), x0 = 330, scale = 760 / max;
+    T(x0, 140, "gas per sell", { size: 15, col: C.muted, w: 600 });
+    G.forEach((g, i) => {
+      const y = 180 + i * 74, s = 0.5 + i * 0.45, gr = at(t, s, 1.1);
+      const plain = Math.min(G[0].gas, g.gas) * scale * gr, extra = (g.gas - G[0].gas) * scale * gr;
+      rect(x0, y, plain, 38, "#B9C3C9", 1, 4);
+      if (i) rect(x0 + plain + 2, y, Math.max(extra - 2, 0), 38, C.teal, 1, 4);
+      T(x0 - 14, y + 7, g.name, { size: 18, al: "r", w: i === G.length - 1 ? 700 : 400, a: at(t, s) });
+      T(x0 + (plain + extra) + 12, y + 7, fmt(g.gas) + (i ? `   +${fmt(g.gas - G[0].gas)}` : ""), { size: 17, w: 700, a: at(t, s + 0.7) });
+    });
+    const a = at(t, 3.6);
+    rect(x0, 570, 16, 16, "#B9C3C9", a, 3); T(x0 + 24, 566, "a plain router swap", { size: 16, a });
+    rect(x0 + 230, 570, 16, 16, C.teal, a, 3); T(x0 + 254, 566, "the vault's checks on top", { size: 16, a });
+    T(56, 620, `Version 4 deploys in ${fmt(D.deployGas)} gas, ${fmt(D.runtimeBytes)} of 24,576 bytes.`, { size: 18, col: C.muted, a: at(t, 4.2) });
+  },
+  // 5. Attacks: 120 contained, 120 normal trades completed
+  (t, D, n) => {
+    chrome(t, 5, n, "We gave the agent key to an attacker", "fork of mainnet, compiled vault, real router");
+    const A = D.attacks;
+    [[A.n, A.contained, "attacks contained", C.orange, 80], [A.benign, A.completed, "normal trades completed", C.blue, 660]].forEach(([total, ok, label, col, x0], k) => {
+      for (let i = 0; i < total; i++) {
+        const cx = x0 + (i % 15) * 34 + 17, cy = 190 + Math.floor(i / 15) * 34 + 17, s = 0.6 + k * 1.2 + i * 0.022;
+        const a = at(t, s, 0.3), done = at(t, s + 0.5, 0.3);
+        ring(cx, cy, 11, 2, col, a * (1 - done));
+        if (i < ok) circ(cx, cy, 11 * done, k ? C.blue : C.teal, done);
+      }
+      const shown = Math.round(Math.min(ok, ok * at(t, 0.6 + k * 1.2, 0.022 * total + 0.6)));
+      T(x0, 470, `${shown} / ${total}`, { size: 54, w: 800, a: at(t, 0.6 + k * 1.2) });
+      T(x0, 536, label, { size: 20, col: C.muted, a: at(t, 0.6 + k * 1.2) });
+    });
+    const a = at(t, 4.6);
+    rect(80, 600, 1120, 70, C.panel, a, 12); frame(80, 600, 1120, 70, C.line, a, 12, 1.5);
+    T(104, 610, `0 cap violations. Worst case, a stolen key selling into a pool pushed to the floor: $${A.loss} lost,\nor $${A.lossThird} with the hourly budget at a third of the cap.`, { size: 17, a });
+  },
+  // 6. Testing grew with each version: small multiples, each on its own axis
+  (t, D, n) => {
+    chrome(t, 6, n, "Each version was tested harder", "local, plus fork tests against the real pool");
+    const M = D.tests;
+    M.forEach((m, k) => {
+      const x = 56 + k * 400, a = at(t, 0.3 + k * 0.9);
+      rect(x, 150, 372, 430, C.panel, a, 14); frame(x, 150, 372, 430, C.line, a, 14, 1.5);
+      T(x + 24, 170, m.title, { size: 20, w: 700, a });
+      const max = Math.max(...m.values.map((v) => v[1] || 0));
+      m.values.forEach(([ver, v], j) => {
+        const bx = x + 50 + j * 104, h = v ? (v / max) * 270 * at(t, 0.6 + k * 0.9 + j * 0.3, 1) : 0;
+        if (v) rect(bx, 520 - h, 64, h, j === m.values.length - 1 ? C.teal : "#9FC9C5", 1, 4);
+        else T(bx + 32, 490, "no record", { size: 14, col: C.muted, al: "c", a });
+        if (v) T(bx + 32, 520 - h - 30, fmt(v), { size: 19, w: 700, al: "c", a: at(t, 1 + k * 0.9 + j * 0.3) });
+        T(bx + 32, 532, ver, { size: 16, col: C.muted, al: "c", a });
+      });
+      line(x + 40, 521, x + 340, 521, 1.5, C.line, a);
+    });
+    T(56, 610, D.slither, { size: 18, col: C.muted, a: at(t, 3.8) });
+  },
+  // 7. Chat: the first live model check, case by case
+  (t, D, n) => {
+    chrome(t, 7, n, "Chat passed its first live model check", `live model call through ${D.llm.provider}, off chain`);
+    const R = D.llm.results, max = Math.max(...R.map((r) => r.latencyMs)), x0 = 640;
+    T(x0, 136, "seconds to answer", { size: 15, col: C.muted, w: 600 });
+    R.forEach((r, i) => {
+      const y = 170 + i * 52, s = 0.5 + i * 0.38;
+      circ(76, y + 13, 12, r.pass ? C.teal : C.orange, at(t, s));
+      T(76, y + 2, r.pass ? "✓" : "✗", { size: 15, col: "#FFFFFF", w: 800, al: "c", a: at(t, s) });
+      T(100, y + 1, r.name, { size: 17, a: at(t, s) });
+      const g = at(t, s, 0.9);
+      rect(x0, y + 3, Math.max((r.latencyMs / max) * 470 * g, 1), 20, C.blue, 1, 4);
+      T(x0 + (r.latencyMs / max) * 470 * g + 10, y + 1, `${fmt(r.latencyMs / 1000, 1)} s`, { size: 16, w: 600, a: at(t, s + 0.5) });
+    });
+    T(56, 600, `${D.llm.passed} of ${D.llm.total} passed, model ${D.llm.model}, about $${fmt(D.llm.cost, 4)} in all.`, { size: 20, w: 700, a: at(t, 4) });
+    T(56, 636, "New today: chat can set how often the agent trades and which token it spends. A stop-loss is never held back.", { size: 17, col: C.muted, a: at(t, 4.6) });
+  },
+  // 8. Mainnet readiness: the runbook on a fork, and the stream on mainnet
+  (t, D, n) => {
+    chrome(t, 8, n, "Mainnet is rehearsed, not yet sent", "fork for the runbook; mainnet, read only, for the stream");
+    const steps = D.runbook;
+    line(90, 250, 90 + 1090 * at(t, 0.5, 4), 250, 4, C.teal, 1);
+    line(90, 250, 1180, 250, 4, C.line, 0.6);
+    steps.forEach((s, i) => {
+      const x = 90 + i * (1090 / (steps.length - 1)), a = at(t, 0.5 + i * (4 / steps.length), 0.3);
+      circ(x, 250, 13, a > 0.5 ? C.teal : C.panel, 1); ring(x, 250, 13, 2.5, C.teal, 1);
+      T(x, i % 2 ? 278 : 186, s, { size: 15, al: "c", w: 600, a });
+    });
+    const b = at(t, 4.8);
+    [[`${D.deployHsk} HSK`, "to deploy at today's 500 gwei base fee"], [`${D.withSwapHsk} HSK`, "to deploy, configure and make one swap"], [`${D.frames}`, "flashblock frames matched sealed\nblocks, on mainnet, read only"]].forEach(([big, small], i) => {
+      const x = 90 + i * 370;
+      rect(x, 380, 340, 160, C.panel, b, 14); frame(x, 380, 340, 160, i < 2 ? C.line : C.teal, b, 14, 1.5);
+      T(x + 24, 400, big, { size: 46, w: 800, col: i < 2 ? C.ink : C.teal, a: b });
+      T(x + 24, 470, small, { size: 17, col: C.muted, a: b });
+    });
+    T(90, 590, "No mainnet transaction has been sent. The public site reads the testnet vault, and says so.", { size: 19, w: 600, col: C.orange, a: at(t, 5.6) });
+  },
+  // 9. What we do not claim
+  (t, D, n) => {
+    chrome(t, 9, n, "What we do not claim", "");
+    [["No profit shown", "A 43 minute simulated run on real mainnet prices found no opportunities once a 20 bps outside fee is assumed."],
+     ["Not audited", "Slither, mutation tests and our written reviews are our own checks, not an audit."],
+     ["A quiet pool", "One wallet made 94% of the pool's 462 swaps over 7 days, so there is no speed race to win there yet."]].forEach(([h, s], i) => {
+      const x = 56 + i * 400, a = at(t, 0.4 + i * 0.7);
+      rect(x, 170, 372, 230, C.panel, a, 14); frame(x, 170, 372, 230, C.line, a, 14, 1.5);
+      rect(x, 170, 372, 6, C.orange, a, 3);
+      T(x + 26, 202, h, { size: 26, w: 700, a });
+      T(x + 26, 254, wrap(s, 32), { size: 17, col: C.muted, a });
+    });
+    T(640, 470, "What we can show is the limit holding.", { size: 34, w: 800, al: "c", col: C.teal, a: at(t, 2.8) });
+    T(640, 536, `${D.repo}   ·   ${D.site}`, { size: 18, al: "c", col: C.muted, a: at(t, 3.4) });
+  },
+];
+
+function wrap(s, n) { const out = []; let cur = ""; for (const w of s.split(" ")) { if ((cur + " " + w).trim().length > n) { out.push(cur.trim()); cur = w; } else cur += " " + w; } out.push(cur.trim()); return out.join("\n"); }
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+/** Draws scene i at t seconds. The fade in and out is drawn here too, so every frame is complete on its own. */
+window.seek = function (i, t, duration) {
+  shapes = []; texts = [];
+  for (let x = 40; x < W; x += 40) for (let y = 140; y < H; y += 40) circ(x, y, 1.1, C.line, 0.9);
+  SCENES[i](t, window.DATA, SCENES.length - 1);
+  const fade = Math.min(1, t / 0.35, (duration - t) / 0.35);
+  gl.viewport(0, 0, cv.width, cv.height);
+  const [r, g, b] = rgb(C.bg); gl.clearColor(r, g, b, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const data = new Float32Array(shapes);
+  for (let k = 7; k < data.length; k += 11) data[k] *= fade;
+  gl.bindBuffer(gl.ARRAY_BUFFER, inst); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STREAM_DRAW);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, data.length / 11);
+  document.getElementById("ui").innerHTML = texts.map((o) => {
+    const a = (o.a ?? 1) * fade, shift = 10 * (1 - Math.min(1, o.a ?? 1));
+    const tx = o.al === "c" ? "-50%" : o.al === "r" ? "-100%" : "0";
+    return `<div style="left:${o.x}px;top:${o.y + shift}px;transform:translateX(${tx});font-size:${o.size || 18}px;font-weight:${o.w || 400};color:${o.col || C.ink};opacity:${a};letter-spacing:${o.sp || 0}px;text-align:${o.al === "c" ? "center" : o.al === "r" ? "right" : "left"}">${esc(o.s)}</div>`;
+  }).join("");
+  gl.finish();
+  return data.length / 11;
+};
+window.sceneCount = SCENES.length;
+</script>
+</body>
+</html>

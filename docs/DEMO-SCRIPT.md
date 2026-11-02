@@ -28,3 +28,12 @@ Before recording: close `.env`, clear terminal history, and start the site with 
 ## The existing explainer
 
 `submission-video/holdfast-explainer.mp4` in the main checkout was made before version 4 and isn't in the repository. Its narration says nothing has been deployed on mainnet, the testnet vault is the older contract, and chat edits can re-arm a finished order (fixed in version 4 source since). If any of those has since changed, record again rather than reuse it. `submission-video/SUBMISSION.md` makes the same statements, so check it before pasting.
+
+## The generated explainer
+
+`python video/make_video.py` renders a narrated explainer, about two and a half minutes long, to `video/build/holdfast-explainer.mp4`. It needs `pip install playwright pillow imageio-ffmpeg` and Windows speech.
+
+- **How it is made:** each graph is drawn with WebGL in `video/scenes.html`. The script reads its figures from `evidence/` where a file holds them, so a rerun after new results updates both the graphs and the narration. `--stills` writes one frame per scene for a quick check.
+- **What it shows:** each scene names where its result ran.
+- **What it claims:** it says the trading loop has no model in it and that nothing has been sent on mainnet. If either stops being true, change `narration()` and the scene, then render again.
+- **What it replaces:** the old `submission-video/holdfast-explainer.mp4`, described above.
