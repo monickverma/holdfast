@@ -1,6 +1,6 @@
 # Mainnet runbook
 
-**Nothing here has been run on mainnet.** Every command below ran on a local fork of mainnet with Anvil's public test keys, in this order: [`evidence/v4/mainnet-dress-rehearsal-fork.json`](../evidence/v4/mainnet-dress-rehearsal-fork.json), repeatable with `node scripts/mainnet-dress-rehearsal.mjs`. These commands spend real money and the contract is not audited, so running them is the owner's decision.
+**Only step 2, the deployment, has run on mainnet**, on 3 November 2026 with `--gas-margin 110`: [`evidence/v4/mainnet-deployment.json`](../evidence/v4/mainnet-deployment.json). Every command below ran on a local fork of mainnet with Anvil's public test keys, in this order: [`evidence/v4/mainnet-dress-rehearsal-fork.json`](../evidence/v4/mainnet-dress-rehearsal-fork.json), repeatable with `node scripts/mainnet-dress-rehearsal.mjs`. These commands spend real money and the contract is not audited, so running them is the owner's decision.
 
 ## What it costs
 
@@ -17,7 +17,7 @@ Read from mainnet on 2 November 2026: the base fee is 500 gwei, and recent trans
 
 - The owner must hold at least 2.83 HSK when it deploys. The tool reserves 5,645,480 gas and refuses to send on less. The unused part stays with the owner.
 - The agent must hold at least 0.5 HSK to send a swap, because the agent reserves 500,000 gas at twice the base fee. A swap spends about 0.1, and the rest stays with the agent.
-- **Deployment alone**, which is what the mainnet rule asks for, needs 2.83 HSK on the owner and no agent funds.
+- **Deployment alone**, which is what the mainnet rule asks for, needs 2.83 HSK on the owner and no agent funds, or 2.59 HSK with `--gas-margin 110`, which reserves 110% of the estimate instead of 120%. The real deployment used 99.2% of the estimate.
 
 These replace the 2.34 HSK in the 2 November reviews, which came from a dry run before the last version 4 edits. The base fee can change, so read the dry run's figure on the day. A dry run on 3 November read the same 500 gwei, the same build hash and the same 2.82 HSK: [`evidence/v4/deploy-dry-run-mainnet.txt`](../evidence/v4/deploy-dry-run-mainnet.txt).
 

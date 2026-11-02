@@ -26,6 +26,12 @@ test("a sound plan has no blockers, and its cost includes the margin", () => {
   assert.equal(plan.costWei, 4_800_000n * 1_000_000_000n);
 });
 
+test("a smaller gas margin can be chosen, but not one too thin to land", () => {
+  assert.equal(planDeployment({ ...facts, gasMarginPercent: 110n }).gasLimit, 4_400_000n);
+  assert.ok(planDeployment({ ...facts, gasMarginPercent: 104n }).blockers.some((b) => /gas margin/.test(b)));
+  assert.ok(planDeployment({ ...facts, gasMarginPercent: 201n }).blockers.some((b) => /gas margin/.test(b)));
+});
+
 test("each problem blocks the deployment and says why", () => {
   for (const [change, why] of [
     [{ rpcChainId: 177 }, /configured for 133/],

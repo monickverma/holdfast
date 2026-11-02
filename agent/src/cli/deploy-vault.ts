@@ -1,6 +1,7 @@
 // Deploys a vault against the configured market. A dry run by default: it signs nothing and needs no key.
 //   npm run deploy:vault -- --owner 0x.. --agent 0x..                    plan only
 //   npm run deploy:vault -- --owner 0x.. --agent 0x.. --broadcast        sends, using OWNER_PRIVATE_KEY
+//   --gas-margin 110   reserves 110% of the estimate instead of 120%, for an owner holding just enough
 // Chain 177 also needs --confirm-mainnet. Limits, the guard and the guardian are separate steps: see docs/READINESS.md.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -17,6 +18,8 @@ export const DEFAULT_EXPIRY_DAYS = 7;
 const MAX_EXPIRY_DAYS = 30;
 /** Added to the node's estimate, since what it estimates can change before the transaction lands. */
 const GAS_MARGIN_PERCENT = 120n;
+/** Below this, a small change in state between the estimate and the block could run the deployment out of gas. */
+const MIN_GAS_MARGIN_PERCENT = 105n;
 
 export interface DeployFacts {
   rpcChainId: number | null;
@@ -31,6 +34,8 @@ export interface DeployFacts {
   venue: Pick<VenueReport, "verdict">;
   broadcast: boolean;
   confirmedMainnet: boolean;
+  /** Percent of the estimate reserved as the gas limit. Defaults to GAS_MARGIN_PERCENT. */
+  gasMarginPercent?: bigint;
 }
 
 export interface DeployPlan {
@@ -50,7 +55,9 @@ export function planDeployment(facts: DeployFacts): DeployPlan {
   if (isAddress(facts.owner) && isAddress(facts.agent) && getAddress(facts.owner) === getAddress(facts.agent)) blockers.push("The owner and agent must be different keys, or a stolen agent key could withdraw everything.");
   if (!Number.isFinite(facts.expiryDays) || facts.expiryDays <= 0 || facts.expiryDays > MAX_EXPIRY_DAYS) blockers.push(`The agent key's expiry must be from 1 to ${MAX_EXPIRY_DAYS} days.`);
   if (!allowsLive(facts.venue)) blockers.push(`The venue check came back ${facts.venue.verdict}.`);
-  const gasLimit = facts.gasEstimate === null ? null : (facts.gasEstimate * GAS_MARGIN_PERCENT) / 100n;
+  const margin = facts.gasMarginPercent ?? GAS_MARGIN_PERCENT;
+  if (margin < MIN_GAS_MARGIN_PERCENT || margin > 200n) blockers.push(`The gas margin must be from ${MIN_GAS_MARGIN_PERCENT} to 200 percent of the estimate.`);
+  const gasLimit = facts.gasEstimate === null ? null : (facts.gasEstimate * margin) / 100n;
   const costWei = gasLimit === null || facts.gasPrice === null ? null : gasLimit * facts.gasPrice;
   if (costWei === null) blockers.push("The node gave no gas estimate or gas price, so the cost is unknown.");
   if (facts.balance === null) blockers.push("The node did not report the owner's balance.");
@@ -89,6 +96,7 @@ export async function runDeploy(argv: string[], env: Record<string, string | und
       owner: { type: "string" },
       agent: { type: "string" },
       "expiry-days": { type: "string" },
+      "gas-margin": { type: "string" },
       broadcast: { type: "boolean", default: false },
       "confirm-mainnet": { type: "boolean", default: false },
       out: { type: "string" },
@@ -138,6 +146,7 @@ export async function runDeploy(argv: string[], env: Record<string, string | und
       venue,
       broadcast: values.broadcast!,
       confirmedMainnet: values["confirm-mainnet"]!,
+      gasMarginPercent: values["gas-margin"] === undefined ? undefined : BigInt(values["gas-margin"]),
     });
     const bytecodeHash = keccak256(artifact.bytecode.object);
 

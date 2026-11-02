@@ -1,0 +1,92 @@
+{
+  "lane": "mainnet",
+  "generation": 4,
+  "note": "HoldfastVault version 4 deployed on HashKey Chain mainnet (chain 177) by the owner key, with the owner's approval, on 3 November 2026 (IST). Only the deployment ran: no limits, guardian, guard, loss budget or funds are set, so the vault cannot trade yet.",
+  "command": "node .test-build/src/cli/deploy-vault.js --owner 0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489 --agent 0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA --gas-margin 110 --broadcast --confirm-mainnet",
+  "gasMarginPercent": 110,
+  "gasEstimate": "4704567",
+  "gasLimit": "5175023",
+  "receipt": {
+    "status": "0x1",
+    "block": "29657434",
+    "blockTime": "2026-11-02T23:26:43Z",
+    "gasUsed": "4666365",
+    "effectiveGasPriceWei": "500001000000",
+    "l2FeeWei": "2333187166365000000",
+    "l1FeeWei": "217451496830852"
+  },
+  "toolRecord": {
+    "wallTime": "2026-11-02T23:26:41.823Z",
+    "chainId": 177,
+    "txHash": "0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34",
+    "owner": "0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489",
+    "agent": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+    "expiry": "1794266799",
+    "router": "0x2c16f75b95Cf1390c328aB70e2CEE7f4b80bD8F3",
+    "whsk": "0xb210d2120d57b758ee163cffb43e73728c471cf1",
+    "usdt": "0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029",
+    "fee": 3000,
+    "bytecodeHash": "0x063ed1104bfdff98693497538481299ed10aea4a48719cf4b082913808d61b11",
+    "status": "deployed, verification failed",
+    "vault": "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c",
+    "block": "29657434",
+    "gasUsed": "4666365",
+    "feeWei": "2333187166365000000",
+    "runtimeMatchesBuild": false,
+    "immutableSlotsMasked": 34,
+    "venue": {
+      "verdict": "fail",
+      "notPassing": [
+        {
+          "name": "whsk limits",
+          "status": "warn",
+          "source": "authoritative",
+          "detail": "No trade cap is set, so this token cannot be traded."
+        },
+        {
+          "name": "usdt limits",
+          "status": "warn",
+          "source": "authoritative",
+          "detail": "No trade cap is set, so this token cannot be traded."
+        },
+        {
+          "name": "guardian",
+          "status": "fail",
+          "source": "authoritative",
+          "detail": "No guardian is set."
+        },
+        {
+          "name": "price guard",
+          "status": "fail",
+          "source": "authoritative",
+          "detail": "The guard is off, so a stolen key could sell into a pushed pool down to the floor."
+        },
+        {
+          "name": "loss guard",
+          "status": "fail",
+          "source": "authoritative",
+          "detail": "No daily loss budget is set, so nothing on chain bounds losses across trades."
+        },
+        {
+          "name": "agent gas",
+          "status": "warn",
+          "source": "authoritative",
+          "detail": "0 wei held, about 500001000000000000 needed up front per trade."
+        }
+      ]
+    },
+    "explorer": "https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c"
+  },
+  "recheck": {
+    "readAt": "2026-11-02T23:27Z, about a minute after the receipt",
+    "runtimeMatchesBuild": true,
+    "immutableSlotsMasked": 34,
+    "bytesDifferingOutsideImmutables": 0,
+    "ownerCall": "0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489",
+    "agentCall": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+    "ownerBalanceAfterHsk": "0.29940893923667533",
+    "ownerNonceAfter": 1,
+    "why": "The deploy tool read the code once, right after the receipt, and reported a mismatch. A re-read through the same public RPC about a minute later, compared with the tool's own runtimeMatches, matched with 0 differing bytes. The cause of the first read was not established. The venue verdict 'fail' in toolRecord comes from the guardian, price guard and loss guard being unset, which are the next runbook steps."
+  },
+  "explorer": "https://hsk.blockscout.com/tx/0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34"
+}

@@ -311,7 +311,7 @@ Arms alternate in one window, so both see the same network. Timing starts at the
 
 ## What this does not show
 
-- **Mainnet confirmation is untested.** Our wallets hold no mainnet HSK. `eth_sendRawTransactionSync` is recognised by the mainnet RPC, but no transaction has gone through it there. A mainnet flashblock stream does exist at `wss://mainnet-flashblocks.hsk.xyz/ws`: 247 frames in 45 seconds, about 200 ms apart, with block numbers matching mainnet. That suggests similar confirmation times, but it does not prove them. The mainnet read results above do carry over.
+- **Mainnet confirmation is untested.** The one mainnet transaction so far, the vault deployment, was a plain send. `eth_sendRawTransactionSync` is recognised by the mainnet RPC, but no transaction has gone through it there. A mainnet flashblock stream does exist at `wss://mainnet-flashblocks.hsk.xyz/ws`: 247 frames in 45 seconds, about 200 ms apart, with block numbers matching mainnet. That suggests similar confirmation times, but it does not prove them. The mainnet read results above do carry over.
 - **Every number went through Cloudflare WARP on this machine.** We have no direct-connection baseline, so the tunnel's share of the time is unknown.
 - **The swaps are self-trades in a thin test market.** They are not volume, and nothing here claims profit.
 - **A receipt here is a flashblock preconfirmation,** not a sealed or finalised block.

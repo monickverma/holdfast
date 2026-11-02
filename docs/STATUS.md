@@ -1,6 +1,6 @@
 # Status of the system
 
-What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **Nothing has run on mainnet. One live model check has passed: 8 of 8 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
+What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **On mainnet, only the version 4 deployment has run: no limits, guardian, funds or trades. One live model check has passed: 8 of 8 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. Version 4 is deployed on mainnet and on no other public network. Version 3 is deployed on testnet but has not traded there, and its guard is off.**
 
 ## What the audit found
 
@@ -34,6 +34,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
 | Whole lifecycle | Version 4: deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps, with the loss budget, share limit and cooldown off | `evidence/v4/rehearsal-fork.json` |
 | Mainnet procedure | Every step of [the runbook](MAINNET-RUNBOOK.md), with test keys, ending in one swap through the real router | Fork | Preflight `pass`, swap included | `evidence/v4/mainnet-dress-rehearsal-fork.json` |
+| Version 4 deployment | Runbook step 2 only, with a 110% gas margin, at `0xbbd6…7d3c` | Mainnet | Deployed in block 29,657,434, 4,666,365 gas. Runtime code matches the build on a re-read; the tool's own read just after the receipt did not | `evidence/v4/mainnet-deployment.json` |
 
 The rows below are **version 3 or earlier**, kept as they were.
 
@@ -59,13 +60,13 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Mainnet | The team chose testnet, for lack of funds. Under the official rule, a project not deployed on mainnet forfeits demo selection, and winners must be on mainnet to claim. Owner and agent keys hold 0 HSK at nonce 0 | The owner's decision and funds: 2.83 HSK for deployment alone, about 4.2 HSK with one swap. [The runbook](MAINNET-RUNBOOK.md) is ready and rehearsed on a fork only |
+| Mainnet trading | Version 4 is deployed on mainnet, which meets the deployment rule. The owner key holds about 0.30 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
 
 ## Not done
 
 | Item | Why |
 |---|---|
-| Version 4 on any public network | Not deployed. Testnet still has version 3, and mainnet has nothing |
+| Version 4 on testnet | Not deployed. Testnet still has version 3. Mainnet has version 4, unconfigured |
 | AI in the trading loop | Not built, deliberately. The loop is rules. The model only answers and drafts, which is a weak answer to a track asking for an AI agent as its core engine |
 | Version 3 in use on testnet | Deployed at `0x9b31…1b28`, using 7,886,252 gas and 0.00789 test HSK. Guard off, no guardian, no stop armed, no swaps. The agent key holds about 0.00003 test HSK, too little to trade |
 | Public chat on the site | The site is live at holdfast-09jn.onrender.com and reads the testnet vault. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
