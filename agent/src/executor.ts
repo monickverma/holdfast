@@ -11,7 +11,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import type { TradeDecision } from "./decide.js";
+import type { Mark, TradeDecision } from "./decide.js";
 import type { Intent, Ledger } from "./ledger.js";
 import { VAULT_ABI, type Head, type MarketState } from "./reader.js";
 import { RpcError, type RpcClient } from "./rpc.js";
@@ -20,6 +20,8 @@ import type { Trace } from "./trace.js";
 /** Well above the measured use of one swap, and cheap: unused gas is not charged. */
 export const GAS_LIMIT = 500_000n;
 export const INTENT_TTL_SEC = 90n;
+/** An edge is priced off an outside mark no older than 5 s, so a trade still waiting after this is trading on old news. Not tuned on data. */
+export const EDGE_TTL_SEC = 15n;
 /** How long the node may hold a sync send open before the agent falls back to polling for the receipt. */
 export const SYNC_SEND_TIMEOUT_MS = 6_000;
 /** How long past its deadline an intent can sit with no receipt before the vault is asked whether it ever ran. */
@@ -28,6 +30,11 @@ export const EXPIRY_GRACE_SEC = 30n;
 const RESEND_MS = 10_000;
 /** A receipt younger than this many blocks can still be undone, so it keeps being checked. */
 export const REORG_WATCH_BLOCKS = 64n;
+
+/** More than anchorLog uses. Unused gas is not charged. */
+const ANCHOR_GAS_LIMIT = 120_000n;
+/** Separates a decision hash from any other hash over the same bytes. Version 3 records and later use it. */
+export const DECISION_DOMAIN = "holdfast.decision.v3\n";
 
 /** "sync" asks the node to answer with the receipt; "classic" sends and polls. */
 export type SendMode = "sync" | "classic";
@@ -70,6 +77,8 @@ export class Executor {
   private readonly vault: Address;
   private readonly chainId: number;
   private readonly lastSent = new Map<string, number>();
+  /** An anchor not yet seen on chain. Its bytes go out again ahead of any later nonce, so a dropped one cannot stall a trade behind it. */
+  private pendingAnchor: { rawTx: Hex; nonce: number; txHash: Hex } | null = null;
 
   constructor(options: ExecutorOptions) {
     this.account = privateKeyToAccount(options.agentKey);
@@ -136,6 +145,8 @@ export class Executor {
             blockNumber: undefined,
             blockHash: undefined,
             amountOut: undefined,
+            amountSpent: undefined,
+            outcomeUnverified: undefined,
             gasUsed: undefined,
             feeWei: undefined,
             revertReason: undefined,
@@ -151,19 +162,19 @@ export class Executor {
   }
 
   /** Reserve, sign, persist, then broadcast. The signed bytes are on disk before they can reach the network. */
-  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number, isCurrent: () => boolean = () => true): Promise<Intent> {
+  async submit(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce?: number, isCurrent: () => boolean = () => true, context?: DecisionContext): Promise<Intent> {
     if (this.busy) throw new SubmissionBusy("signer already has a submission owner");
     submissionOwners.add(this.signerKey);
     try {
-      return await this.submitOwned(key, decision, market, trace, pendingNonce, isCurrent);
+      return await this.submitOwned(key, decision, market, trace, pendingNonce, isCurrent, context);
     } finally {
       submissionOwners.delete(this.signerKey);
     }
   }
 
-  private async submitOwned(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce: number | undefined, isCurrent: () => boolean): Promise<Intent> {
+  private async submitOwned(key: string, decision: TradeDecision, market: MarketState, trace: Trace, pendingNonce: number | undefined, isCurrent: () => boolean, context?: DecisionContext): Promise<Intent> {
     if (!isCurrent()) throw new StaleDecision("decision changed while preparing submission");
-    const deadline = market.head.timestamp + INTENT_TTL_SEC;
+    const deadline = market.head.timestamp + (decision.trigger === "edge" ? EDGE_TTL_SEC : INTENT_TTL_SEC);
     const intentId = this.ledger.get(key)?.intentId ?? this.ledger.nextIntentId();
     const bodyHash = keccak256(
       encodeAbiParameters(
@@ -171,8 +182,8 @@ export class Executor {
         [decision.tokenIn, decision.amountIn, decision.minOut, intentId],
       ),
     );
-    const decisionBody = decisionRecord(decision, market);
-    const decisionHash = keccak256(stringToHex(decisionBody));
+    const decisionBody = decisionRecord(decision, market, context && { ...context, chainId: this.chainId, vault: this.vault, expiresAt: deadline, prevDecisionHash: this.lastDecisionHash(), intentId, agent: this.address });
+    const decisionHash = decisionHashOf(decisionBody);
     const { intent, existing } = await trace.span("reserve", () =>
       this.ledger.reserve({
         key,
@@ -225,6 +236,50 @@ export class Executor {
     return trace.span("broadcast", () =>
       this.sendMode === "sync" ? this.broadcastSync(signed, market.head.number) : this.broadcast(signed, market.head.number),
     );
+  }
+
+  /**
+   * Commits the local log's head to the vault's own log, so decisions that led to no trade can be checked later too. Holds
+   * the submission lock only to sign and send, never for the receipt, because a stop must not wait on this.
+   */
+  async anchor(localHead: Hex, localSeq: number, market: Pick<MarketState, "head" | "priorityFeePerGas">): Promise<Hex> {
+    if (this.busy) throw new SubmissionBusy("signer already has a submission owner");
+    submissionOwners.add(this.signerKey);
+    try {
+      const nonce = await this.nextNonce();
+      const rawTx = await this.account.signTransaction({
+        type: "eip1559",
+        chainId: this.chainId,
+        nonce,
+        to: this.vault,
+        data: encodeFunctionData({ abi: VAULT_ABI, functionName: "anchorLog", args: [localHead, BigInt(localSeq)] }),
+        value: 0n,
+        gas: ANCHOR_GAS_LIMIT,
+        maxPriorityFeePerGas: market.priorityFeePerGas,
+        maxFeePerGas: market.head.baseFeePerGas * 2n + market.priorityFeePerGas,
+      });
+      const txHash = keccak256(rawTx);
+      this.pendingAnchor = { rawTx, nonce, txHash };
+      await this.sendRpc.callOnce("eth_sendRawTransaction", [rawTx]);
+      return txHash;
+    } finally {
+      submissionOwners.delete(this.signerKey);
+    }
+  }
+
+  /** True once the anchor sent last has landed, or there is none. */
+  async anchorSettled(): Promise<boolean> {
+    if (!this.pendingAnchor) return true;
+    const receipt = await this.rpc.call<RawReceipt | null>("eth_getTransactionReceipt", [this.pendingAnchor.txHash]);
+    if (receipt) this.pendingAnchor = null;
+    return receipt !== null;
+  }
+
+  /** The newest decision that was signed, so each trade on chain names the one before it. Cancelled ones were never sent. */
+  private lastDecisionHash(): Hex | null {
+    let last: Hex | null = null;
+    for (const intent of this.ledger.all()) if (intent.decisionHash && intent.rawTx && intent.status !== "cancelled") last = intent.decisionHash;
+    return last;
   }
 
   /**
@@ -294,14 +349,18 @@ export class Executor {
       const revertReason = await this.revertReason(intent, blockNumber);
       return this.ledger.update(intent.key, { status: "reverted", blockNumber, blockHash, gasUsed, feeWei, revertReason });
     }
-    const [traded] = parseEventLogs({ abi: VAULT_ABI, eventName: "Traded", logs: receipt.logs as never });
+    // Only the vault's own event for this intent counts. A token or router in the same transaction could emit one that looks alike.
+    const traded = parseEventLogs({ abi: VAULT_ABI, eventName: "Traded", logs: receipt.logs.filter((log) => log.address.toLowerCase() === this.vault.toLowerCase()) as never })
+      .map((log) => log.args as { intentId: Hex; amountIn: bigint; amountOut: bigint })
+      .find((args) => args.intentId === intent.intentId);
     return this.ledger.update(intent.key, {
       status: "included",
       blockNumber,
       blockHash,
       gasUsed,
       feeWei,
-      amountOut: (traded?.args as { amountOut?: bigint } | undefined)?.amountOut ?? 0n,
+      amountOut: traded?.amountOut ?? 0n,
+      ...(traded ? { amountSpent: traded.amountIn, outcomeUnverified: undefined } : { outcomeUnverified: true }),
     });
   }
 
@@ -321,7 +380,9 @@ export class Executor {
   private async nextNonce(pendingNonce?: number): Promise<number> {
     const chain = pendingNonce ?? Number(await this.rpc.call<string>("eth_getTransactionCount", [this.address, "pending"]));
     const last = this.ledger.lastNonce();
-    return last === null ? chain : Math.max(chain, last + 1);
+    const anchor = this.pendingAnchor;
+    if (anchor) void this.sendRpc.callOnce("eth_sendRawTransaction", [anchor.rawTx]).catch(() => {});
+    return Math.max(chain, last === null ? 0 : last + 1, anchor ? anchor.nonce + 1 : 0);
   }
 
   private async revertReason(intent: Intent, blockNumber: bigint): Promise<string> {
@@ -340,9 +401,56 @@ export class Executor {
   }
 }
 
+export interface DecisionContext {
+  policyVersion: number;
+  mark: Mark | null;
+  decidedAtMs: number;
+  /** Head of the local decision log when this was decided, so the trade commits to everything logged before it. */
+  logHead: Hex;
+  /** Null when this trade was not asked about first: a frame's trade is racing the next flashblock. */
+  preflight: Simulation & { gasEstimate?: bigint } | null;
+  chainId?: number;
+  vault?: Address;
+  expiresAt?: bigint;
+  prevDecisionHash?: Hex | null;
+  intentId?: Hex;
+  agent?: Address;
+  /** Length of the local decision log, so a verifier knows which of its records logHead names. */
+  logSeq?: number;
+  /** Hash of the policy this ran, which the owner can pin on the vault. */
+  strategyHash?: Hex;
+  /** The pool this read. A verifier can read it again at the same block. */
+  marketSource?: Address;
+  readMode?: string;
+}
+
+/** One spelling for one value: keys sorted, no spaces, nothing undefined. The verifier refuses any other spelling. */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeys);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value !== "object" || value === null) return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(Object.keys(record).sort().filter((key) => record[key] !== undefined).map((key) => [key, sortKeys(record[key])]));
+}
+
+/** The hash a transaction carries. Records from before version 3 hashed their bytes with no domain, and stay checkable. */
+export function decisionHashOf(body: string): Hex {
+  let version: unknown;
+  try {
+    version = (JSON.parse(body) as { v?: unknown }).v;
+  } catch {
+    version = undefined;
+  }
+  return keccak256(stringToHex(typeof version === "number" && version >= 3 ? `${DECISION_DOMAIN}${body}` : body));
+}
+
 /** What a decision was made from. Canonical, so anyone holding it can recompute the hash a transaction carries. */
-export function decisionRecord(decision: TradeDecision, market: Pick<MarketState, "head" | "spotPriceX18">): string {
-  return JSON.stringify({
+export function decisionRecord(decision: TradeDecision, market: Pick<MarketState, "head" | "spotPriceX18"> & Partial<MarketState>, context?: DecisionContext & Required<Pick<DecisionContext, "chainId" | "vault" | "expiresAt" | "prevDecisionHash" | "intentId" | "agent">>): string {
+  const body = {
     block: market.head.number.toString(),
     blockHash: market.head.hash,
     spotPriceX18: market.spotPriceX18?.toString(),
@@ -353,6 +461,32 @@ export function decisionRecord(decision: TradeDecision, market: Pick<MarketState
     quotedOut: decision.quotedOut?.toString(),
     minOut: decision.minOut.toString(),
     reason: decision.reason,
+  };
+  if (!context) return JSON.stringify(body);
+  return canonicalJson({
+    ...body,
+    v: 3,
+    intentId: context.intentId,
+    agent: context.agent,
+    logSeq: context.logSeq ?? null,
+    strategyHash: context.strategyHash ?? null,
+    marketSource: context.marketSource ?? null,
+    readMode: context.readMode ?? null,
+    // What the agent believed its limits were. A commitment to its view, not proof the view was right.
+    riskCommitment: market.vault ? keccak256(stringToHex(canonicalJson(market.vault))) : null,
+    chainId: context.chainId,
+    vault: context.vault,
+    prevDecisionHash: context.prevDecisionHash,
+    logHead: context.logHead,
+    policyVersion: context.policyVersion,
+    blockTime: market.head.timestamp.toString(),
+    expiresAt: context.expiresAt.toString(),
+    tick: market.tick,
+    twapTick: market.twapTick,
+    liquidity: market.liquidity?.toString(),
+    mark: context.mark ? { askX18: context.mark.askX18.toString(), bidX18: context.mark.bidX18.toString(), ageMs: context.decidedAtMs - context.mark.fetchedAtMs } : null,
+    ledger: { inputValue: decision.ledger?.inputValue?.toString() ?? null, outputValue: decision.ledger?.outputValue?.toString() ?? null, networkCost: decision.ledger?.networkCost?.toString() ?? null, net: decision.ledger?.net?.toString() ?? null },
+    preflight: context.preflight ? { ok: context.preflight.ok, amountOut: context.preflight.amountOut?.toString() ?? null, gasEstimate: context.preflight.gasEstimate?.toString() ?? null } : null,
   });
 }
 

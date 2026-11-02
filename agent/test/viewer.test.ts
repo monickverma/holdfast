@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { decodeFunctionData, encodeFunctionData, getAddress, keccak256, toFunctionSelector, toHex, type Hex } from "viem";
-import { createViewer } from "../src/cli/viewer.js";
+import { createViewer, readEvidence } from "../src/cli/viewer.js";
 import { HSKSWAP } from "../src/config.js";
 import { DEMO_ATTACKS, runDemo } from "../src/demo.js";
 import { readProof } from "../src/proof.js";
@@ -210,6 +210,20 @@ test("the proof digest passes only named fields, and an absent file is null", as
   assert.equal(empty.gas, null); assert.equal(empty.mutation, null); assert.equal(empty.llm, null);
 }));
 
+test("the verifier's answer reaches the page as written, with each result in its own lane", () => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-proof-"));
+  try {
+    mkdirSync(join(dir, "v4"));
+    assert.deepEqual(readProof(dir).verifier, []);
+    writeFileSync(join(dir, "v4/verify-testnet.json"), JSON.stringify({ wallTime: "t", status: "INCOMPLETE", vaultVersion: "3", checked: { trades: 0, tradesMatched: 0, logEntries: 0, anchors: 0 }, findings: [{ severity: "INCOMPLETE", code: "NO_ONCHAIN_LOG", detail: "d", extra: "SECRET_SENTINEL" }], rpc: "SECRET_SENTINEL" }));
+    const [row] = readProof(dir).verifier;
+    assert.equal(row!.lane, "testnet");
+    assert.equal(row!.status, "INCOMPLETE");
+    assert.equal(row!.findings[0]!.code, "NO_ONCHAIN_LOG");
+    assert.ok(!JSON.stringify(row).includes("SECRET_SENTINEL"));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("the proof digest drops everything it was not told to pass", () => {
   const dir = mkdtempSync(join(tmpdir(), "holdfast-proof-"));
   try {
@@ -298,4 +312,47 @@ test("the wallet module knows every role's controls and offers an agent none", a
   assert.deepEqual(wallet.controlsFor("none", 3), []);
   // An older vault has no halt or revoke, so the page does not offer them.
   assert.ok(!wallet.controlsFor("owner", null).some((c: { id: string }) => ["halt", "revoke", "disarm"].includes(c.id)));
+});
+test("the venue route serves what was read, and shares one read among visitors", async () => {
+  let reads = 0;
+  await withServer({ venue: async () => { reads++; return { lane: "testnet", verdict: "warn", checks: [{ name: "guardian", status: "warn", source: "authoritative", detail: "No guardian is set." }], market: { tick: 1 } }; } }, async (port) => {
+    const first = await rawGet(port, "/api/venue");
+    const second = await rawGet(port, "/api/venue");
+    assert.equal(first.status, 200);
+    assert.equal(JSON.parse(first.text).verdict, "warn");
+    assert.equal(second.status, 200);
+    assert.equal(reads, 1);
+  });
+});
+
+test("expected against realized and refusals reach the page by named field, and nothing else does", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-quality-"));
+  const WHSK = "0xB210D2120d57b758EE163cFfb43e73728c471Cf1";
+  jsonl(dir, "traces.jsonl", [{ id: "t1", lane: "fork", wallTime: "w", attrs: { decisionToBroadcastMs: 5 }, spans: [] }, { id: "t2", lane: "fork", wallTime: "w", attrs: {}, spans: [] }, { id: "t3", lane: "fork", wallTime: "w", attrs: {}, spans: [] }]);
+  jsonl(dir, "ledger.jsonl", [{ key: "k", lane: "fork", intentId: "0x1", bodyHash: "0x1", orderId: "o", tokenIn: WHSK.toLowerCase() === HSKSWAP.whsk.toLowerCase() ? WHSK : HSKSWAP.whsk, amountIn: "1000", minOut: "90", deadline: "1", status: "included", amountOut: "98", txHash: `0x${"a".repeat(64)}`, rawTx: "0xSIGNEDBYTES", decisionBody: JSON.stringify({ quotedOut: "100", spotPriceX18: "100000", secretNote: "do-not-show" }) }]);
+  jsonl(dir, "decisions.jsonl", [
+    { traceId: "t1", wallTime: "w", intent: { key: "k" }, decision: { action: "trade" } },
+    { traceId: "t2", wallTime: "w2", block: "7", decision: { action: "hold", code: "preflight-unverified", reason: "The node could not say." } },
+    { traceId: "t3", wallTime: "w3", decision: { action: "hold", code: "no-order", reason: "Nothing to do." } },
+  ]);
+  const fork = readEvidence(dir).lanes.find((l) => l.lane === "fork")!;
+  assert.equal(fork.quality.fills, 1);
+  assert.equal(fork.quality.rows[0]!.slippageBps, "200");
+  assert.equal(fork.quality.rows[0]!.realizedNetUsdt, null, "no outside price was recorded, so no net is shown");
+  assert.deepEqual(fork.refusals, [{ time: "w2", block: "7", code: "preflight-unverified", reason: "The node could not say." }]);
+  assert.deepEqual(fork.holds, { "preflight-unverified": 1, "no-order": 1 });
+  const wire = JSON.stringify(fork);
+  assert.ok(!wire.includes("SIGNEDBYTES") && !wire.includes("do-not-show"));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("the newest recording is shown, and an older directory is only a fallback", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "holdfast-proof-"));
+  mkdirSync(join(dir, "v3")); mkdirSync(join(dir, "v4"));
+  const suite = (passed: number) => JSON.stringify({ wallTime: "t", suites: [{ name: "agent", lane: "local", command: "c", passed, failed: 0, skipped: 0 }] });
+  writeFileSync(join(dir, "v3/verification.json"), suite(1));
+  assert.equal(readProof(dir).verification!.suites[0]!.passed, 1);
+  writeFileSync(join(dir, "v4/verification.json"), suite(2));
+  assert.equal(readProof(dir).verification!.suites[0]!.passed, 2);
+  rmSync(dir, { recursive: true, force: true });
 });

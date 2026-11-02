@@ -1,0 +1,160 @@
+{
+  "wallTime": "2026-11-01T21:59:39.050Z",
+  "lane": "live read only",
+  "rpc": "https://testnet.hsk.xyz",
+  "chainId": 133,
+  "block": "35191860",
+  "verdict": "warn",
+  "checks": [
+    {
+      "name": "chain id",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "133"
+    },
+    {
+      "name": "router code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "1944 bytes at 0xd66c592e3f7b1fae6170da8664170f60a172cee6."
+    },
+    {
+      "name": "quoter code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "1765 bytes at 0x166bbd18d7b0ed761b50fdd257d0b35d92364d04."
+    },
+    {
+      "name": "pool code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "5857 bytes at 0x8d3bb691cdb90d871ef0adf9fa4d82004e6909c2."
+    },
+    {
+      "name": "whsk code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "1766 bytes at 0x7389e33c68e21fe417a045f2283d333e62f6e8fb."
+    },
+    {
+      "name": "usdt code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "1766 bytes at 0xf2c1543ff2227251c8e26af99624f374d270450f."
+    },
+    {
+      "name": "vault code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "17420 bytes at 0x9b31aeda4839747a4251d623ddfee4152c961b28."
+    },
+    {
+      "name": "whsk decimals",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "18"
+    },
+    {
+      "name": "usdt decimals",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "6"
+    },
+    {
+      "name": "pool token0",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0x7389E33C68e21fe417a045f2283D333E62F6e8fB"
+    },
+    {
+      "name": "pool token1",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0xF2c1543FF2227251c8E26AF99624F374D270450F"
+    },
+    {
+      "name": "pool fee",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "3000"
+    },
+    {
+      "name": "vault router",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0xD66C592e3F7b1FAe6170DA8664170f60A172cEe6"
+    },
+    {
+      "name": "vault token A",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0x7389E33C68e21fe417a045f2283D333E62F6e8fB"
+    },
+    {
+      "name": "vault token B",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0xF2c1543FF2227251c8E26AF99624F374D270450F"
+    },
+    {
+      "name": "vault fee",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "3000"
+    },
+    {
+      "name": "this key is the vault's agent",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA"
+    },
+    {
+      "name": "owner and agent are separate",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Owner 0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489, agent 0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA."
+    },
+    {
+      "name": "trading open",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Not paused."
+    },
+    {
+      "name": "agent key valid",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Expires at 1796065586, now 1793570378."
+    },
+    {
+      "name": "whsk limits",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Cap 10000000000000000000, floor 90000."
+    },
+    {
+      "name": "usdt limits",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Cap 1000000, floor 9000000000000000000000000000000."
+    },
+    {
+      "name": "guardian",
+      "status": "warn",
+      "source": "authoritative",
+      "detail": "No guardian is set."
+    },
+    {
+      "name": "price guard",
+      "status": "warn",
+      "source": "authoritative",
+      "detail": "The guard is off, so a stolen key could sell into a pushed pool down to the floor."
+    },
+    {
+      "name": "agent gas",
+      "status": "warn",
+      "source": "authoritative",
+      "detail": "32827249630439 wei held, about 1001000000000000 needed up front per trade."
+    }
+  ]
+}

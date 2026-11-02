@@ -1,0 +1,37 @@
+{
+  "wallTime": "2026-11-01T22:22:22.125Z",
+  "lane": "live read only",
+  "testnet": {
+    "vault": "0xACdB76B454E9D845f650c0Ad30195E525856e01c",
+    "block": "35192538",
+    "logEntries": 30,
+    "logCountOnChain": "30",
+    "headRecomputes": true,
+    "distinctDecisionHashes": 29,
+    "reusedDecisionHashes": 1,
+    "venuesUsed": [
+      "0x0adf752Aa5a20C0a85aE615169481B100168c568"
+    ],
+    "agentIsOraclePublisher": true
+  },
+  "mainnet": {
+    "factoryVaultCount": "0",
+    "registryStrategyCount": "1",
+    "candidateFeeds": {
+      "APRO BTC/USD, per vendor docs": {
+        "address": "0x204ED500ab56A2E19B051561258E3A45c850360F",
+        "hasCode": true,
+        "answersLatestRoundData": true,
+        "description": "BTC/USD",
+        "updatedAt": "1793525297"
+      },
+      "Supra push, per vendor docs": {
+        "address": "0x58e158c74DF7Ad6396C0dcbadc4878faC9e93d57",
+        "hasCode": true,
+        "answersLatestRoundData": false,
+        "description": null,
+        "updatedAt": null
+      }
+    }
+  }
+}

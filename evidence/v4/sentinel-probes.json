@@ -1,0 +1,108 @@
+{
+  "wallTime": "2026-11-01T22:22:11.218Z",
+  "lane": "local, against Sentinel's source with mocks it ships",
+  "compiler": "solc 0.8.28, where Sentinel pins 0.8.24",
+  "repository": "mesh-pch/sentinel-hashkey",
+  "commit": "6840d73247c0d28ac1a92f01a722e8ace44cfd09",
+  "probesSource": "research/sentinel/SentinelProbes.t.sol",
+  "suites": {
+    "AgentVaultTest": {
+      "passed": 20,
+      "failed": 0
+    },
+    "RegistryAndOracleTest": {
+      "passed": 3,
+      "failed": 0
+    },
+    "SentinelProbes": {
+      "passed": 21,
+      "failed": 0
+    }
+  },
+  "probes": [
+    {
+      "test": "test_SOUND_aLyingVenueCannotFakeOutputOrOverspend",
+      "holds": true
+    },
+    {
+      "test": "test_SOUND_breakerPersistsAfterALossyTradeWithoutReverting",
+      "holds": true
+    },
+    {
+      "test": "test_SOUND_everyExecutedTradeAdvancesTheLogAndTheHeadChanges",
+      "holds": true
+    },
+    {
+      "test": "test_SOUND_ownerWithdrawsWithStaleOracleHaltedAndStrategyOff",
+      "holds": true
+    },
+    {
+      "test": "test_SOUND_theBreakerBoundsThatSaleOnceTheMarkdownIsLargeEnoughToSee",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_aBreachSeenBeforeATradeRevertsAndPersistsNothingUntilSomeonePokes",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_agentThatPublishesTheOracleSellsBelowTrueValueUnderTheBreaker",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_authorCanChangeTheStrategyUnderAVaultWithNoPin",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_authorKeyStopsEveryVaultOnTheStrategyAndOwnerMustMigrateToResume",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_factoryAllowsOwnerAsAgentAndLimitsThatRemoveTheOracleFloor",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_navCapsGrowWithDonationsAndWithTheOracle",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_noExpiryOnTheAgentOrOnATrade",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_oneDecisionHashCanAuthorizeManyTradesAndHolds",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_oneDustTransferOfAStalePricedTokenStopsTradingThePokeAndResume",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_pushOracleMoveLimitIsPerCallSoAPublisherReachesAnyPriceInOneBlock",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_registryEnforcesNothingAboutWhatTheAgentActuallyRuns",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_rollingLimitIsATumblingWindowSoTurnoverDoublesAtTheBoundary",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_staleOracleBlocksThePokeAndErasesTheHighWaterMarkOnAnyWithdrawal",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_thatSamePublisherCanHaltAnyVaultOnTheOracle",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_venueCanInflateTheHighWaterMarkMidSwap",
+      "holds": true
+    },
+    {
+      "test": "test_WEAK_venueCanPokeTheBreakerMidSwapAndHaltOnPhantomLoss",
+      "holds": true
+    }
+  ]
+}

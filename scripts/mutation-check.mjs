@@ -1,5 +1,5 @@
 // Breaks one vault check at a time and confirms a test notices. A surviving mutant is a check nothing is really testing.
-// Restores the source afterwards, including on failure. Writes evidence/v3/mutation-check.json.
+// Restores the source afterwards, including on failure. Writes evidence/v4/mutation-check.json.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
@@ -42,6 +42,24 @@ const MUTANTS = [
   ["conditional limits not checked", "if (limits[token].remaining != expectedRemaining) revert RemainingChanged();", ""],
   ["limits truncate", "maxTrade_ > type(uint72).max || remaining_ > type(uint72).max || hourlyBudget_ > type(uint72).max\n                || floorPriceX18_ > type(uint112).max", "false"],
   ["limit change refills budget", "uint256 available = hourlyBudget_ > spent ? hourlyBudget_ - spent : 0;", "uint256 available = hourlyBudget_;"],
+  ["trades leave no log entry", "_log(LOG_TRADE, intentId, tokenIn, spent, amountOut);", ""],
+  ["log records the asked amount", "_log(LOG_TRADE, intentId, tokenIn, spent, amountOut);", "_log(LOG_TRADE, intentId, tokenIn, amountIn, amountOut);"],
+  ["stops leave no log entry", "_log(LOG_STOP, bytes32(0), tokenIn, amountIn, amountOut);", ""],
+  ["log head not bound to the vault", "abi.encode(\"holdfast.log.v1\", block.chainid, address(this))", "abi.encode(\"holdfast.log.v1\", block.chainid)"],
+  ["count not advanced", "logCount = count;", ""],
+  ["anyone can anchor", "if (msg.sender != agent || block.timestamp >= agentExpiry) revert NotAgent();\n        _log(LOG_ANCHOR", "_log(LOG_ANCHOR"],
+  ["expired key can anchor", "if (msg.sender != agent || block.timestamp >= agentExpiry) revert NotAgent();\n        _log(LOG_ANCHOR", "if (msg.sender != agent) revert NotAgent();\n        _log(LOG_ANCHOR"],
+  ["worst-fill refusal removed", "if (worst > _dailyNow(lossBucket, t.dailyLossBudget)) revert OverLossBudget();", ""],
+  ["stale mark accepted", "if (t.maxMarkAge != 0 && block.timestamp > uint256(t.markSetAt) + t.maxMarkAge) revert MarkStale();", ""],
+  ["loss not charged", "if (lossGuardOn) _chargeLoss(tokenIn, spent, amountOut, intentId);", ""],
+  ["breaker does not pause", "paused = true;\n            emit LossBreakerTripped", "emit LossBreakerTripped"],
+  ["good fills earn credit", "return given > got ? given - got : 0;", "return given > got ? given - got : given / 2;"],
+  ["buy side not valued at the mark", "uint256 got = tokenIn == tokenA ? amountOut : (amountOut * mark) / 1e18;", "uint256 got = amountOut;"],
+  ["new mark refills the loss budget", "uint256 spent = lossGuardOn ? oldBudget - _dailyNow(lossBucket, oldBudget) : 0;", "uint256 spent = 0;"],
+  ["share limit removed", "if (share != 0 && amountIn * BPS > IERC20(tokenIn).balanceOf(address(this)) * share) revert OverBalanceShare();", ""],
+  ["cooldown removed", "if (interval != 0 && block.timestamp < limit.refilledAt + interval) revert TradeTooSoon();", ""],
+  ["anyone can set the loss guard", "function setLossGuard(uint256 markPriceX18_, uint256 dailyLossBudget_, uint32 maxMarkAge_) external onlyOwner", "function setLossGuard(uint256 markPriceX18_, uint256 dailyLossBudget_, uint32 maxMarkAge_) external"],
+  ["anyone can pin", "function setStrategyPin(bytes32 strategyPin_) external onlyOwner", "function setStrategyPin(bytes32 strategyPin_) external"],
   ["guard accepts any pool", "!((token0 == tokenA && token1 == tokenB) || (token0 == tokenB && token1 == tokenA))\n                || IPricePool(pool_).fee() != poolFee", "false"],
 ];
 
@@ -77,7 +95,7 @@ try {
 }
 const survived = results.filter((r) => r.outcome === "SURVIVED").map((r) => r.name);
 const summary = { wallTime: new Date().toISOString(), lane: "local", mutants: results.length, killed: results.filter((r) => r.outcome === "killed").length, didNotCompile: results.filter((r) => r.outcome === "did not compile").length, survived, note: "Hand-picked mutants of the security checks, not exhaustive mutation testing.", results };
-mkdirSync("evidence/v3", { recursive: true });
-writeFileSync("evidence/v3/mutation-check.json", `${JSON.stringify(summary, null, 2)}\n`);
+mkdirSync("evidence/v4", { recursive: true });
+writeFileSync("evidence/v4/mutation-check.json", `${JSON.stringify(summary, null, 2)}\n`);
 console.log(`\n${summary.killed}/${summary.mutants} killed, ${survived.length} survived, ${summary.didNotCompile} did not compile`);
 if (survived.length) process.exitCode = 1;

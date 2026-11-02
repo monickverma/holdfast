@@ -65,6 +65,49 @@ contract HoldfastVaultForkTest {
         ISwapRouter02(ROUTER).exactInputSingle(ISwapRouter02.ExactInputSingleParams(WHSK, USDT, 3000, ATTACKER, capital, 0, 0));
     }
 
+    /// Version 4's loss guard and log, with fills priced by the real pool rather than a mock.
+    function test_fork_lossGuardAndLogAgainstTheRealPool() public {
+        if (!vm.envOr("FORK_TESTS", false)) return;
+        vm.createSelectFork("hsk");
+        HoldfastVault vault = _vault();
+        bytes24 head = vault.logHead();
+
+        vm.prank(AGENT);
+        uint256 out = vault.execute(WHSK, 1e18, 0.01e6, block.timestamp + 60, "first");
+        head = bytes24(keccak256(abi.encode(head, uint64(1), uint8(1), bytes32("first"), WHSK, uint256(1e18), out, block.timestamp)));
+        require(vault.logHead() == head && vault.logCount() == 1, "the real fill must enter the log");
+
+        // A mark at twice the market makes each sale lose about one `out` against it.
+        vm.prank(OWNER);
+        vault.setLossGuard(out * 2, out * 3, 1 hours);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.OverLossBudget.selector);
+        vault.execute(WHSK, 3e18, 3 * (out / 2), block.timestamp + 60, "too much");
+
+        vm.prank(AGENT);
+        vault.execute(WHSK, 1e18, out / 2, block.timestamp + 60, "second");
+        require(!vault.paused(), "half the budget is not yet gone");
+        vm.prank(AGENT);
+        vault.execute(WHSK, 1e18, out / 2, block.timestamp + 60, "third");
+        require(vault.paused(), "the breaker must trip and stay tripped");
+        require(vault.logCount() == 3, "both real fills must enter the log");
+
+        vm.prank(OWNER);
+        vault.unpause();
+        vm.warp(block.timestamp + 2 hours);
+        vm.prank(AGENT);
+        vm.expectRevert(HoldfastVault.MarkStale.selector);
+        vault.execute(WHSK, 1e18, out / 2, block.timestamp + 60, "stale");
+
+        // A stale mark and a halt stop the agent and never the owner.
+        vm.prank(OWNER);
+        vault.halt();
+        uint256 held = IWhsk(WHSK).balanceOf(address(vault));
+        vm.prank(OWNER);
+        vault.withdraw(WHSK, OWNER, held);
+        require(IWhsk(WHSK).balanceOf(OWNER) == held, "the owner must get everything out");
+    }
+
     function test_fork_roundTripThroughRealRouter() public {
         if (!vm.envOr("FORK_TESTS", false)) return;
         vm.createSelectFork("hsk");

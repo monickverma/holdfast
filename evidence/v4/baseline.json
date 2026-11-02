@@ -1,0 +1,57 @@
+{
+  "note": "Copied, unchanged, from evidence/v3 before this round of work. evidence/v3 stays as it was.",
+  "commit": "a36e9036b39935450b70ee88ba4f61879a5ccf65",
+  "vaultSourceKeccakInput": "contracts/HoldfastVault.sol",
+  "recordedAt": "2026-11-01T19:14:56.614Z",
+  "suites": [
+    {
+      "name": "contracts",
+      "lane": "local",
+      "command": "node scripts/forge.mjs test --offline --no-match-contract Fork",
+      "passed": 129,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 9
+    },
+    {
+      "name": "fork",
+      "lane": "fork",
+      "command": "node scripts/forge.mjs test --match-contract Fork",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 6
+    },
+    {
+      "name": "agent",
+      "lane": "local",
+      "command": "npm run -s test:agent:local",
+      "passed": 289,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 12
+    }
+  ],
+  "e2e": [
+    {
+      "name": "fork end to end",
+      "lane": "fork",
+      "command": "npm run -s e2e:fork",
+      "passed": 8,
+      "failed": 0,
+      "seconds": 28
+    },
+    {
+      "name": "test market end to end",
+      "lane": "local",
+      "command": "npm run -s e2e:testmarket",
+      "passed": 7,
+      "failed": 0,
+      "seconds": 40
+    }
+  ],
+  "mutation": {
+    "caught": 37
+  },
+  "gas": "evidence/v3/gas-compare.json"
+}

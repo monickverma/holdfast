@@ -1,5 +1,5 @@
 // Runs Slither on the vault and records every finding next to its triage, so a new finding fails the check.
-// Needs `pip install slither-analyzer`. Writes evidence/v3/slither.json.
+// Needs `pip install slither-analyzer`. Writes evidence/v4/slither.json.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,8 +34,8 @@ const findings = report.results.detectors.map((d) => {
 const untriaged = findings.filter((f) => !f.triage);
 const version = spawnSync("python", ["-m", "slither", "--version"], { encoding: "utf8", env }).stdout.trim();
 const summary = { wallTime: new Date().toISOString(), lane: "local", tool: `slither ${version}`, scope: "contracts/HoldfastVault.sol", findings: findings.length, untriaged: untriaged.length, results: findings };
-mkdirSync("evidence/v3", { recursive: true });
-writeFileSync("evidence/v3/slither.json", `${JSON.stringify(summary, null, 2)}\n`);
+mkdirSync("evidence/v4", { recursive: true });
+writeFileSync("evidence/v4/slither.json", `${JSON.stringify(summary, null, 2)}\n`);
 console.log(`${findings.length} findings, ${untriaged.length} untriaged`);
 for (const f of untriaged) console.log(`UNTRIAGED ${f.impact} ${f.check} ${f.function}:${f.line}`);
 if (untriaged.length) process.exitCode = 1;

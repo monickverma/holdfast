@@ -26,6 +26,8 @@ export interface Policy {
   slippageBps: number;
   maxTwapDeviationBps: number;
   stopConfirmBlocks: number;
+  /** Most a market order may pay against spot, fee included. Absent means DEFAULT_MAX_IMPACT_BPS. Stops ignore it. */
+  maxImpactBps?: number;
 }
 
 export const DEFAULT_POLICY: Policy = {
@@ -53,7 +55,7 @@ export class PolicyError extends Error {}
  */
 export function parsePolicy(input: unknown): Policy {
   const root = record(input, "policy");
-  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks"], "policy");
+  allowKeys(root, ["version", "orders", "edge", "slippageBps", "maxTwapDeviationBps", "stopConfirmBlocks", "maxImpactBps"], "policy");
   const orders = root.orders;
   if (!Array.isArray(orders) || orders.length > 16) throw new PolicyError("orders must be a list of at most 16");
   const parsed = orders.map(parseOrder);
@@ -75,6 +77,7 @@ export function parsePolicy(input: unknown): Policy {
     slippageBps: int(root.slippageBps, "slippageBps", 0, 500),
     maxTwapDeviationBps: int(root.maxTwapDeviationBps, "maxTwapDeviationBps", 1, 2_000),
     stopConfirmBlocks: int(root.stopConfirmBlocks, "stopConfirmBlocks", 1, 30),
+    ...(root.maxImpactBps === undefined ? {} : { maxImpactBps: int(root.maxImpactBps, "maxImpactBps", 1, 5_000) }),
   };
 }
 

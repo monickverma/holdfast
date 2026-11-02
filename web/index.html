@@ -130,10 +130,24 @@
   </div>
 </section>
 
+<section id="market" class="clause">
+  <h2><span class="num">3b</span>The market and the venue, now</h2>
+  <p>This server reads these from chain, at most once a minute. <strong>Authoritative</strong> means a contract or node answered. <strong>Analytical</strong> means our own arithmetic on what they said, which can add a refusal but never overturns one.</p>
+  <p id="venue-status" role="status">Reading the venue…</p>
+  <div id="venue-body"></div>
+</section>
+
 <section id="proof" class="clause">
   <h2><span class="num">4</span>Measured, and where</h2>
   <p>Every number here is read from the repository's evidence files by this server, and every one names where it ran. A file that is not there shows as “not yet run”.</p>
   <div id="tiles" class="tiles"></div>
+
+  <div class="figure">
+    <h3>Checking the history without trusting the agent</h3>
+    <p class="sub">An independent tool rebuilds the vault's log from chain events and compares each trade with its published record, its token transfers and the market it claims to have seen. Anything missing is “incomplete”, never a pass, and a pass doesn't mean the decisions were good. <a id="verifier-download" hidden download="holdfast-verifier-results.json">Download these results</a></p>
+    <div id="verifier-table"></div>
+    <details><summary>What is missing or wrong</summary><div id="verifier-findings"></div></details>
+  </div>
 
   <div class="figure">
     <h3>What the vault costs per swap</h3>

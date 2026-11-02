@@ -32,6 +32,15 @@ export const MAINNET_MARKET = {
   gasOracle: "0x420000000000000000000000000000000000000F",
 } as const satisfies Record<string, Address | number>;
 
+/** keccak256 of the runtime code read from chain 177 on the date in evidence/v4/venue-mainnet.json. A change fails the venue check. */
+export const CODE_HASHES: Record<string, Hex> = {
+  router: "0xb32766db5ba45ffc2818eb39423d2bf5da85f0c949d04793662a9d70b99d6ef0",
+  quoter: "0x28f6ac7b926677a39eb128607911affc4cfe450b1d2d001ee123aa59f7b158f5",
+  pool: "0x1f4659cea30dfee0fd8e3753066bd93136067e4df75e9b995db7ca8f5d673692",
+  whsk: "0x968d189152325d9e84cbda0dcd6140f0bc8f182dd67e9c226a1089089a6ecdc5",
+  usdt: "0x2be4a1fc2e2fbdc80b125875edcd697cbbbe2af8bfe53d36c399977742b4af6e",
+};
+
 // Lazy loading lets setup and deployment run before the address manifest exists.
 export const HSKSWAP = new Proxy(MAINNET_MARKET, {
   get(target, prop: keyof typeof MAINNET_MARKET) {
@@ -82,6 +91,10 @@ export interface Config {
   legacyVault?: boolean;
   /** True for a v3 vault, which has a price guard and a daily budget to read. */
   guardedVault?: boolean;
+  /** Seconds between commitments of the local log to the vault. Pays gas, so 0 (off) unless set. Needs vault version 4. */
+  anchorIntervalSec?: number;
+  /** The agent asks the vault which strategy is pinned before each trade. Needs vault version 4. */
+  pinnedStrategy?: boolean;
   /** The agent's own stops, inside the vault's. Defaults to BREAKER_DEFAULTS. */
   breaker?: BreakerLimits;
 }
@@ -98,6 +111,8 @@ export function loadConfig(env: Env = process.env): Config {
     mode,
     preflight: env.PREFLIGHT !== "false",
     guardedVault: env.VAULT_GENERATION !== undefined && Number(env.VAULT_GENERATION) >= 3,
+    anchorIntervalSec: env.ANCHOR_INTERVAL_SEC !== undefined && Number(env.VAULT_GENERATION) >= 4 ? Number(env.ANCHOR_INTERVAL_SEC) : 0,
+    pinnedStrategy: Number(env.VAULT_GENERATION) >= 4,
     pollMs: Number(env.POLL_MS ?? 650),
     dataDir: env.DATA_DIR ?? (profile.network === "testnet" ? "data/testnet" : "data"),
     twapWindowSec: Number(env.TWAP_WINDOW_SEC ?? 300),

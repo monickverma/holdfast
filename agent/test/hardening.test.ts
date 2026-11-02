@@ -309,6 +309,7 @@ test("after a stall the loop resumes on time and does not fire its overdue polls
   const agent = liveAgent();
   (agent as any).rpc.call = async () => "0xb1";
   (agent as any).executor.recover = async () => [];
+  (agent as any).checkVenue = async () => ({ chainId: 177, block: "1", verdict: "pass", checks: [] });
   (agent as any).options.config.pollMs = 50;
   const startedAt: number[] = [];
   (agent as any).step = async () => {

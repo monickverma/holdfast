@@ -24,11 +24,12 @@ export function tradingResult(intents: readonly Intent[], priceX18: bigint): Tra
     if (intent.status !== "included") continue;
     result.fills++;
     const out = intent.amountOut ?? 0n;
+    const spent = intent.amountSpent ?? intent.amountIn;
     if (sameAddress(intent.tokenIn, HSKSWAP.whsk)) {
-      result.whskDelta -= intent.amountIn;
+      result.whskDelta -= spent;
       result.usdtDelta += out;
     } else {
-      result.usdtDelta -= intent.amountIn;
+      result.usdtDelta -= spent;
       result.whskDelta += out;
     }
   }
@@ -76,23 +77,24 @@ export function positionReport(intents: readonly Intent[], priceX18: bigint): Po
     if (intent.status !== "included") continue;
     report.fills++;
     const out = intent.amountOut ?? 0n;
+    const spent = intent.amountSpent ?? intent.amountIn;
     if (!sameAddress(intent.tokenIn, HSKSWAP.whsk)) {
       report.inventoryHsk += out;
-      costUsdt += intent.amountIn;
+      costUsdt += spent;
       continue;
     }
-    const matched = intent.amountIn < report.inventoryHsk ? intent.amountIn : report.inventoryHsk;
-    if (intent.amountIn > 0n && matched > 0n) {
+    const matched = spent < report.inventoryHsk ? spent : report.inventoryHsk;
+    if (spent > 0n && matched > 0n) {
       const cost = report.inventoryHsk === matched ? costUsdt : (costUsdt * matched) / report.inventoryHsk;
-      const proceeds = (out * matched) / intent.amountIn;
+      const proceeds = (out * matched) / spent;
       report.realizedUsdt += proceeds - cost;
       costUsdt -= cost;
       report.inventoryHsk -= matched;
     }
-    const unmatched = intent.amountIn - matched;
+    const unmatched = spent - matched;
     if (unmatched > 0n) {
       report.soldWithoutCostBasisHsk += unmatched;
-      report.proceedsWithoutCostBasisUsdt += (out * unmatched) / intent.amountIn;
+      report.proceedsWithoutCostBasisUsdt += (out * unmatched) / spent;
     }
   }
   if (report.inventoryHsk > 0n) {

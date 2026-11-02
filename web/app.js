@@ -314,22 +314,37 @@ function renderGas(gas) {
   const arms = [
     ['plain', 'The router alone, no vault', 2],
     ['v1', 'First vault', 2],
-    ['v2', 'Previous vault', 2],
-    ['v3GuardOff', 'This vault, guard off', 1],
-    ['v3GuardOn', 'This vault, guard on', 1],
-    ['v3GuardDailyHash', 'This vault, guard, daily budget and decision hash', 1],
+    ['v2', 'Version 2', 2],
+    ['v3GuardOff', 'Version 3, guard off', 2],
+    ['v3GuardOn', 'Version 3, guard on', 2],
+    ['v3GuardDailyHash', 'Version 3, guard, daily budget and decision hash', 2],
+    ['v4GuardOff', 'Version 4, guard off', 1],
+    ['v4GuardOn', 'Version 4, guard on', 1],
+    ['v4FullWithLossCharged', 'Version 4, every control on, loss charged', 1],
   ].filter(([key]) => gas.median[key]?.sell);
   const plain = Number(gas.median.plain?.sell);
   const rows = arms.map(([key, label, tone]) => {
     const sell = Number(gas.median[key].sell); const buy = Number(gas.median[key].buy);
     return { label, value: sell, tone, tip: [label, `Sell ${number(sell)} gas`, `Buy ${number(buy)} gas`, key === 'plain' ? 'The baseline' : `${number(sell - plain)} over the router alone`] };
   });
-  const off = Number(gas.median.v3GuardOff?.sell); const on = Number(gas.median.v3GuardOn?.sell); const previous = Number(gas.median.v2?.sell);
+  const hasV4 = Boolean(gas.median.v4GuardOff?.sell);
+  const off = Number(gas.median[hasV4 ? 'v4GuardOff' : 'v3GuardOff']?.sell); const on = Number(gas.median[hasV4 ? 'v4GuardOn' : 'v3GuardOn']?.sell); const previous = Number(gas.median[hasV4 ? 'v3GuardOff' : 'v2']?.sell);
   $('#gas-sub').replaceChildren(laneChip(gas.lane), ` Median sell, ${number(gas.rounds)} rounds, on a fork of the real pool. With the guard off this vault costs ${number(off - previous)} gas more than the previous one. Turning it on adds ${number(on - off)}.`);
   legend(area, [{ name: 'Earlier', tone: 2 }, { name: 'This vault', tone: 1 }]);
   horizontalBars(area, rows, { unit: 'gas', ariaLabel: 'Median gas per sell by vault version. A table follows.' });
   table($('#table-gas'), ['Arm', 'Sell', 'Buy'], arms.map(([key, label]) => [label, number(gas.median[key].sell), number(gas.median[key].buy)]));
-  table($('#table-gas'), ['Deployment', 'Gas', 'Runtime bytes'], [['First vault', number(gas.deployGas.v1), number(gas.runtimeBytes.v1)], ['Previous vault', number(gas.deployGas.v2), number(gas.runtimeBytes.v2)], ['This vault', number(gas.deployGas.v3), number(gas.runtimeBytes.v3)]]);
+  table($('#table-gas'), ['Deployment', 'Gas', 'Runtime bytes'], [['First vault', number(gas.deployGas.v1), number(gas.runtimeBytes.v1)], ['Version 2', number(gas.deployGas.v2), number(gas.runtimeBytes.v2)], ['Version 3', number(gas.deployGas.v3), number(gas.runtimeBytes.v3)], ...(gas.deployGas.v4 ? [['Version 4', number(gas.deployGas.v4), number(gas.runtimeBytes.v4)]] : [])]);
+}
+
+function renderVerifier(rows) {
+  if (!rows?.length) { $('#verifier-table').replaceChildren(el('p', 'Not yet run.')); return; }
+  table($('#verifier-table'), ['Where', 'Answer', 'Vault version', 'Log entries', 'Trades tied to a record'], rows.map((r) => [r.lane === 'local' ? 'Local chain, test market' : 'Public testnet, read only', r.status, r.vaultVersion ?? 'unknown', number(r.logEntries), `${number(r.tradesMatched)} of ${number(r.trades)}`]));
+  const findings = rows.flatMap((r) => r.findings.map((f) => [r.lane === 'local' ? 'Local' : 'Testnet', f.severity, f.code, f.detail]));
+  if (findings.length) table($('#verifier-findings'), ['Where', 'Answer', 'Code', 'Detail'], findings);
+  else $('#verifier-findings').replaceChildren(el('p', 'Nothing.'));
+  const link = $('#verifier-download');
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' }));
+  link.hidden = false;
 }
 
 function renderPush(rehearsal) {
@@ -394,6 +409,7 @@ async function loadProof() {
     const response = await fetch('/api/proof'); if (!response.ok) throw new Error();
     const proof = await response.json();
     renderTiles(proof);
+    renderVerifier(proof.verifier);
     renderGas(proof.gas);
     renderPush(proof.rehearsal);
     renderLatency(proof.latency);
@@ -403,6 +419,29 @@ async function loadProof() {
   } catch {
     $('#tiles').replaceChildren(el('p', 'The evidence could not be loaded from this server.'));
   }
+}
+
+// ---------- Market and venue ----------
+
+async function loadVenue() {
+  const status = $('#venue-status'); const body = $('#venue-body');
+  try {
+    const response = await fetch('/api/venue'); if (!response.ok) throw new Error();
+    const venue = await response.json();
+    if (!venue.market) { status.textContent = venue.status ?? 'Not verified right now.'; return; }
+    status.replaceChildren(laneChip(venue.lane), ` Live read at block ${number(venue.block)} on chain ${venue.chainId}, ${venue.readAt}. Verdict: ${venue.verdict}.`);
+    const m = venue.market;
+    // Test tokens are worth nothing, so they are never called HSK or USDT.
+    const [base, quote] = laneOf(venue.lane) === 'testnet' ? ['tWHSK', 'tUSDT'] : ['HSK', 'USDT'];
+    const facts = el('dl', undefined, 'facts');
+    facts.append(
+      fact(`Pool price, ${quote} per ${base}`, m.priceUsdt), fact('Tick, and its 5-minute average', `${m.tick}, ${m.twapTick}`), fact('Active liquidity, raw units', m.liquidity),
+      fact(`Selling 1 ${base} returns, ${quote}`, m.sell1), fact(`Selling 10 ${base} returns, ${quote}`, m.sell10), fact(`1 ${quote} buys, ${base}`, m.buyWith1Usdt),
+      fact('Base fee, wei per gas', m.baseFeeWei), fact('Tip, wei per gas', m.priorityFeeWei), fact('L1 fee for a trade, wei', m.l1FeeWei),
+    );
+    body.replaceChildren(facts);
+    table(body, ['Check', 'Result', 'Source', 'Detail'], venue.checks.map((c) => [c.name, c.status, c.source, c.detail ?? '']));
+  } catch { status.textContent = 'The venue could not be read from this server.'; }
 }
 
 // ---------- Run data ----------
@@ -431,6 +470,13 @@ async function load() {
       rows.push([group.lane, metric, name, q.n, q.value === null ? `Hidden: ${q.withheld}. Not yet run with sufficient samples.` : `${q.value} [${q.low ?? '−∞'}, ${q.high ?? '+∞'}]`]);
     }
     table(area, ['Lane', 'Measurement', 'Quantile', 'n', 'Value and interval'], rows);
+    const q = group.quality;
+    if (q?.rows.length) {
+      area.append(el('p', `${group.lane} · Fills ${q.fills}, with a recorded expectation ${q.fillsWithExpectation}. Mean slippage ${q.meanSlippageBps ?? 'not recorded'} bps. Realized net ${q.realizedNetUsdt ?? 'not recorded'} USDT. Outcomes the receipt could not confirm: ${q.unverifiedOutcomes}. ${q.definition}`));
+      const shown = (value) => value ?? 'not recorded';
+      table(area, ['Lane', 'Side', 'Quoted out', 'Actual out', 'Slippage bps', 'Cost to spot bps', 'Gas estimated', 'Gas used', 'Expected net USDT', 'Realized net USDT'], q.rows.map((r) => [group.lane, r.side, shown(r.quotedOut), r.amountOut, shown(r.slippageBps), shown(r.costToSpotBps), shown(r.gasEstimated), shown(r.gasUsed), shown(r.expectedNetUsdt), shown(r.realizedNetUsdt)]));
+    }
+    if (group.refusals?.length) table(area, ['Lane', 'Time', 'Refused by', 'Reason'], group.refusals.map((r) => [group.lane, r.time, r.code, r.reason ?? 'not recorded']));
     if (!group.trades.length) area.append(el('p', `${group.lane} · Trades: not yet run.`));
     else table(area, ['Lane', 'Time (trace or record)', 'Side', 'Input', 'Output', 'Gas units', 'Status', 'Receipt'], group.trades.map(t => {
       let receipt = 'No mainnet link';
@@ -454,4 +500,5 @@ $('#chat').onsubmit = async event => {
 
 loadAttacks();
 loadProof();
+loadVenue();
 load().catch(() => { $('#state-public').textContent = 'Live run data could not be loaded. The results above are from the repository.'; $('#vault-status').textContent = 'The vault could not be read.'; $('#network').textContent = 'Network unknown'; });

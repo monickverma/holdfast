@@ -225,3 +225,4 @@ textarea { display: block; width: 100%; min-height: 86px; margin: 4px 0 8px; }
   .tiles { grid-template-columns: 1fr; }
   .fact { flex-wrap: wrap; }
 }
+#venue-body td:nth-child(3) { white-space: nowrap; }

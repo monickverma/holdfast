@@ -1,4 +1,4 @@
-// Runs the suites, counts what each one reports, and writes the counts to evidence/v3. The site's numbers come from here,
+// Runs the suites, counts what each one reports, and writes the counts to evidence/v4. The site's numbers come from here,
 // so a number on the page was printed by a test run and not typed by a person. Exits 1 if any suite failed.
 //   node scripts/record-verification.mjs            contracts, fork tests and agent tests
 //   node scripts/record-verification.mjs --e2e      also the end-to-end runs (needs anvil and mainnet RPC reads)
@@ -31,14 +31,14 @@ function scenarios(name, lane, command) {
   return { name, lane, command, passed, failed, seconds };
 }
 
-mkdirSync("evidence/v3", { recursive: true });
+mkdirSync("evidence/v4", { recursive: true });
 const suites = [
   forge("contracts", "local", "node scripts/forge.mjs test --offline --no-match-contract Fork"),
   // Without FORK_TESTS these return at once and pass, so they are kept out of the local count and run for real here.
   forge("fork", "fork", "node scripts/forge.mjs test --match-contract Fork", { FORK_TESTS: "true" }),
   nodeTest("agent", "local", "npm run -s test:agent:local"),
 ];
-writeFileSync("evidence/v3/verification.json", `${JSON.stringify({ wallTime: new Date().toISOString(), suites }, null, 2)}\n`);
+writeFileSync("evidence/v4/verification.json", `${JSON.stringify({ wallTime: new Date().toISOString(), suites }, null, 2)}\n`);
 for (const s of suites) console.log(`${s.failed ? "FAIL" : "PASS"} ${s.name}: ${s.passed} passed, ${s.failed} failed, ${s.skipped} skipped, ${s.seconds} s`);
 
 let failed = suites.reduce((sum, s) => sum + s.failed, 0);
@@ -47,7 +47,7 @@ if (process.argv.includes("--e2e")) {
     scenarios("fork end to end", "fork", "npm run -s e2e:fork"),
     scenarios("test market end to end", "local", "npm run -s e2e:testmarket"),
   ];
-  writeFileSync("evidence/v3/e2e.json", `${JSON.stringify({ wallTime: new Date().toISOString(), runs }, null, 2)}\n`);
+  writeFileSync("evidence/v4/e2e.json", `${JSON.stringify({ wallTime: new Date().toISOString(), runs }, null, 2)}\n`);
   for (const r of runs) console.log(`${r.failed ? "FAIL" : "PASS"} ${r.name}: ${r.passed} passed, ${r.failed} failed, ${r.seconds} s`);
   failed += runs.reduce((sum, r) => sum + r.failed, 0);
 }

@@ -1,0 +1,65 @@
+{
+  "lane": "fork",
+  "note": "Local fork of mainnet through the real HSKSwap router. Median gas per swap, including 21,000 intrinsic and calldata; L1 data fee excluded because a fork has no oracle state to charge it.",
+  "rounds": 20,
+  "wallTime": "2026-11-01T23:08:41.661Z",
+  "deployGas": {
+    "v1": "1269450",
+    "v2": "1707783",
+    "v3": "3866702",
+    "v4": "4666365"
+  },
+  "anchorLogGas": "31884",
+  "refusedTradeGas": {
+    "v3GuardDailyHash": "31113",
+    "v4Full": "31178"
+  },
+  "runtimeBytes": {
+    "v1": 5430,
+    "v2": 7562,
+    "v3": 17420,
+    "v4": 21021
+  },
+  "guardConfig": {
+    "twapWindowSec": 600,
+    "bandTicks": 500
+  },
+  "medianGas": {
+    "v4GuardOff": {
+      "sell": "141959",
+      "buy": "141614"
+    },
+    "v4GuardOn": {
+      "sell": "154615",
+      "buy": "154221"
+    },
+    "v4FullWithLossCharged": {
+      "sell": "172896",
+      "buy": "168356"
+    },
+    "plain": {
+      "sell": "104740",
+      "buy": "104305"
+    },
+    "v1": {
+      "sell": "156500",
+      "buy": "156137"
+    },
+    "v2": {
+      "sell": "133113",
+      "buy": "132768"
+    },
+    "v3GuardOff": {
+      "sell": "133554",
+      "buy": "133209"
+    },
+    "v3GuardOn": {
+      "sell": "148206",
+      "buy": "147812"
+    },
+    "v3GuardDailyHash": {
+      "sell": "154900",
+      "buy": "154506"
+    }
+  }
+}
