@@ -21,6 +21,17 @@
       ],
       "port": 4177,
       "url": "http://127.0.0.1:4177"
+    },
+    {
+      "name": "viewer-testnet-built",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:NETWORK='testnet'; $env:TEST_MARKET_FILE='evidence/v3/testnet-deployment.json'; npm run -s build:agent; node .test-build/src/cli/viewer.js"
+      ],
+      "port": 4177,
+      "url": "http://127.0.0.1:4177"
     }
   ]
 }

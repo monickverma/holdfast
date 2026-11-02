@@ -13,38 +13,41 @@
 <header class="mast">
   <a class="mark" href="#top">Holdfast</a>
   <nav aria-label="Sections">
-    <a href="#enforced">Enforced</a>
-    <a href="#how">How</a>
+    <a href="#enforced">Limits</a>
+    <a href="#how">Roles</a>
     <a href="#vault">Vault</a>
     <a href="#proof">Proof</a>
     <a href="#refused">Refused</a>
   </nav>
   <div class="mast-right">
     <span id="network" class="chip" role="status">Reading network…</span>
-    <button id="theme" type="button" class="quiet">Switch theme</button>
+    <button id="theme" type="button" class="quiet" aria-label="Switch theme">Theme</button>
   </div>
 </header>
 
 <main id="main">
 <section id="top" class="hero">
   <div class="hero-text">
-    <p class="eyebrow">AI agent trading on HSK Chain</p>
-    <h1>Let AI trade. Never let it take unrestricted control.</h1>
-    <p class="lead">Holdfast is a non-custodial vault and trading agent. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p>
+    <h1>Let an agent trade. Never let it take unrestricted control.</h1>
+    <p class="lead">Holdfast is a non-custodial vault and trading agent on HSK Chain. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p>
+    <ol class="steps" aria-label="How a trade happens">
+      <li><strong>You write a strategy</strong> in plain English. A model turns it into a policy that must pass a schema.</li>
+      <li><strong>Deterministic code trades it.</strong> No model runs in the trading path.</li>
+      <li><strong>The vault checks every trade</strong> against your limits and refuses anything outside them.</li>
+    </ol>
+    <p class="notice"><strong>Stage: testnet.</strong> No mainnet deployment or swap has happened. The contract is not audited, no outside user has tried it, and profit is not claimed.</p>
     <p class="links"><a href="https://github.com/monickverma/holdfast">Source code</a><a href="https://github.com/monickverma/holdfast/blob/main/BENCHMARKS.md">Benchmarks and method</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/ARCHITECTURE.md">Architecture</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/SECURITY.md">Threat model</a></p>
   </div>
   <aside class="console" aria-labelledby="console-title">
     <h2 id="console-title">Try to break it</h2>
-    <p class="console-note">Each button asks a node to run one attack against the deployed vault, by <code>eth_call</code>. You see what the node returned. Nothing is signed or sent.</p>
+    <p class="console-note">Pick an attack. A node runs it against the deployed vault by <code>eth_call</code> and you see exactly what came back. Nothing is signed or sent.</p>
     <div id="attacks-list" class="attack-buttons"></div>
-    <div id="verdict" class="verdict" role="status" aria-live="polite"><p class="verdict-idle">Choose an attack.</p></div>
+    <div id="verdict" class="verdict" role="status" aria-live="polite"><p class="verdict-idle">Choose an attack to see what the vault says.</p></div>
   </aside>
 </section>
 
-<p class="notice"><strong>Stage: testnet.</strong> No mainnet deployment or swap has happened. The contract is not audited, the live model call is untested, no outside user has tried it, and profit is not claimed.</p>
-
 <section id="enforced" class="clause">
-  <h2><span class="num">1</span>What the limits do</h2>
+  <h2>What the limits do</h2>
   <div class="ledger-split">
     <div>
       <h3>The contract enforces</h3>
@@ -72,7 +75,7 @@
 </section>
 
 <section id="how" class="clause">
-  <h2><span class="num">2</span>Who can do what</h2>
+  <h2>Who can do what</h2>
   <p>The model is outside the trust boundary. It only ever produces a policy that is checked against a schema, and no model runs in the trading path. The vault does not trust the agent either.</p>
   <div class="arch" role="group" aria-label="Architecture, from untrusted inputs to on-chain enforcement">
     <div class="zone zone-untrusted">
@@ -108,7 +111,7 @@
 </section>
 
 <section id="vault" class="clause">
-  <h2><span class="num">3</span>This server's vault</h2>
+  <h2>This server's vault</h2>
   <p id="vault-status" role="status">Reading the vault…</p>
   <div id="vault-body"></div>
   <div id="wallet-panel" class="wallet" hidden>
@@ -131,14 +134,14 @@
 </section>
 
 <section id="market" class="clause">
-  <h2><span class="num">3b</span>The market and the venue, now</h2>
+  <h2>The market and the venue, now</h2>
   <p>This server reads these from chain, at most once a minute. <strong>Authoritative</strong> means a contract or node answered. <strong>Analytical</strong> means our own arithmetic on what they said, which can add a refusal but never overturns one.</p>
   <p id="venue-status" role="status">Reading the venue…</p>
   <div id="venue-body"></div>
 </section>
 
 <section id="proof" class="clause">
-  <h2><span class="num">4</span>Measured, and where</h2>
+  <h2>Measured, and where</h2>
   <p>Every number here is read from the repository's evidence files by this server, and every one names where it ran. A file that is not there shows as “not yet run”.</p>
   <div id="tiles" class="tiles"></div>
 
@@ -193,7 +196,7 @@
 </section>
 
 <section id="refused" class="clause">
-  <h2><span class="num">5</span>What was refused</h2>
+  <h2>What was refused</h2>
   <p id="tx-sub"></p>
   <div id="tx-table"></div>
   <h3 class="after">Attack set</h3>
@@ -202,7 +205,7 @@
 </section>
 
 <section class="clause">
-  <h2><span class="num">6</span>Where it could go</h2>
+  <h2>Where it could go</h2>
   <p>A proposal: nothing here is built, and there are no customers or revenue. Autonomous trading is the first use. The larger product would be the vault itself, as security infrastructure for other teams' trading agents.</p>
   <div class="scroll"><table>
     <thead><tr><th scope="col">Direction</th><th scope="col">What customers could pay for</th></tr></thead>
@@ -215,7 +218,7 @@
 </section>
 
 <section id="lanes-section" class="clause" hidden>
-  <h2><span class="num">7</span>Latency and trades on this server</h2>
+  <h2>Latency and trades on this server</h2>
   <p id="state" role="status">Loading run data…</p>
   <p>Nearest-rank quantiles and order-statistic intervals use the report calculation. Unbounded endpoints are shown explicitly. Service times cover broadcast traces only. Missing measurements say “not yet run”.</p>
   <div id="lanes"></div>

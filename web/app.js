@@ -57,8 +57,9 @@ async function loadAttacks() {
     for (const attack of attacks) {
       const button = el('button', attack.title);
       button.type = 'button';
+      button.setAttribute('aria-pressed', 'false');
       button.onclick = async () => {
-        for (const b of list.querySelectorAll('button')) b.disabled = true;
+        for (const b of list.querySelectorAll('button')) { b.disabled = true; b.setAttribute('aria-pressed', String(b === button)); }
         $('#verdict').replaceChildren(el('p', 'Asking the node…', 'verdict-idle'));
         delete $('#verdict').dataset.state;
         try {
@@ -290,6 +291,14 @@ function tile(value, label, source) {
   return card;
 }
 
+const llmValue = (llm) => (!llm ? 'not yet run' : llm.passed !== null && llm.total !== null ? `${number(llm.passed)} of ${number(llm.total)}` : llm.status);
+function llmLabel(llm) {
+  if (llm?.status === 'BLOCKED') return 'Live model call: not tested. No API key was available, so no claim is made that it works';
+  if (!llm) return 'Live model call';
+  const where = llm.model ? ` on ${llm.model}${llm.provider ? ` via ${llm.provider}` : ''}` : '';
+  return `Live model checks${llm.status ? ` ${llm.status === 'PASS' ? 'passed' : llm.status.toLowerCase()}` : ''}${where}, in one run. The model stays outside the trading path`;
+}
+
 function renderTiles(proof) {
   const tiles = $('#tiles');
   const suites = proof.verification?.suites ?? [];
@@ -304,7 +313,7 @@ function renderTiles(proof) {
     tile(s ? `${number(s.untriaged)} open` : 'not yet run', s ? `Of ${number(s.findings)} Slither findings, each triaged in the script` : 'Slither findings', { lane: 'local', text: 'npm run check:slither' }),
     tile(a ? `${number(a.contained)} of ${number(a.attacks)}` : 'not yet run', a ? `Attacks contained, with ${number(a.completed)} of ${number(a.benign)} normal trades completed and ${number(a.capViolations)} cap violations` : 'Attack set', { lane: a?.lane ?? 'fork', text: 'npm run attack-set' }),
     tile(proof.rehearsal ? number(proof.rehearsal.steps.length) : 'not yet run', 'Deployment rehearsal steps passed, from preflight to recovery', { lane: proof.rehearsal?.lane ?? 'fork', text: 'npm run rehearse' }),
-    tile(proof.llm?.status ?? 'not yet run', proof.llm?.status === 'BLOCKED' ? 'Live model call: not tested. No API key was available, so no claim is made that it works' : 'Live model call', { lane: 'local', text: 'npm run llm:live' }),
+    tile(llmValue(proof.llm), llmLabel(proof.llm), { lane: 'local', text: 'npm run llm:live' }),
   );
 }
 

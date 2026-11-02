@@ -81,7 +81,7 @@ export function readProof(evidenceDir: string) {
     },
     e2e: e2e && { wallTime: text(e2e.wallTime), runs: (Array.isArray(e2e.runs) ? e2e.runs : []).map((r: Row) => ({ name: text(r.name), lane: text(r.lane), command: text(r.command), passed: num(r.passed), failed: num(r.failed) })) },
     venueRuns: [venueMainnet, venueTestnet].flatMap((v) => (v ? [{ wallTime: text(v.wallTime), lane: text(v.lane), chainId: num(v.chainId), block: text(v.block) ?? num(v.block), verdict: text(v.verdict), checks: count(v.checks) }] : [])),
-    llm: llm && { wallTime: text(llm.wallTime), status: text(llm.status), reason: text(llm.reason), model: text(llm.model) },
+    llm: llm && { wallTime: text(llm.wallTime), status: text(llm.status), reason: text(llm.reason), model: text(llm.model), provider: text(llm.provider), passed: num(llm.passed), total: num(llm.total) },
     latency: latency && {
       lane: text(latency.lane), venue: text(latency.venue),
       poll: { attempts: num(latency.arms?.poll?.attempts), included: num(latency.arms?.poll?.included), p50: quantile(latency.arms?.poll?.p50), p90: quantile(latency.arms?.poll?.p90) },
