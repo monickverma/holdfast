@@ -1,12 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
-import { decodeFunctionResult, encodeFunctionData, type Address, type Hex } from "viem";
+import { decodeFunctionResult, encodeFunctionData, keccak256, stringToHex, type Address, type Hex } from "viem";
 import { BREAKER_DEFAULTS, breakerVerdict, edgeIntents, isEdgeKey } from "./breaker.js";
 import { HSKSWAP, type Config } from "./config.js";
 import { decide, edgeHasClosed, plannedQuotes, type Decision, type DecideInput, type Mark, type OrderRuntime, type TradeDecision } from "./decide.js";
-import { Executor, simulateTrade, StaleDecision, SubmissionBusy, type SendMode, type Simulation } from "./executor.js";
+import { canonicalJson, Executor, StaleDecision, SubmissionBusy, type SendMode } from "./executor.js";
+import { ChainedLog } from "./audit-log.js";
 import { Ledger, type Intent } from "./ledger.js";
+import { judgePreflight, preflightTrade, type Preflight, type PreflightCheck } from "./preflight.js";
+import { allowsLive, verifyVenue, type VenueReport } from "./venue.js";
 import { isSell, type Policy } from "./policy.js";
 import { hasMulticall, poolReserves, readHead, readMarket, readTick, VAULT_ABI, type Head, type MarketState } from "./reader.js";
 import { tradingResult } from "./position.js";
@@ -29,6 +32,7 @@ export interface AgentOptions {
   /** Clock for state-age checks. A fork's blocks are older than real time, so tests pass the chain's. */
   now?: () => number;
   onDecision?: (record: DecisionRecord) => void;
+  onVenue?: (report: VenueReport) => void;
   sendMode?: SendMode;
 }
 
@@ -39,12 +43,21 @@ export interface DecisionRecord {
   policyVersion: number;
   intent?: Intent;
   /** What the vault said when asked by eth_call, on a simulate run or a live preflight. */
-  simulated?: Simulation;
+  simulated?: Preflight;
   observeOnly: boolean;
   traceId: string;
+  /** What the decision saw, so it can be judged later without trusting anything newer. */
+  snapshot?: { blockTime: bigint; spotPriceX18: bigint; tick: number; twapTick: number; liquidity: bigint; baseFeePerGas: bigint };
+  mark?: { askX18: bigint; bidX18: bigint; ageMs: number };
+  readMode?: string;
 }
 
 /** The deterministic loop: new block, one pinned read, a pure decision, then sign and send. No model on this path. */
+/** The hash an owner pins on the vault to name the one policy allowed to trade. `npm run admin` prints it. */
+export function strategyHashOf(policy: Policy): Hex {
+  return keccak256(stringToHex(canonicalJson(policy)));
+}
+
 export class Agent {
   readonly rpc: RpcClient;
   readonly ledger: Ledger;
@@ -86,6 +99,8 @@ export class Agent {
   private lastHeartbeat = 0;
   private simulateFrom: Address | null = null;
   private queuedFrame: Frame | null = null;
+  /** The last venue check, set before a live agent runs. */
+  venue: VenueReport | null = null;
   private stopping = false;
   private hedgeRpcs: RpcClient[] = [];
   private sendLane: RpcClient | null = null;
@@ -98,7 +113,12 @@ export class Agent {
   private minWarmBlock = 0n;
   private readonly stopsReported = new Set<string>();
   private readonly traces: JsonlLog;
-  private readonly decisions: JsonlLog;
+  private readonly decisions: ChainedLog;
+  private lastAnchorMs = 0;
+  private anchoredSeq = -1;
+  anchorsSent = 0;
+  /** What the owner pinned, re-read now and then. Zero means no pin. */
+  private strategyPin: { value: Hex; readAtMs: number } | null = null;
   private readonly confirmations: JsonlLog;
 
   constructor(private readonly options: AgentOptions) {
@@ -106,7 +126,7 @@ export class Agent {
     this.rpc = new RpcClient(config.rpcUrl);
     this.ledger = new Ledger(join(config.dataDir, "ledger.jsonl"));
     this.traces = new JsonlLog(join(config.dataDir, "traces.jsonl"));
-    this.decisions = new JsonlLog(join(config.dataDir, "decisions.jsonl"));
+    this.decisions = new ChainedLog(join(config.dataDir, "decisions.jsonl"));
     this.confirmations = new JsonlLog(join(config.dataDir, "confirmations.jsonl"));
     if (config.agentKey && config.vault) {
       this.hedgeRpcs = (config.hedgeRpcUrls ?? []).map((url) => new RpcClient(url));
@@ -141,11 +161,22 @@ export class Agent {
     return this.options.config.live && this.executor !== undefined;
   }
 
+  private checkVenue(): Promise<VenueReport> {
+    return verifyVenue(this.rpc, this.options.config, this.executor!.address);
+  }
+
   /** Polls on a fixed timeline. A late poll keeps its intended time, so a stall shows up as latency. */
   async run(): Promise<void> {
     const chainId = Number(await this.rpc.call<string>("eth_chainId"));
     if (chainId !== this.options.config.chainId) throw new Error(`rpc is chain ${chainId}, expected ${this.options.config.chainId}`);
     if (this.canTrade) {
+      // Nothing is signed for a market that cannot be shown to be the right one. Recovery still runs on a restart with funds in flight.
+      this.venue = await this.checkVenue();
+      this.options.onVenue?.(this.venue);
+      if (!allowsLive(this.venue)) {
+        const problems = this.venue.checks.filter((c) => c.status === "fail" || c.status === "unverified").map((c) => `${c.name}: ${c.detail}`);
+        throw new Error(`Venue check ${this.venue.verdict}, so the agent will not start live. ${problems.join(" ")}`);
+      }
       await readHead(this.rpc)
         .then((head) => this.executor!.recover(head.number))
         .catch((error) => this.logError(error));
@@ -403,14 +434,19 @@ export class Agent {
 
     // A frame's trade is racing the next flashblock, and the vault still checks it, so only sealed reads ask first.
     const asks = decision.action === "trade" && (config.mode === "simulate" || (this.canTrade && config.preflight === true && readMode !== "stream"));
-    let simulated: Simulation | undefined;
+    let simulated: Preflight | undefined;
+    let preflightChecks: PreflightCheck[] | undefined;
     if (asks) {
       simulated = await trace.span("preflight", () => this.simulate(decision as TradeDecision, market));
-      if (simulated.ok === false && this.canTrade) {
-        decision = { action: "hold", code: "preflight-refused", reason: `The vault would refuse this trade: ${simulated.error}.` };
-      }
+      const verdict = judgePreflight(decision as TradeDecision, simulated, market, input.mark, policy);
+      preflightChecks = verdict.checks;
+      if (verdict.hold && this.canTrade) decision = verdict.hold;
       // The vault's answer took a round trip, so check again. No await from here until `submitting` is set.
       if (decision.action === "trade" && superseded()) decision = staleState;
+    }
+
+    if (decision.action === "trade" && this.canTrade && (await this.pinRefuses(policy))) {
+      decision = { action: "hold", code: "strategy-not-pinned", reason: "The owner pinned a different strategy on the vault, so this policy may not trade." };
     }
 
     const record: DecisionRecord = {
@@ -420,7 +456,10 @@ export class Agent {
       policyVersion: policy.version,
       observeOnly: !this.canTrade,
       traceId: trace.id,
-      ...(simulated ? { simulated } : {}),
+      ...(simulated ? { simulated: { ...simulated, ...(preflightChecks ? { checks: preflightChecks } : {}) } } : {}),
+      snapshot: { blockTime: head.timestamp, spotPriceX18: market.spotPriceX18, tick: market.tick, twapTick: market.twapTick, liquidity: market.liquidity, baseFeePerGas: head.baseFeePerGas },
+      ...(input.mark ? { mark: { askX18: input.mark.askX18, bidX18: input.mark.bidX18, ageMs: input.nowMs - input.mark.fetchedAtMs } } : {}),
+      readMode,
     };
 
     if (decision.action === "trade" && this.canTrade && !this.ledger.inFlight()) {
@@ -433,7 +472,8 @@ export class Agent {
         this.minWarmBlock = head.number + 1n;
         record.intent = await this.executor!.submit(this.intentKey(decision, policy), decision, market, trace, pendingNonce, () =>
           warmGeneration === this.warmGeneration && poolGeneration === this.poolGeneration && this.options.policy().version === policy.version &&
-          (this.options.now ?? Date.now)() - Number(market.head.timestamp) * 1000 <= config.maxStateAgeMs);
+          (this.options.now ?? Date.now)() - Number(market.head.timestamp) * 1000 <= config.maxStateAgeMs,
+          { policyVersion: policy.version, mark: input.mark, decidedAtMs: input.nowMs, logHead: this.decisions.head, logSeq: this.decisions.seq, strategyHash: strategyHashOf(policy), marketSource: HSKSWAP.pool, readMode, preflight: simulated ?? null });
         const synced = record.intent.status === "included" || record.intent.status === "reverted";
         if (synced) trace.attrs.decisionToReceiptMs = trace.sinceScheduled("broadcast");
         else trace.attrs.decisionToBroadcastMs = trace.sinceScheduled("broadcast");
@@ -463,15 +503,50 @@ export class Agent {
     this.decisions.append({ wallTime: new Date().toISOString(), ...record });
     this.lastDecision = record;
     this.options.onDecision?.(record);
+    await this.maybeAnchor(market);
     return record;
   }
 
+  /** Anchoring is optional and pays gas, so it is off unless configured, and a failure here never touches trading. */
+  private async maybeAnchor(market: MarketState): Promise<void> {
+    const interval = this.options.config.anchorIntervalSec ?? 0;
+    const now = (this.options.now ?? Date.now)();
+    if (!interval || !this.canTrade || this.submitting || this.ledger.inFlight() || now - this.lastAnchorMs < interval * 1000) return;
+    if (this.decisions.seq === this.anchoredSeq) return;
+    this.lastAnchorMs = now;
+    try {
+      if (!(await this.executor!.anchorSettled())) return;
+      const seq = this.decisions.seq;
+      await this.executor!.anchor(this.decisions.head, seq, market);
+      this.anchoredSeq = seq;
+      this.anchorsSent++;
+    } catch {
+      // The tail stays unanchored, and the verifier says so.
+    }
+  }
+
+  /** A pin the node cannot confirm keeps its last known value. Only a vault with the function has one. */
+  private async pinRefuses(policy: Policy): Promise<boolean> {
+    if (!this.options.config.pinnedStrategy) return false;
+    const now = (this.options.now ?? Date.now)();
+    if (!this.strategyPin || now - this.strategyPin.readAtMs >= 60_000) {
+      const data = encodeFunctionData({ abi: VAULT_ABI, functionName: "strategyPin" });
+      try {
+        const raw = await this.rpc.call<Hex>("eth_call", [{ to: this.options.config.vault, data }, "latest"]);
+        this.strategyPin = { value: decodeFunctionResult({ abi: VAULT_ABI, functionName: "strategyPin", data: raw }), readAtMs: now };
+      } catch {
+        if (!this.strategyPin) return true;
+      }
+    }
+    return !/^0x0+$/.test(this.strategyPin!.value) && this.strategyPin!.value !== strategyHashOf(policy);
+  }
+
   /** Asks the vault as the agent, which works with no key loaded. */
-  private async simulate(decision: TradeDecision, market: MarketState): Promise<Simulation> {
+  private async simulate(decision: TradeDecision, market: MarketState): Promise<Preflight> {
     const { config } = this.options;
     if (!config.vault) return { ok: null, error: "no vault configured", latencyMs: 0 };
     this.simulateFrom ??= this.executor?.address ?? config.agentAddress ?? (await this.readAgentAddress(config.vault));
-    return simulateTrade(this.rpc, config.vault, this.simulateFrom, decision, market.head);
+    return preflightTrade(this.rpc, config.vault, this.simulateFrom, decision, market.head);
   }
 
   private async readAgentAddress(vault: Address): Promise<Address> {
@@ -583,7 +658,7 @@ export class Agent {
     const filled = new Map<string, bigint>();
     for (const intent of this.ledger.all()) {
       if (intent.status === "included" && intent.orderId) {
-        filled.set(intent.orderId, (filled.get(intent.orderId) ?? 0n) + intent.amountIn);
+        filled.set(intent.orderId, (filled.get(intent.orderId) ?? 0n) + (intent.amountSpent ?? intent.amountIn));
       }
     }
     for (const [id, amount] of filled) {

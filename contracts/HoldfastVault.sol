@@ -36,15 +36,27 @@ interface IPricePool {
 ///      the pool within a band of its TWAP, so a price pushed in one block cannot be sold into. A stop the owner arms
 ///      can be fired by anyone once the TWAP crosses its trigger, so protection does not depend on the agent being up.
 ///      The key stops working at `agentExpiry`.
+///
+///      Version 4 adds three things, each off until the owner sets it, except the log. A mandate bounds a trade against the
+///      balance it spends from and how often a token can trade. A loss guard values every trade at a price the owner set,
+///      refuses any trade whose worst allowed fill would exceed what is left of a loss budget, and pauses the agent once half
+///      the budget is gone. A hash-chained log, in one storage slot, commits to every trade and stop in order, so a
+///      verifier can tell when an event is missing. No limit here reads a balance-derived total, so deposits, withdrawals
+///      and donations cannot move a baseline: there is none.
 contract HoldfastVault {
     uint256 public constant MAX_INTENT_TTL = 120;
     /// @notice The longest the owner can trust one agent key before renewing it.
     uint256 public constant MAX_AGENT_TTL = 30 days;
-    uint256 public constant VERSION = 3;
+    uint256 public constant VERSION = 4;
     /// @notice A TWAP shorter than this barely costs anything to move.
     uint32 public constant MIN_TWAP_WINDOW = 60;
     uint32 public constant MAX_TWAP_WINDOW = 1 days;
     uint32 public constant MIN_STOP_COOLDOWN = 60;
+    uint32 public constant MAX_TRADE_INTERVAL = 1 days;
+    uint256 private constant BPS = 10_000;
+    uint8 private constant LOG_TRADE = 1;
+    uint8 private constant LOG_STOP = 2;
+    uint8 private constant LOG_ANCHOR = 3;
     uint256 private constant BUDGET_PERIOD = 1 hours;
     uint256 private constant DAILY_PERIOD = 1 days;
 
@@ -68,8 +80,14 @@ contract HoldfastVault {
     /// @notice How far past its TWAP, in ticks of about 1 bp, a trade may leave the pool.
     uint16 public guardBandTicks;
 
+    // Read by every trade. The pool is read by a guarded trade anyway, so with the guard on this slot costs nothing new.
     address public pool;
     bool private tokenAIsToken0;
+    /// @notice Largest share of the input token's balance one trade may spend. Zero means no such limit.
+    uint16 public maxShareBps;
+    /// @notice Seconds that must pass between trades of the same input token. Zero means none.
+    uint32 public tradeInterval;
+    bool public lossGuardOn;
 
     /// @dev Everything a trade writes, in one slot. `available` is a token bucket, as it stood at `refilledAt`.
     struct Limits {
@@ -103,6 +121,16 @@ contract HoldfastVault {
         bool sellsTokenA;
     }
 
+    /// @dev What the loss guard reads. `available` and its refill use a DailyBucket.
+    struct LossTerms {
+        /// @dev TokenB base units per 1e18 base units of tokenA. The owner's own price, not the pool's.
+        uint112 markPriceX18;
+        uint72 dailyLossBudget;
+        /// @dev Zero means the mark never goes stale.
+        uint32 maxMarkAge;
+        uint40 markSetAt;
+    }
+
     struct StopTerms {
         uint112 floorPriceX18;
         uint16 bandTicks;
@@ -116,6 +144,15 @@ contract HoldfastVault {
 
     Stop public stop;
     StopTerms public stopTerms;
+    LossTerms public lossTerms;
+    DailyBucket private lossBucket;
+
+    /// @notice Head of the on-chain log, truncated so the head and its count share one slot and one write.
+    bytes24 public logHead;
+    /// @notice How many trades, stops and anchors the log holds. A verifier must find exactly this many events.
+    uint64 public logCount;
+    /// @notice What the owner says this vault's agent runs. Trading does not read it. A verifier holds decisions to it.
+    bytes32 public strategyPin;
 
     uint256 private transient lock;
 
@@ -143,6 +180,12 @@ contract HoldfastVault {
         uint256 cooldown
     );
     event StopDisarmed(address indexed by);
+    event MandateSet(uint256 maxShareBps, uint256 tradeInterval);
+    event LossGuardSet(uint256 markPriceX18, uint256 dailyLossBudget, uint256 maxMarkAge);
+    /// @notice The trade that spent this went through. The agent is now paused: a contract cannot undo a fill, only stop the next.
+    event LossBreakerTripped(bytes32 indexed intentId, uint256 loss, uint256 budgetLeft);
+    event LogAnchored(bytes32 indexed localHead, uint256 localSeq);
+    event StrategyPinned(bytes32 indexed strategyPin);
     event StopFired(
         address indexed by, address indexed tokenIn, uint256 amountIn, uint256 amountOut, int256 twapTick, uint256 remainingAfter
     );
@@ -179,6 +222,12 @@ contract HoldfastVault {
     error StopNotArmed();
     error StopCoolingDown();
     error StopNotTriggered();
+    error OverBalanceShare();
+    error TradeTooSoon();
+    error OverLossBudget();
+    error MarkStale();
+    error BadMandate();
+    error BadLossGuard();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -211,6 +260,8 @@ contract HoldfastVault {
         tokenA = tokenA_;
         tokenB = tokenB_;
         poolFee = poolFee_;
+        // Binds the log to this chain and vault, and spares the first trade the cost of a zero-to-nonzero write.
+        logHead = bytes24(keccak256(abi.encode("holdfast.log.v1", block.chainid, address(this))));
     }
 
     /// @notice Swap inside the owner's limits. Output always returns to this vault.
@@ -227,6 +278,9 @@ contract HoldfastVault {
 
         uint32 window = twapWindow;
         if (window != 0) _requireInBand(tokenIn, _twapTick(window), guardBandTicks);
+
+        if (lossGuardOn) _chargeLoss(tokenIn, spent, amountOut, intentId);
+        _log(LOG_TRADE, intentId, tokenIn, spent, amountOut);
 
         // Limits were charged the full `amountIn`; the event reports what actually left, which a thin pool can make less.
         emit Traded(intentId, tokenIn, spent, amountOut, left - amountIn);
@@ -261,8 +315,56 @@ contract HoldfastVault {
         uint256 minOut = _floorOut(amountIn, t.floorPriceX18);
         (, amountOut) = _swap(tokenIn, amountIn, minOut);
         _requireInBand(tokenIn, twap, t.bandTicks);
+        // A stop is not charged to the loss guard: selling below the mark in a crash is what the owner armed it for.
+        _log(LOG_STOP, bytes32(0), tokenIn, amountIn, amountOut);
 
         emit StopFired(msg.sender, tokenIn, amountIn, amountOut, twap, s.remaining);
+    }
+
+    /// @notice Commit the head of the agent's off-chain record, which also holds what it decided not to do.
+    /// @dev Batching keeps holds off the chain one by one. It still works while paused, when the record matters most.
+    function anchorLog(bytes32 localHead, uint64 localSeq) external nonReentrant {
+        if (msg.sender != agent || block.timestamp >= agentExpiry) revert NotAgent();
+        _log(LOG_ANCHOR, localHead, address(0), localSeq, 0);
+        emit LogAnchored(localHead, localSeq);
+    }
+
+    /// @dev Every field is in an event of the same transaction, so anyone can recompute this from logs alone.
+    function _log(uint8 kind, bytes32 id, address token, uint256 amountIn, uint256 amountOut) private {
+        uint64 count = logCount + 1;
+        logHead = bytes24(keccak256(abi.encode(logHead, count, kind, id, token, amountIn, amountOut, block.timestamp)));
+        logCount = count;
+    }
+
+    /// @dev The value given up against the owner's mark, in tokenB. A sale above the mark loses nothing and earns no credit,
+    ///      so a thief cannot pay for one bad fill with an earlier good one.
+    function _lossAgainstMark(address tokenIn, uint256 amountIn, uint256 amountOut, uint256 mark) private view returns (uint256) {
+        uint256 given = tokenIn == tokenA ? (amountIn * mark) / 1e18 : amountIn;
+        uint256 got = tokenIn == tokenA ? amountOut : (amountOut * mark) / 1e18;
+        return given > got ? given - got : 0;
+    }
+
+    /// @dev Refused before any call if the worst fill `minOut` allows would not fit. Output is at least `minOut` and spend at
+    ///      most `amountIn`, so what `_chargeLoss` charges later can never exceed this, and the budget is a hard bound.
+    function _requireLossFits(address tokenIn, uint256 amountIn, uint256 minOut) private view {
+        LossTerms memory t = lossTerms;
+        if (t.maxMarkAge != 0 && block.timestamp > uint256(t.markSetAt) + t.maxMarkAge) revert MarkStale();
+        uint256 worst = _lossAgainstMark(tokenIn, amountIn, minOut, t.markPriceX18);
+        if (worst > _dailyNow(lossBucket, t.dailyLossBudget)) revert OverLossBudget();
+    }
+
+    /// @dev Past half the budget the agent is paused, and this persists because the trade that crossed the line succeeds.
+    function _chargeLoss(address tokenIn, uint256 spent, uint256 amountOut, bytes32 intentId) private {
+        LossTerms memory t = lossTerms;
+        uint256 loss = _lossAgainstMark(tokenIn, spent, amountOut, t.markPriceX18);
+        if (loss == 0) return;
+        uint256 left = _dailyNow(lossBucket, t.dailyLossBudget) - loss;
+        lossBucket = DailyBucket(uint72(left), uint40(block.timestamp));
+        if (left * 2 < t.dailyLossBudget) {
+            paused = true;
+            emit LossBreakerTripped(intentId, loss, left);
+            emit PausedSet(true, address(this));
+        }
     }
 
     /// @dev Trust balances, not the router's return value. Every path that moves funds out comes through here.
@@ -315,6 +417,13 @@ contract HoldfastVault {
     function _spend(address tokenIn, uint256 amountIn, uint256 minOut) private returns (uint256 left) {
         Limits memory limit = limits[tokenIn];
         if (amountIn > limit.maxTrade) revert OverTradeCap();
+        uint256 interval = tradeInterval;
+        // The bucket's refill time is this token's last trade, so the cooldown adds no write.
+        if (interval != 0 && block.timestamp < limit.refilledAt + interval) revert TradeTooSoon();
+        uint256 share = maxShareBps;
+        // Never above the absolute cap, so a donation can loosen this limit but not the one that matters.
+        if (share != 0 && amountIn * BPS > IERC20(tokenIn).balanceOf(address(this)) * share) revert OverBalanceShare();
+        if (lossGuardOn) _requireLossFits(tokenIn, amountIn, minOut);
         left = limit.remaining;
         if (amountIn > left) revert OverLifetimeCap();
 
@@ -422,6 +531,11 @@ contract HoldfastVault {
         return budget == 0 ? type(uint72).max : _dailyNow(dailyBuckets[token], budget);
     }
 
+    /// @notice Loss the agent's trades may still cause today, in tokenB. With no loss guard, the most a uint72 holds.
+    function lossBudgetAvailable() external view returns (uint256) {
+        return lossGuardOn ? _dailyNow(lossBucket, lossTerms.dailyLossBudget) : type(uint72).max;
+    }
+
     function usedIntent(bytes32 intentId) external view returns (bool) {
         return usedIntentBits[uint256(intentId) >> 8] & (1 << (uint256(intentId) & 0xff)) != 0;
     }
@@ -496,6 +610,38 @@ contract HoldfastVault {
         agent = agent_;
         agentExpiry = uint40(expiry_);
         emit AgentSet(agent_, expiry_);
+    }
+
+    /// @notice Bound one trade against the balance it spends from, and how often a token can trade. Zero turns either off.
+    function setMandate(uint16 maxShareBps_, uint32 tradeInterval_) external onlyOwner {
+        if (maxShareBps_ > BPS || tradeInterval_ > MAX_TRADE_INTERVAL) revert BadMandate();
+        maxShareBps = maxShareBps_;
+        tradeInterval = tradeInterval_;
+        emit MandateSet(maxShareBps_, tradeInterval_);
+    }
+
+    /// @notice Value trades at `markPriceX18_` and cap the loss against it per day. A mark of zero turns this off.
+    /// @dev As with the other budgets, what was spent stays spent, so a new mark never hands back a day's budget. A stale
+    ///      mark refuses agent trades. Withdrawals and stops read none of this.
+    function setLossGuard(uint256 markPriceX18_, uint256 dailyLossBudget_, uint32 maxMarkAge_) external onlyOwner {
+        if (markPriceX18_ > type(uint112).max || dailyLossBudget_ > type(uint72).max) revert BadLossGuard();
+        if (markPriceX18_ == 0) {
+            if (dailyLossBudget_ != 0 || maxMarkAge_ != 0) revert BadLossGuard();
+            lossGuardOn = false;
+        } else {
+            uint256 oldBudget = lossTerms.dailyLossBudget;
+            uint256 spent = lossGuardOn ? oldBudget - _dailyNow(lossBucket, oldBudget) : 0;
+            lossBucket = DailyBucket(uint72(dailyLossBudget_ > spent ? dailyLossBudget_ - spent : 0), uint40(block.timestamp));
+            lossGuardOn = true;
+        }
+        lossTerms = LossTerms(uint112(markPriceX18_), uint72(dailyLossBudget_), maxMarkAge_, uint40(block.timestamp));
+        emit LossGuardSet(markPriceX18_, dailyLossBudget_, maxMarkAge_);
+    }
+
+    /// @notice Say what the agent is meant to run. Zero clears it. To stop a strategy, use `pause` or `revokeAgent`.
+    function setStrategyPin(bytes32 strategyPin_) external onlyOwner {
+        strategyPin = strategyPin_;
+        emit StrategyPinned(strategyPin_);
     }
 
     /// @notice Zero removes the guardian.

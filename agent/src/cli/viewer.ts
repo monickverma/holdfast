@@ -8,15 +8,19 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { createPublicClient, formatUnits, http, isAddress, parseAbi, type Address } from "viem";
 import type { Agent } from "../agent.js";
-import { MAINNET_MARKET as HSKSWAP, testMarket, networkProfile } from "../config.js";
+import { MAINNET_MARKET as HSKSWAP, loadConfig, testMarket, networkProfile } from "../config.js";
 import { DEMO_ATTACKS, runDemo, type RpcRequest } from "../demo.js";
 import { buildFacts } from "../facts.js";
 import { Assistant, DEFAULT_MODEL } from "../nl.js";
 import { DEFAULT_POLICY } from "../policy.js";
 import { readProof } from "../proof.js";
-import { VAULT_ABI } from "../reader.js";
+import { VAULT_ABI, readHead, readMarket } from "../reader.js";
 import { quantileReport } from "../stats.js";
+import { BIGINT_FIELDS, type Intent } from "../ledger.js";
+import { qualitySummary } from "../quality.js";
+import { RpcClient } from "../rpc.js";
 import { JsonlLog } from "../trace.js";
+import { verifyVenue } from "../venue.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 type Row = Record<string, any>;
@@ -25,6 +29,18 @@ const explorers = { mainnet: "https://hsk.blockscout.com", testnet: "https://tes
 const isLane = (v: unknown): v is typeof lanes[number] => lanes.includes(v as typeof lanes[number]);
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const quantiles = (samples: number[]) => Object.fromEntries([0.5, 0.95, 0.99].map((q) => [`P${q * 100}`, quantileReport(samples, q)]));
+
+/** Holds that mean a trade was wanted and refused. The rest ("nothing to do") are only counted. */
+const REFUSAL_CODES = new Set(["preflight-refused", "preflight-unverified", "preflight-uneconomic", "no-gas", "bad-mark", "price-impact"]);
+
+/** The ledger's shape from a saved row. A row that will not parse shows in the trade table and is left out of quality. */
+function reviveIntent(row: Row): Intent | null {
+  try {
+    const intent: Row = { ...row };
+    for (const field of BIGINT_FIELDS) if (typeof intent[field] === "string") intent[field] = BigInt(intent[field]);
+    return intent as Intent;
+  } catch { return null; }
+}
 
 /** Only known evidence names are opened; symlinks and junctions are never followed. */
 export function readEvidence(dataDir = join(root, "data")) {
@@ -61,9 +77,18 @@ export function readEvidence(dataDir = join(root, "data")) {
     const sent = traces.filter((t) => finite(t.attrs?.decisionToBroadcastMs));
     const stages = [...new Set(sent.flatMap((t) => Array.isArray(t.spans) ? t.spans.map((s: Row) => String(s.stage)) : []))];
     const trades: Row[] = [];
+    const shown: Intent[] = [];
+    const refusals: Row[] = [];
+    const holdCounts: Record<string, number> = {};
     const inclusion: number[] = [];
     let feeWei = 0n;
     for (const group of groups) {
+      const traceLane = new Map(group.traces.map((t) => [t.id, t.lane]));
+      for (const row of group.decisions) {
+        if (traceLane.get(row.traceId) !== lane || row.decision?.action !== "hold" || typeof row.decision.code !== "string") continue;
+        holdCounts[row.decision.code] = (holdCounts[row.decision.code] ?? 0) + 1;
+        if (REFUSAL_CODES.has(row.decision.code)) refusals.push({ time: typeof row.wallTime === "string" ? row.wallTime : "not recorded", block: typeof row.block === "string" ? row.block : null, code: row.decision.code, reason: typeof row.decision.reason === "string" ? row.decision.reason.slice(0, 300) : null });
+      }
       const latest = new Map<string, Row>();
       for (const row of group.ledger) {
         const links = group.decisions.filter((d) => d.intent?.key === row.key).flatMap((d) => group.traces.filter((t) => t.id === d.traceId));
@@ -91,14 +116,27 @@ export function readEvidence(dataDir = join(root, "data")) {
           link: lane in explorers && /^0x[\da-f]{64}$/i.test(row.txHash ?? "") ? `${explorers[lane as keyof typeof explorers]}/tx/${row.txHash}` : null
         });
         if (/^\d+$/.test(row.feeWei ?? "")) feeWei += BigInt(row.feeWei);
+        const intent = reviveIntent(row);
+        if (intent) shown.push(intent);
         if (["included", "reverted"].includes(row.status) && /^\d+$/.test(row.blockNumber ?? "") && /^\d+$/.test(row.broadcastBlock ?? "")) {
           const blocks = Number(BigInt(row.blockNumber) - BigInt(row.broadcastBlock));
           if (Number.isSafeInteger(blocks) && blocks >= 0) inclusion.push(blocks);
         }
       }
     }
+    let whsk: Address = HSKSWAP.whsk;
+    if (lane === "testnet") { try { whsk = testMarket().whsk as Address; } catch { whsk = "0x0000000000000000000000000000000000000000"; } }
+    const quality = qualitySummary(shown, whsk);
     return {
-      lane, latency: {
+      lane,
+      // Only named fields, as strings. The decision body and any raw transaction stay on disk.
+      quality: {
+        fills: quality.fills, fillsWithExpectation: quality.fillsWithExpectation, reverted: quality.reverted, expired: quality.expired, cancelled: quality.cancelled, unverifiedOutcomes: quality.unverifiedOutcomes,
+        meanSlippageBps: quality.meanSlippageBps?.toString() ?? null, realizedNetUsdt: quality.realizedNetUsdt === null ? null : formatUnits(quality.realizedNetUsdt, 6), definition: quality.definition,
+        rows: quality.rows.map((q) => ({ txHash: /^0x[\da-f]{64}$/i.test(q.txHash ?? "") ? q.txHash : null, side: q.side, quotedOut: q.quotedOut?.toString() ?? null, amountOut: q.amountOut.toString(), slippageBps: q.slippageBps?.toString() ?? null, allowanceUsedBps: q.allowanceUsedBps?.toString() ?? null, costToSpotBps: q.costToSpotBps?.toString() ?? null, gasEstimated: q.gasEstimated?.toString() ?? null, gasUsed: q.gasUsed?.toString() ?? null, expectedNetUsdt: q.expectedNetUsdt === null ? null : formatUnits(q.expectedNetUsdt, 6), realizedNetUsdt: q.realizedNetUsdt === null ? null : formatUnits(q.realizedNetUsdt, 6) })),
+      },
+      holds: holdCounts, refusals: refusals.slice(-20),
+      latency: {
         decisionToBroadcastMs: quantiles(sent.map((t) => t.attrs.decisionToBroadcastMs)),
         decisionToReceiptMs: quantiles(traces.flatMap((t) => (finite(t.attrs?.decisionToReceiptMs) ? [t.attrs.decisionToReceiptMs] : []))),
         ...Object.fromEntries(stages.map((stage) => [`${stage} service ms`, quantiles(sent.flatMap((t) => (Array.isArray(t.spans) ? t.spans : []).filter((s: Row) => s.stage === stage && s.ok && finite(s.endMs) && finite(s.startMs)).map((s: Row) => s.endMs - s.startMs)))])),
@@ -159,6 +197,33 @@ async function vaultLimits(address: string | undefined) {
   } catch { return { status: "Vault read unavailable. Not yet run successfully." }; }
 }
 
+/** The venue check and the market, both read from chain now. Signs nothing, and the agent key is kept out of the config. */
+async function readVenueNow(address: string | undefined) {
+  const profile = networkProfile();
+  const rpc = new RpcClient(process.env.RPC_URL ?? profile.rpcUrl, { maxRetries: 0 });
+  try {
+    const { vault: _manifestVault, ...config } = loadConfig({ ...process.env, AGENT_PRIVATE_KEY: undefined, MODE: "observe", LIVE: undefined });
+    const report = await verifyVenue(rpc, address && isAddress(address) ? { ...config, vault: address } : config);
+    const market = profile.network === "testnet" ? testMarket() : HSKSWAP;
+    const head = await readHead(rpc);
+    const state = await readMarket(rpc, config, head, [{ tokenIn: market.whsk, amountIn: 10n ** 18n }, { tokenIn: market.whsk, amountIn: 10n ** 19n }, { tokenIn: market.usdt, amountIn: 10n ** 6n }]);
+    const [one, ten, buy] = state.quotes;
+    return {
+      lane: profile.lane, chainId: report.chainId, block: head.number.toString(), readAt: new Date().toISOString(), verdict: report.verdict,
+      checks: report.checks.map((c) => ({ name: c.name, status: c.status, source: c.source, detail: c.detail })),
+      market: {
+        priceUsdt: formatUnits(state.spotPriceX18, 6), tick: state.tick, twapTick: state.twapTick, liquidity: state.liquidity.toString(),
+        sell1: formatUnits(one!.amountOut, 6), sell10: formatUnits(ten!.amountOut, 6), buyWith1Usdt: formatUnits(buy!.amountOut, 18),
+        baseFeeWei: head.baseFeePerGas.toString(), priorityFeeWei: state.priorityFeePerGas.toString(), l1FeeWei: state.l1FeeWei.toString(),
+      },
+    };
+  } catch {
+    return { lane: profile.lane, verdict: "unverified", checks: [], market: null, status: "The network did not answer, so nothing here is verified right now." };
+  } finally {
+    rpc.close();
+  }
+}
+
 /** A fixed window per key. A key is only as good as the address behind it, so anything that costs money also has a global cap. */
 export function rateLimiter(limit: number, windowMs: number, now: () => number = Date.now) {
   const seen = new Map<string, { start: number; used: number }>();
@@ -210,6 +275,7 @@ export function createViewer(options: {
   cacheMs?: number;
   chatToken?: string;
   chatDailyLimit?: number;
+  venue?: () => Promise<unknown>;
   limits?: { api?: number; demo?: number; chat?: number };
 } = {}) {
   const dataDir = options.dataDir ?? join(root, "data");
@@ -228,6 +294,8 @@ export function createViewer(options: {
   const address = options.vaultAddress ?? process.env.VAULT_ADDRESS ?? (networkProfile().network === "testnet" ? testMarket().vault : undefined);
   const evidence = cached(cacheMs, async () => ({ ...readEvidence(dataDir), vault: await vaultLimits(address) }));
   const proof = cached(Math.max(cacheMs, 60_000), async () => readProof(evidenceDir));
+  // Around twenty reads a time, so a crowd of visitors shares one every minute.
+  const venue = cached(Math.max(cacheMs, 60_000), options.venue ?? (() => readVenueNow(address)));
   const profile = networkProfile();
   const rpc: RpcRequest = options.rpc ?? (async (method, params) => {
     const response = await fetch(profile.rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10_000) });
@@ -297,6 +365,7 @@ export function createViewer(options: {
         });
       }
       if (req.method === "GET" && path === "/api/proof") return send(200, await proof());
+      if (req.method === "GET" && path === "/api/venue") return send(200, await venue());
       if (req.method === "GET" && path === "/api/demo") return send(200, { attacks: Object.entries(DEMO_ATTACKS).map(([id, a]) => ({ id, title: a.title, actor: a.actor, expected: a.expected })), available: Boolean(address && isAddress(address)) });
       if (req.method === "GET" && path.startsWith("/api/demo/")) {
         const demo = demos.get(path.slice("/api/demo/".length));

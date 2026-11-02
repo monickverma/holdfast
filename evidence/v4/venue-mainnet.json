@@ -1,0 +1,88 @@
+{
+  "wallTime": "2026-11-01T19:37:51.740Z",
+  "lane": "live read only",
+  "rpc": "https://mainnet.hsk.xyz",
+  "chainId": 177,
+  "block": "29607367",
+  "verdict": "pass",
+  "checks": [
+    {
+      "name": "chain id",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "177"
+    },
+    {
+      "name": "router code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Matches the pinned hash at 0x2c16f75b95Cf1390c328aB70e2CEE7f4b80bD8F3."
+    },
+    {
+      "name": "quoter code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Matches the pinned hash at 0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD."
+    },
+    {
+      "name": "pool code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Matches the pinned hash at 0x4ff515761864e7838b0adb8b5b2b8b7a068905dc."
+    },
+    {
+      "name": "whsk code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Matches the pinned hash at 0xb210d2120d57b758ee163cffb43e73728c471cf1."
+    },
+    {
+      "name": "usdt code",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "Matches the pinned hash at 0xf1b50ed67a9e2cc94ad3c477779e2d4cbfff9029."
+    },
+    {
+      "name": "whsk decimals",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "18"
+    },
+    {
+      "name": "usdt decimals",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "6"
+    },
+    {
+      "name": "pool token0",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1"
+    },
+    {
+      "name": "pool token1",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029"
+    },
+    {
+      "name": "pool fee",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "3000"
+    },
+    {
+      "name": "factory lists this pool",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0x4ff515761864e7838B0AdB8b5b2B8B7A068905dC"
+    },
+    {
+      "name": "router's factory",
+      "status": "pass",
+      "source": "authoritative",
+      "detail": "0x972cA9D1662F5e029cD18327D29026532E84c742"
+    }
+  ]
+}

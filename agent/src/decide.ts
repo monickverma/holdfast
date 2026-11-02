@@ -1,12 +1,13 @@
 import type { Address } from "viem";
 import { HSKSWAP } from "./config.js";
+import { breakEvenOut, DEFAULT_MAX_IMPACT_BPS, impactBps, markIsSane } from "./economics.js";
 import { isSell, type Order, type Policy } from "./policy.js";
 import { tickAtSqrtPrice, type MarketState, type Quote, type QuoteRequest, type TokenLimits, type VaultState } from "./reader.js";
 
 const E18 = 10n ** 18n;
 const BPS = 10_000n;
 
-/** Rounded up from 174,566 gas measured on one fork swap; replace with the mainnet figure once there are receipts. */
+/** Above every median measured on a fork: 133,197 to 154,878 for version 3 (evidence/v3/gas-compare.json). A sealed-block preflight replaces it with eth_estimateGas. */
 export const GAS_ESTIMATE = 200_000n;
 
 /**
@@ -44,7 +45,10 @@ export type HoldCode =
   | "stop-disputed"
   | "breaker"
   | "stale-state"
+  | "strategy-not-pinned"
   | "stale-mark"
+  | "bad-mark"
+  | "price-impact"
   | "price-deviation"
   | "no-balance"
   | "cap-exhausted"
@@ -55,7 +59,10 @@ export type HoldCode =
   | "requote"
   | "price-band"
   | "oracle-unavailable"
-  | "preflight-refused";
+  | "preflight-refused"
+  | "preflight-unverified"
+  | "preflight-uneconomic"
+  | "no-gas";
 
 export interface CostLedger {
   /** Value given up, in USDT micro-units at the conservative mark. Null when no mark exists. */
@@ -117,6 +124,8 @@ export function decide(input: DecideInput): Decision {
   if (ageMs > input.maxStateAgeMs) {
     return hold("stale-state", `State from block ${market.head.number} is ${ageMs} ms old, over the ${input.maxStateAgeMs} ms limit.`);
   }
+  // A block from the future means this clock is wrong, and then the age above says nothing.
+  if (ageMs < -input.maxStateAgeMs) return hold("stale-state", `Block ${market.head.number} is ${-ageMs} ms ahead of this clock, so its age cannot be judged.`);
   if (vault.guard && !vault.guard.oracleOk) return hold("oracle-unavailable", "The pool's price oracle did not answer, so the vault would refuse every trade. The owner can still withdraw.");
 
   // Stop-losses come first: protecting the position outranks every other reason to act.
@@ -218,8 +227,8 @@ export function floorOut(amountIn: bigint, floorPriceX18: bigint): bigint {
 }
 
 /** Network cost in USDT micro-units at spot, using the estimated gas plus the L1 data fee. */
-export function networkCostUsdt(market: MarketState): bigint {
-  const wei = GAS_ESTIMATE * (market.head.baseFeePerGas + market.priorityFeePerGas) + market.l1FeeWei;
+export function networkCostUsdt(market: MarketState, gas: bigint = GAS_ESTIMATE): bigint {
+  const wei = gas * (market.head.baseFeePerGas + market.priorityFeePerGas) + market.l1FeeWei;
   return (wei * market.spotPriceX18 + E18 - 1n) / E18;
 }
 
@@ -227,8 +236,8 @@ export function networkCostUsdt(market: MarketState): bigint {
  * Values a trade against the outside reference, on the side least favourable to it: HSK given up is worth the ask,
  * HSK received is worth the bid. USDT is taken at face value.
  */
-export function costLedger(tokenIn: Address, amountIn: bigint, amountOut: bigint, market: MarketState, mark: Mark | null): CostLedger {
-  const networkCost = networkCostUsdt(market);
+export function costLedger(tokenIn: Address, amountIn: bigint, amountOut: bigint, market: MarketState, mark: Mark | null, gas: bigint = GAS_ESTIMATE): CostLedger {
+  const networkCost = networkCostUsdt(market, gas);
   if (!mark) return { inputValue: null, outputValue: null, networkCost, net: null };
   const selling = tokenIn.toLowerCase() === HSKSWAP.whsk.toLowerCase();
   const inputValue = selling ? (amountIn * mark.askX18 + E18 - 1n) / E18 : amountIn;
@@ -275,7 +284,7 @@ function decideOrder(order: Order, input: DecideInput, state: OrderRuntime | und
       }
       // A thin pool can be pushed through a stop to buy the sale cheaply. A live outside price well above the trigger
       // says so. Stale or missing outside data never holds a stop back, and neither does a dispute that lasts.
-      if (mark && input.nowMs - mark.fetchedAtMs <= input.maxMarkAgeMs && streak < STOP_DISPUTE_MAX_BLOCKS) {
+      if (mark && markIsSane(mark) && input.nowMs - mark.fetchedAtMs <= input.maxMarkAgeMs && streak < STOP_DISPUTE_MAX_BLOCKS) {
         const disputedAbove = (order.triggerPriceX18! * BigInt(10_000 + MAX_MARK_GAP_BPS)) / BPS;
         if (mark.bidX18 > disputedAbove) {
           return hold("stop-disputed", `Stop ${order.id}: pool is at the trigger but the outside bid is ${mark.bidX18}; held ${streak + 1} of ${STOP_DISPUTE_MAX_BLOCKS} blocks.`, ledger);
@@ -302,6 +311,9 @@ function decideOrder(order: Order, input: DecideInput, state: OrderRuntime | und
       if (deviation > policy.maxTwapDeviationBps) {
         return hold("price-deviation", `Market order ${order.id}: spot is ${deviation} bps from TWAP, over ${policy.maxTwapDeviationBps}.`, ledger);
       }
+      const impact = impactBps(selling, amountIn, quote.amountOut, market.spotPriceX18);
+      const maxImpact = BigInt(policy.maxImpactBps ?? DEFAULT_MAX_IMPACT_BPS);
+      if (impact > maxImpact) return hold("price-impact", `Market order ${order.id}: this size pays ${impact} bps against spot, over ${maxImpact}.`, ledger);
       trigger = "market";
       reason = `Market order ${order.id}.`;
     }
@@ -320,6 +332,7 @@ function decideEdge(input: DecideInput, vault: VaultState): Decision {
   const { market, policy, mark, nowMs, maxMarkAgeMs } = input;
   if (!mark) return hold("stale-mark", "No reference price yet, so the edge cannot be valued.");
   if (nowMs - mark.fetchedAtMs > maxMarkAgeMs) return hold("stale-mark", `Reference price is older than ${maxMarkAgeMs} ms.`);
+  if (!markIsSane(mark)) return hold("bad-mark", `Reference price is not usable: bid ${mark.bidX18}, ask ${mark.askX18}.`);
   const deviation = Math.abs(market.tick - market.twapTick);
   if (deviation > policy.maxTwapDeviationBps) {
     return hold("price-deviation", `Spot is ${deviation} bps from TWAP, over ${policy.maxTwapDeviationBps}.`);
@@ -360,7 +373,9 @@ function decideEdge(input: DecideInput, vault: VaultState): Decision {
   const outOfBand = bandProblem("Edge", best.tokenIn, best.quote, vault, best.ledger);
   if (outOfBand) return outOfBand;
   const reason = `Edge: conservative net ${best.ledger.net} micro-USDT after fees and gas.`;
-  return trade("edge", null, best.tokenIn, best.amountIn, best.out, best.limits, policy, best.ledger, reason);
+  // The slippage allowance must not spend the edge: the worst fill this transaction accepts still clears the required net.
+  const breakEven = breakEvenOut(best.tokenIn !== HSKSWAP.usdt, best.ledger.inputValue!, best.ledger.networkCost, policy.edge.minNetUsdt, mark.bidX18);
+  return trade("edge", null, best.tokenIn, best.amountIn, best.out, best.limits, policy, best.ledger, reason, breakEven);
 }
 
 function trade(

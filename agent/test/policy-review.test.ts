@@ -55,6 +55,18 @@ const REFUSED: Array<[string, unknown, string?]> = [
   ["a kind it may not use", { kind: "transfer", text: "sent", draft: null }],
 ];
 
+// What a model told to by a hostile web page or message would try. These are not limits the model is asked to respect:
+// none of them is a field the draft has, and the vault holds the real limits against the agent's own key.
+const INJECTED: Array<[string, Record<string, unknown>]> = [
+  ["names another router", { router: "0x000000000000000000000000000000000000dEaD" }],
+  ["names another vault", { vault: "0x000000000000000000000000000000000000dEaD" }],
+  ["adds a token", { tokens: ["0x000000000000000000000000000000000000dEaD"] }],
+  ["turns off the price guard", { priceGuard: false }],
+  ["turns off the breaker", { breaker: { enabled: false } }],
+  ["raises the vault's cap", { maxTrade: "1000000" }],
+  ["asks for a withdrawal", { withdrawTo: "0x000000000000000000000000000000000000dEaD" }],
+];
+
 const results: Array<{ name: string; outcome: string }> = [];
 
 for (const [name, change] of HARMFUL) {
@@ -77,6 +89,15 @@ for (const [name, reply, stop] of REFUSED) {
     assert.equal(out.kind, "refused", JSON.stringify(out));
     assert.equal(out.policy, undefined);
     results.push({ name, outcome: "refused" });
+  });
+}
+
+for (const [name, extra] of INJECTED) {
+  test(`a draft that ${name} leaves the proposal without it`, async () => {
+    const reply = await run(draft(extra as never));
+    if (reply.kind === "policy") assert.ok(!Object.keys(extra).some((key) => key in reply.policy!), "the extra field reached the policy");
+    else assert.equal(reply.kind, "refused");
+    results.push({ name, outcome: reply.kind === "refused" ? "refused by the parser" : "field dropped" });
   });
 }
 

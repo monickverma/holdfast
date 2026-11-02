@@ -1,7 +1,7 @@
 // The whole mainnet procedure, on a local fork of mainnet, with throwaway keys: preflight, deploy, configure, simulate,
 // trade through the real router, attack the real pool, fire the stop with the keeper, then every emergency action.
 // Nothing reaches the real chain. Transaction hashes in the report exist only on the fork.
-// Writes evidence/v3/rehearsal-fork.json. Run with `npm run rehearse`.
+// Writes evidence/v4/rehearsal-fork.json. Run with `npm run rehearse`.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -284,9 +284,9 @@ try {
   ok("measured what it costs to push this pool");
 
   report.result = `${steps.length} steps passed`;
-  mkdirSync("evidence/v3", { recursive: true });
-  writeFileSync("evidence/v3/rehearsal-fork.json", `${JSON.stringify(report, big, 2)}\n`);
-  console.log(`\n${steps.length} steps passed. Written to evidence/v3/rehearsal-fork.json`);
+  mkdirSync("evidence/v4", { recursive: true });
+  writeFileSync("evidence/v4/rehearsal-fork.json", `${JSON.stringify(report, big, 2)}\n`);
+  console.log(`\n${steps.length} steps passed. Written to evidence/v4/rehearsal-fork.json`);
   probe.close();
 } finally {
   anvil.kill();

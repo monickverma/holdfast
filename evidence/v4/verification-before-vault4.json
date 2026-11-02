@@ -1,0 +1,32 @@
+{
+  "wallTime": "2026-11-01T22:10:49.549Z",
+  "suites": [
+    {
+      "name": "contracts",
+      "lane": "local",
+      "command": "node scripts/forge.mjs test --offline --no-match-contract Fork",
+      "passed": 129,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 11
+    },
+    {
+      "name": "fork",
+      "lane": "fork",
+      "command": "node scripts/forge.mjs test --match-contract Fork",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 7
+    },
+    {
+      "name": "agent",
+      "lane": "local",
+      "command": "npm run -s test:agent:local",
+      "passed": 336,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 15
+    }
+  ]
+}

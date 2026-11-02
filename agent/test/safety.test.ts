@@ -13,6 +13,9 @@ import { HSKSWAP } from "../src/config.js";
 import { DEFAULT_POLICY, type Policy } from "../src/policy.js";
 import type { MarketState, TokenLimits } from "../src/reader.js";
 import { Executor } from "../src/executor.js";
+import { encodeAbiParameters, encodeEventTopics, parseAbi } from "viem";
+import { VAULT_ABI } from "../src/reader.js";
+import { verifyVenue } from "../src/venue.js";
 import { Ledger } from "../src/ledger.js";
 import { RpcClient } from "../src/rpc.js";
 import { Trace } from "../src/trace.js";
@@ -202,6 +205,8 @@ test("a send that finishes during another decision's preflight supersedes that d
       if (++preflights === 2) await new Promise((resolve) => setTimeout(resolve, 150));
       return AMOUNT_OUT;
     }
+    if (call.method === "eth_estimateGas") return "0x24000";
+    if (call.method === "eth_getBalance") return `0x${(10n ** 18n).toString(16)}`;
     if (call.method === "eth_getTransactionCount") return "0x7";
     if (call.method === "eth_sendRawTransactionSync") {
       sent.push(call.params[0]);
@@ -227,13 +232,158 @@ test("a pool change during preflight stops the trade before anything is signed",
       (agent as any).poolGeneration++;
       return AMOUNT_OUT;
     }
+    if (call.method === "eth_estimateGas") return "0x24000";
+    if (call.method === "eth_getBalance") return `0x${(10n ** 18n).toString(16)}`;
     return new Error(`unexpected ${call.method}`);
   };
   agent = preflightAgent();
   const record = await act(agent, market);
   assert.equal(record.decision.code, "stale-state");
-  assert.deepEqual(methods, ["eth_call"]);
+  assert.deepEqual(methods.sort(), ["eth_call", "eth_estimateGas", "eth_getBalance"]);
   assert.deepEqual(agent.ledger.all(), [], "nothing is reserved for a trade that never started");
+  agent.close();
+});
+
+test("a node that cannot answer the preflight stops a market order from going out", async () => {
+  const sent: string[] = [];
+  handle = (call) => {
+    if (call.method.startsWith("eth_sendRaw")) sent.push(call.method);
+    return new Error("upstream connect error");
+  };
+  const agent = preflightAgent();
+  const record = await act(agent, market);
+  assert.equal(record.decision.code, "preflight-unverified");
+  assert.deepEqual(sent, []);
+  assert.equal(record.simulated.ok, null);
+  agent.close();
+});
+
+test("a stop-loss goes out even when the node cannot answer the preflight, because the vault still checks it", async () => {
+  const sent: string[] = [];
+  handle = (call) => {
+    if (call.method === "eth_getTransactionCount") return "0x7";
+    if (call.method === "eth_sendRawTransactionSync") {
+      sent.push(call.params[0]);
+      return { status: "0x1", blockNumber: "0x65", blockHash: BLOCK_A, gasUsed: "0x5", effectiveGasPrice: "0x1", logs: [] };
+    }
+    return new Error("upstream connect error");
+  };
+  const stopPolicy: Policy = { ...DEFAULT_POLICY, stopConfirmBlocks: 1, orders: [{ id: "s", kind: "stop-loss", amountIn: 100n * HSK, triggerPriceX18: 90_000n }] };
+  const agent = new Agent({
+    config: { rpcUrl: url, chainId: 177, live: true, mode: "live", preflight: true, pollMs: 650, dataDir: mkdtempSync(join(tmpdir(), "holdfast-")), twapWindowSec: 300, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000, poolKind: "v3", agentKey: AGENT_KEY, vault: HSKSWAP.router },
+    lane: "fork",
+    policy: () => stopPolicy,
+    mark: () => null,
+    now: () => 100_000,
+  });
+  const record = await (agent as any).act(market, market.head, stopPolicy, new Trace("t-stop", "fork"), 0, 1, undefined, "hot");
+  assert.equal(sent.length, 1);
+  assert.equal(record.simulated.ok, null, "the record says it went out unverified");
+  agent.close();
+});
+
+const tradedLog = (address: string, intentId: Hex, amountIn: bigint, amountOut: bigint) => ({
+  address,
+  topics: encodeEventTopics({ abi: VAULT_ABI, eventName: "Traded", args: { intentId, tokenIn: HSKSWAP.whsk } }),
+  data: encodeAbiParameters([{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }], [amountIn, amountOut, 0n]),
+});
+
+test("only the vault's own event for this intent counts as the outcome", async () => {
+  const ledger = new Ledger(join(mkdtempSync(join(tmpdir(), "holdfast-")), "ledger.jsonl"));
+  const rpc = new RpcClient("http://127.0.0.1:9");
+  const executor = new Executor({ rpc, ledger, agentKey: AGENT_KEY, vault: HSKSWAP.router, chainId: 177 });
+  const intentId = `0x${"1".repeat(64)}` as Hex;
+  const other = `0x${"2".repeat(64)}` as Hex;
+  const reserve = (key: string, id: Hex) => ledger.reserve({ key, intentId: id, bodyHash: id, orderId: "o", tokenIn: HSKSWAP.whsk, amountIn: 100n, minOut: 1n, deadline: 1n }).intent;
+  const receipt = (logs: unknown[]) => ({ status: "0x1", blockNumber: "0x65", blockHash: BLOCK_A, gasUsed: "0x5", effectiveGasPrice: "0x1", logs });
+
+  const forged = await (executor as any).record(reserve("forged", intentId), receipt([tradedLog(HSKSWAP.whsk, intentId, 100n, 999_999n)]));
+  assert.equal(forged.amountOut, 0n, "an event from another contract is ignored");
+  assert.equal(forged.outcomeUnverified, true);
+
+  const elsewhere = await (executor as any).record(reserve("elsewhere", intentId), receipt([tradedLog(HSKSWAP.router, other, 100n, 999_999n)]));
+  assert.equal(elsewhere.outcomeUnverified, true, "the vault's event for another intent is not this trade's");
+
+  const partial = await (executor as any).record(reserve("partial", intentId), receipt([tradedLog(HSKSWAP.router, intentId, 40n, 90n)]));
+  assert.equal(partial.amountOut, 90n);
+  assert.equal(partial.amountSpent, 40n, "a thin pool took less than asked");
+  assert.equal(partial.outcomeUnverified, undefined);
+  ledger.close();
+  rpc.close();
+});
+
+/** Answers the venue's reads as a correct market would, apart from whatever `over` changes. */
+function venueHandler(over: Record<string, unknown> = {}) {
+  const abi = parseAbi(["function decimals() view returns (uint8)", "function token0() view returns (address)", "function token1() view returns (address)", "function fee() view returns (uint24)"]);
+  void abi;
+  const word = (value: bigint | string) => `0x${(typeof value === "string" ? value.slice(2) : value.toString(16)).padStart(64, "0")}`;
+  const selectors: Record<string, string> = { "0x313ce567": "decimals", "0x0dfe1681": "token0", "0xd21220a7": "token1", "0xddca3f43": "fee" };
+  return (call: any) => {
+    if (call.method === "eth_chainId") return over.chainId ?? "0x85";
+    if (call.method === "eth_blockNumber") return "0x10";
+    if (call.method === "eth_getCode") return over[`code:${call.params[0].toLowerCase()}`] ?? "0x6000";
+    if (call.method === "eth_call") {
+      const name = selectors[call.params[0].data.slice(0, 10)];
+      if (over[`${name}Fails`]) return new Error("execution reverted");
+      if (name === "decimals") return word(call.params[0].to.toLowerCase() === HSKSWAP.usdt.toLowerCase() ? BigInt((over.usdtDecimals as number) ?? 6) : 18n);
+      if (name === "token0") return word((over.token0 as string) ?? HSKSWAP.whsk);
+      if (name === "token1") return word(HSKSWAP.usdt);
+      if (name === "fee") return word(BigInt(HSKSWAP.fee));
+    }
+    return new Error(`unexpected ${call.method}`);
+  };
+}
+const venueConfig = { chainId: 133, poolKind: "constant-product" as const };
+
+test("venue check: a correct market passes", async () => {
+  handle = venueHandler();
+  const rpc = new RpcClient(url);
+  const report = await verifyVenue(rpc, venueConfig);
+  rpc.close();
+  assert.equal(report.verdict, "pass", JSON.stringify(report.checks.filter((c) => c.status !== "pass")));
+  assert.ok(report.checks.every((c) => c.source === "authoritative"));
+});
+
+test("venue check: each wrong answer fails, and names itself", async () => {
+  for (const [over, name] of [
+    [{ chainId: "0xb1" }, "chain id"],
+    [{ [`code:${HSKSWAP.pool.toLowerCase()}`]: "0x" }, "pool code"],
+    [{ usdtDecimals: 18 }, "usdt decimals"],
+    [{ token0: HSKSWAP.usdt }, "pool token0"],
+  ] as const) {
+    handle = venueHandler(over);
+    const rpc = new RpcClient(url);
+    const report = await verifyVenue(rpc, venueConfig);
+    rpc.close();
+    assert.equal(report.verdict, "fail", name);
+    assert.equal(report.checks.find((c) => c.status === "fail")?.name, name);
+  }
+});
+
+test("venue check: a read nobody answered is unverified, which is not a pass", async () => {
+  handle = venueHandler({ decimalsFails: true });
+  const rpc = new RpcClient(url);
+  const report = await verifyVenue(rpc, venueConfig);
+  rpc.close();
+  assert.equal(report.verdict, "unverified");
+});
+
+test("a live agent will not start on a venue that fails its check, and sends nothing", async () => {
+  const sent: string[] = [];
+  const base = venueHandler({ usdtDecimals: 18 });
+  handle = (call) => {
+    if (call.method.startsWith("eth_sendRaw")) sent.push(call.method);
+    return base(call);
+  };
+  const agent = new Agent({
+    config: { rpcUrl: url, chainId: 133, live: true, mode: "live", preflight: true, pollMs: 650, dataDir: mkdtempSync(join(tmpdir(), "holdfast-")), twapWindowSec: 300, maxStateAgeMs: 6_000, maxMarkAgeMs: 30_000, poolKind: "constant-product", agentKey: AGENT_KEY, vault: HSKSWAP.router },
+    lane: "fork",
+    policy: () => policy,
+    mark: () => null,
+    now: () => 100_000,
+  });
+  await assert.rejects(agent.run(), /Venue check fail/);
+  assert.deepEqual(sent, []);
   agent.close();
 });
 

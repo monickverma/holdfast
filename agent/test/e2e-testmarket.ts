@@ -1,8 +1,12 @@
 // Local Anvil only. Public default Anvil test keys; never use with real funds.
 import { deployTestMarket } from "../src/cli/deploy-test-market.js";
+import { runDeploy } from "../src/cli/deploy-vault.js";
+import { exportRecords } from "../src/cli/export-records.js";
+import { collect, judge, parseRecords } from "../src/cli/verify-history.js";
+import { strategyHashOf } from "../src/agent.js";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPublicClient, createWalletClient, defineChain, http, parseAbi, parseEther, type Address, type Hex } from "viem";
@@ -142,6 +146,74 @@ try {
   stopAgent.close();
   agent.close();
 
+  // A policy other than the pinned one holds, and the pinned one trades. Both through the real agent loop.
+  const pinnedConfig = { ...base, live: true, pinnedStrategy: true };
+  const heldCodes: string[] = [];
+  policy = { ...DEFAULT_POLICY, version: 6, orders: [{ id: "pinned", kind: "market-sell", amountIn: 1n * HSK }] };
+  const pinned = new Agent({ config: pinnedConfig, lane: "testnet", policy: () => policy, mark: () => null, onDecision: (r) => { if (r.decision.action === "hold") heldCodes.push(r.decision.code); } });
+  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setStrategyPin", args: [`0x${"ab".repeat(32)}`] }));
+  await stepUntil(pinned, () => heldCodes.includes("strategy-not-pinned"));
+  assert.equal(pinned.ledger.get("order:6:pinned:0"), undefined);
+  ok("a policy the owner did not pin holds and signs nothing");
+  pinned.close();
+  await send(await wallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "setStrategyPin", args: [strategyHashOf(policy)] }));
+  const pinnedAgain = new Agent({ config: pinnedConfig, lane: "testnet", policy: () => policy, mark: () => null });
+  await stepUntil(pinnedAgain, settled(pinnedAgain, "order:6:pinned:0"));
+  assert.equal(pinnedAgain.ledger.get("order:6:pinned:0")!.status, "included");
+  ok("the pinned policy trades");
+  pinnedAgain.close();
+
+  // Anchoring through the agent's own loop, then the independent verifier against everything this chain has done so far.
+  const logCount = () => client.readContract({ address: vault, abi: VAULT_ABI, functionName: "logCount" });
+  const countBefore = await logCount();
+  const anchorer = new Agent({ config: { ...base, live: true, anchorIntervalSec: 1 }, lane: "testnet", policy: () => policy, mark: () => null });
+  await stepUntil(anchorer, () => anchorer.anchorsSent > 0);
+  for (let i = 0; i < 40 && (await logCount()) === countBefore; i++) await sleep(250);
+  assert.equal(await logCount(), countBefore + 1n);
+  ok("the agent commits its local log to the vault");
+  anchorer.close();
+
+  const recordsPath = join(dataDir, "records.jsonl");
+  assert.ok(exportRecords(dataDir, recordsPath) >= 4);
+  const logPath = join(dataDir, "decisions.jsonl");
+  const verify = async (records: string, log: string, fromBlock = 0n, address: Address = vault) => {
+    const evidence = await collect({ rpcUrl: RPC_URL, vault: address, fromBlock, records: parseRecords(records), localLog: log });
+    return judge(evidence);
+  };
+  const recordsText = readFileSync(recordsPath, "utf8");
+  const logText = readFileSync(logPath, "utf8");
+  const clean = await verify(recordsText, logText);
+  assert.equal(clean.status, "PASS", JSON.stringify(clean.findings));
+  assert.ok(clean.checked.trades >= 4 && clean.checked.tradesMatched === clean.checked.trades, JSON.stringify(clean.checked));
+  console.log(`verifier on the local vault: ${JSON.stringify(clean.checked)}`);
+  mkdirSync("evidence/v4", { recursive: true });
+  writeFileSync("evidence/v4/verify-local.json", `${JSON.stringify({ wallTime: new Date().toISOString(), lane: "local", where: "A vault on a local Anvil chain with a test market, not a public network.", ...clean }, null, 2)}\n`);
+  ok("the verifier passes a real history: events, receipts, transfers, records, market reads and the local log");
+
+  const lines = recordsText.trim().split("\n");
+  const edited = JSON.parse(lines[0]!) as { body: string };
+  edited.body = edited.body.replace(/"reason":"[^"]*"/, '"reason":"a better story"');
+  assert.equal((await verify([JSON.stringify(edited), ...lines.slice(1)].join("\n"), logText)).status, "FAIL");
+  const claimed = JSON.parse(lines[0]!) as { amountOut: string };
+  claimed.amountOut = "1";
+  assert.equal((await verify([JSON.stringify(claimed), ...lines.slice(1)].join("\n"), logText)).status, "FAIL");
+  const logLines = logText.trim().split("\n");
+  assert.equal((await verify(recordsText, `${logLines.slice(1).join("\n")}\n`)).status, "FAIL");
+  ok("the verifier fails an edited record, an overstated output and a log with a record removed");
+
+  assert.equal((await verify(lines.slice(1).join("\n"), logText)).status, "INCOMPLETE");
+  assert.equal((await verify(recordsText, logText, await client.getBlockNumber())).status, "INCOMPLETE");
+  const tailed = join(dataDir, "tail.jsonl");
+  writeFileSync(tailed, logText);
+  const lastLine = JSON.parse(logLines.at(-1)!) as { hash: Hex; seq: number };
+  const { keccak256, stringToHex } = await import("viem");
+  const tailBody = { wallTime: "later", note: "not committed" };
+  appendFileSync(tailed, `${JSON.stringify({ seq: lastLine.seq + 1, prev: lastLine.hash, hash: keccak256(stringToHex(`${lastLine.seq + 1}|${lastLine.hash}|${JSON.stringify(tailBody)}`)), ...tailBody })}\n`);
+  const tail = await verify(recordsText, readFileSync(tailed, "utf8"));
+  assert.equal(tail.status, "INCOMPLETE");
+  assert.ok(tail.findings.some((f) => f.code === "UNANCHORED_TAIL"));
+  ok("the verifier says incomplete for a missing record, a late starting block and an uncommitted tail");
+
   const restarted = makeAgent(true);
   // A compromised agent bypasses every off-chain check. Only the vault is left.
   const rpc = restarted.rpc;
@@ -178,6 +250,35 @@ try {
   const steal = await send(await agentWallet.writeContract({ address: vault, abi: VAULT_ABI, functionName: "withdraw", args: [HSKSWAP.whsk, agentAddress, 1n], gas: 200_000n }));
   assert.equal(steal.status, "reverted");
   ok("the agent key cannot withdraw");
+
+  // The deployment command, against a real node: a dry run sends nothing, and a broadcast is checked and recorded.
+  const deployEnv = { NETWORK: "testnet", CHAIN_ID: "31337", RPC_URL: RPC_URL, VAULT_GENERATION: "3" };
+  const deployArgs = ["--owner", owner.address, "--agent", agentAddress];
+  const deployRecord = join(dataDir, "vault-deployment.json");
+  const nonceBefore = await client.getTransactionCount({ address: owner.address });
+  assert.equal(await runDeploy(deployArgs, deployEnv), 0);
+  assert.equal(await client.getTransactionCount({ address: owner.address }), nonceBefore);
+  ok("a deployment dry run sends nothing");
+  assert.equal(await runDeploy([...deployArgs, "--broadcast"], deployEnv), 1);
+  assert.equal(await runDeploy([...deployArgs, "--broadcast", "--out", deployRecord], { ...deployEnv, OWNER_PRIVATE_KEY: agentKey }), 1);
+  assert.equal(await client.getTransactionCount({ address: owner.address }), nonceBefore);
+  ok("a broadcast with no key, or with a key that is not the owner's, sends nothing");
+  assert.equal(await runDeploy([...deployArgs, "--broadcast", "--out", deployRecord], { ...deployEnv, OWNER_PRIVATE_KEY: ownerKey }), 0);
+  const deployment = JSON.parse(readFileSync(deployRecord, "utf8"));
+  assert.equal(deployment.status, "verified");
+  assert.equal(deployment.runtimeMatchesBuild, true);
+  assert.ok(deployment.immutableSlotsMasked > 0);
+  assert.equal(await client.readContract({ address: deployment.vault, abi: VAULT_ABI, functionName: "agent" }), agentAddress);
+  ok("a broadcast deploys, matches its runtime code to the build, and records it");
+  const recorded = readFileSync(deployRecord, "utf8");
+  assert.equal(await runDeploy([...deployArgs, "--broadcast", "--out", deployRecord], { ...deployEnv, OWNER_PRIVATE_KEY: ownerKey }), 1);
+  assert.equal(readFileSync(deployRecord, "utf8"), recorded);
+  ok("a deployment record is never replaced");
+
+  const nothing = await verify("", "", 0n, deployment.vault);
+  assert.equal(nothing.status, "INCOMPLETE");
+  assert.ok(nothing.findings.some((f) => f.code === "NOTHING_TO_VERIFY"));
+  ok("the verifier does not pass a vault with no history");
 
   const ms = readFileSync(join(dataDir, "traces.jsonl"), "utf8")
     .trim()

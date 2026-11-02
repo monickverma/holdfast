@@ -26,13 +26,27 @@ const pair = (row: Row | undefined) => (row ? { sell: digits(row.sell), buy: dig
 const quantile = (q: Row | undefined) => ({ n: num(q?.n), value: num(q?.value), low: num(q?.low), high: num(q?.high) });
 
 export function readProof(evidenceDir: string) {
-  const verification = read(evidenceDir, "v3/verification.json");
-  const mutation = read(evidenceDir, "v3/mutation-check.json");
-  const slither = read(evidenceDir, "v3/slither.json");
-  const gas = read(evidenceDir, "v3/gas-compare.json");
-  const rehearsal = read(evidenceDir, "v3/rehearsal-fork.json");
+  // The newest recording wins. Older directories stay as they were, and are read only when nothing newer exists.
+  const newest = (name: string) => read(evidenceDir, `v4/${name}`) ?? read(evidenceDir, `v3/${name}`);
+  const verification = newest("verification.json");
+  const mutation = newest("mutation-check.json");
+  const venueMainnet = read(evidenceDir, "v4/venue-mainnet.json");
+  const venueTestnet = read(evidenceDir, "v4/venue-testnet.json");
+  const slither = newest("slither.json");
+  const gas = newest("gas-compare.json");
+  const rehearsal = newest("rehearsal-fork.json");
+  const verifier = (["verify-local.json", "verify-testnet.json"] as const).flatMap((name) => {
+    const row = read(evidenceDir, `v4/${name}`);
+    if (!row) return [];
+    const checked = row.checked as Row | undefined;
+    return [{
+      lane: name === "verify-local.json" ? "local" : "testnet", wallTime: text(row.wallTime), status: text(row.status), vaultVersion: text(row.vaultVersion),
+      trades: num(checked?.trades), tradesMatched: num(checked?.tradesMatched), logEntries: num(checked?.logEntries), anchors: num(checked?.anchors),
+      findings: (Array.isArray(row.findings) ? row.findings : []).slice(0, 40).map((f: Row) => ({ severity: text(f.severity), code: text(f.code), detail: text(f.detail) })),
+    }];
+  });
   const attacks = read(evidenceDir, "v3/attack-results.json")?.summary as Row | undefined;
-  const e2e = read(evidenceDir, "v3/e2e.json");
+  const e2e = newest("e2e.json");
   const llm = read(evidenceDir, "v3/llm-live.json");
   const latency = read(evidenceDir, "event-to-receipt/report.json");
   const transactions = read(evidenceDir, "public-transactions.json");
@@ -42,13 +56,15 @@ export function readProof(evidenceDir: string) {
       wallTime: text(verification.wallTime),
       suites: (Array.isArray(verification.suites) ? verification.suites : []).map((s: Row) => ({ name: text(s.name), lane: text(s.lane), command: text(s.command), passed: num(s.passed), failed: num(s.failed), skipped: num(s.skipped) })),
     },
+    verifier,
     mutation: mutation && { wallTime: text(mutation.wallTime), lane: text(mutation.lane), mutants: count(mutation.mutants), killed: count(mutation.killed), survived: count(mutation.survived), didNotCompile: count(mutation.didNotCompile) },
     slither: slither && { wallTime: text(slither.wallTime), tool: text(slither.tool), findings: count(slither.findings), untriaged: count(slither.untriaged) },
     gas: gas && {
       wallTime: text(gas.wallTime), lane: text(gas.lane), rounds: num(gas.rounds), guardConfig: { twapWindowSec: num(gas.guardConfig?.twapWindowSec), bandTicks: num(gas.guardConfig?.bandTicks) },
-      median: Object.fromEntries(["plain", "v1", "v2", "v3GuardOff", "v3GuardOn", "v3GuardDailyHash"].map((arm) => [arm, pair(gas.medianGas?.[arm])])),
-      deployGas: { v1: digits(gas.deployGas?.v1), v2: digits(gas.deployGas?.v2), v3: digits(gas.deployGas?.v3) },
-      runtimeBytes: { v1: num(gas.runtimeBytes?.v1), v2: num(gas.runtimeBytes?.v2), v3: num(gas.runtimeBytes?.v3) },
+      median: Object.fromEntries(["plain", "v1", "v2", "v3GuardOff", "v3GuardOn", "v3GuardDailyHash", "v4GuardOff", "v4GuardOn", "v4FullWithLossCharged"].map((arm) => [arm, pair(gas.medianGas?.[arm])])),
+      deployGas: { v1: digits(gas.deployGas?.v1), v2: digits(gas.deployGas?.v2), v3: digits(gas.deployGas?.v3), v4: digits(gas.deployGas?.v4) },
+      anchorLogGas: digits(gas.anchorLogGas),
+      runtimeBytes: { v1: num(gas.runtimeBytes?.v1), v2: num(gas.runtimeBytes?.v2), v3: num(gas.runtimeBytes?.v3), v4: num(gas.runtimeBytes?.v4) },
     },
     rehearsal: rehearsal && {
       wallTime: text(rehearsal.wallTime), lane: text(rehearsal.lane), chainId: num(rehearsal.chainId), result: text(rehearsal.result),
@@ -64,6 +80,7 @@ export function readProof(evidenceDir: string) {
       families: Object.entries((attacks.byFamily ?? {}) as Record<string, Row>).map(([family, r]) => ({ family, attacks: num(r.attacks), contained: num(r.contained) })),
     },
     e2e: e2e && { wallTime: text(e2e.wallTime), runs: (Array.isArray(e2e.runs) ? e2e.runs : []).map((r: Row) => ({ name: text(r.name), lane: text(r.lane), command: text(r.command), passed: num(r.passed), failed: num(r.failed) })) },
+    venueRuns: [venueMainnet, venueTestnet].flatMap((v) => (v ? [{ wallTime: text(v.wallTime), lane: text(v.lane), chainId: num(v.chainId), block: text(v.block) ?? num(v.block), verdict: text(v.verdict), checks: count(v.checks) }] : [])),
     llm: llm && { wallTime: text(llm.wallTime), status: text(llm.status), reason: text(llm.reason), model: text(llm.model) },
     latency: latency && {
       lane: text(latency.lane), venue: text(latency.venue),

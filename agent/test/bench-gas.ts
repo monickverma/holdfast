@@ -58,15 +58,24 @@ try {
   };
   const v1 = await deployVault("HoldfastVaultV1.sol", "HoldfastVaultV1");
   const v2 = await deployVault("HoldfastVaultV2.sol", "HoldfastVaultV2");
-  const v3 = await deployVault("HoldfastVault.sol", "HoldfastVault");
-  const v3Guard = await deployVault("HoldfastVault.sol", "HoldfastVault");
-  const v3Full = await deployVault("HoldfastVault.sol", "HoldfastVault");
+  const v3 = await deployVault("HoldfastVaultV3.sol", "HoldfastVaultV3");
+  const v3Guard = await deployVault("HoldfastVaultV3.sol", "HoldfastVaultV3");
+  const v3Full = await deployVault("HoldfastVaultV3.sol", "HoldfastVaultV3");
+  const v4 = await deployVault("HoldfastVault.sol", "HoldfastVault");
+  const v4Guard = await deployVault("HoldfastVault.sol", "HoldfastVault");
+  const v4Full = await deployVault("HoldfastVault.sol", "HoldfastVault");
   const WINDOW = 600;
-  for (const target of [v3Guard.vault, v3Full.vault]) {
+  for (const target of [v3Guard.vault, v3Full.vault, v4Guard.vault, v4Full.vault]) {
     await wait(await ownerWallet.writeContract({ address: target, abi: VAULT_ABI, functionName: "setPriceGuard", args: [HSKSWAP.pool, WINDOW, 500] }));
   }
   await wait(await ownerWallet.writeContract({ address: v3Full.vault, abi: VAULT_ABI, functionName: "setDailyBudget", args: [HSKSWAP.whsk, 200n * HSK] }));
   await wait(await ownerWallet.writeContract({ address: v3Full.vault, abi: VAULT_ABI, functionName: "setDailyBudget", args: [HSKSWAP.usdt, 20n * 10n ** 6n] }));
+
+  await wait(await ownerWallet.writeContract({ address: v4Full.vault, abi: VAULT_ABI, functionName: "setDailyBudget", args: [HSKSWAP.whsk, 200n * HSK] }));
+  await wait(await ownerWallet.writeContract({ address: v4Full.vault, abi: VAULT_ABI, functionName: "setDailyBudget", args: [HSKSWAP.usdt, 20n * 10n ** 6n] }));
+  await wait(await ownerWallet.writeContract({ address: v4Full.vault, abi: VAULT_ABI, functionName: "setMandate", args: [5_000, 0] }));
+  // A mark far above the market, so each sale really charges the budget. This is the dearest path a sale can take.
+  await wait(await ownerWallet.writeContract({ address: v4Full.vault, abi: VAULT_ABI, functionName: "setLossGuard", args: [10n ** 9n, 10n ** 21n, 0] }));
 
   // A plain wallet swap with allowances already set: the cost with no vault at all.
   await wait(await agentWallet.writeContract({ address: HSKSWAP.whsk, abi: TOKEN_ABI, functionName: "deposit", value: 300n * HSK }));
@@ -94,14 +103,14 @@ try {
     ledger.reserve({ key: intentId, intentId, bodyHash: "0x00", orderId: null, tokenIn: HSKSWAP.whsk, amountIn: 0n, minOut: 0n, deadline: 0n });
     return intentId;
   };
-  const results: Record<string, Record<string, bigint[]>> = { plain: { sell: [], buy: [] }, v1: { sell: [], buy: [] }, v2: { sell: [], buy: [] }, v3GuardOff: { sell: [], buy: [] }, v3GuardOn: { sell: [], buy: [] }, v3GuardDailyHash: { sell: [], buy: [] } };
+  const results: Record<string, Record<string, bigint[]>> = { v4GuardOff: { sell: [], buy: [] }, v4GuardOn: { sell: [], buy: [] }, v4FullWithLossCharged: { sell: [], buy: [] }, plain: { sell: [], buy: [] }, v1: { sell: [], buy: [] }, v2: { sell: [], buy: [] }, v3GuardOff: { sell: [], buy: [] }, v3GuardOn: { sell: [], buy: [] }, v3GuardDailyHash: { sell: [], buy: [] } };
   const checkStatus = (label: string, receipt: { status: string }) => {
     if (receipt.status !== "success") throw new Error(`${label} reverted`);
   };
 
   // Set up each direction once so the rounds compare like with like: the first buy of a wallet pays to create balances.
   checkStatus("seed", await plain(HSKSWAP.whsk, HSKSWAP.usdt, SELL));
-  for (const vault of [v1.vault, v2.vault, v3.vault, v3Guard.vault, v3Full.vault]) {
+  for (const vault of [v1.vault, v2.vault, v3.vault, v3Guard.vault, v3Full.vault, v4.vault, v4Guard.vault, v4Full.vault]) {
     checkStatus("seed", await execute(vault, HSKSWAP.whsk, SELL, 50_000n, `0x${randomBytes(32).toString("hex")}`));
   }
 
@@ -119,6 +128,19 @@ try {
     const buyGuard = await execute(v3Guard.vault, HSKSWAP.usdt, BUY, 3n * 10n ** 17n, nextV2Id());
     const buyFull = await executeWithHash(v3Full.vault, HSKSWAP.usdt, BUY, 3n * 10n ** 17n, nextV2Id());
     for (const [label, receipt] of Object.entries({ sellPlain, sellV1, sellV2, buyPlain, buyV1, buyV2, sellV3, sellGuard, sellFull, buyV3, buyGuard, buyFull })) checkStatus(label, receipt);
+    const sellV4 = await execute(v4.vault, HSKSWAP.whsk, SELL, 50_000n, nextV2Id());
+    const sellV4Guard = await execute(v4Guard.vault, HSKSWAP.whsk, SELL, 50_000n, nextV2Id());
+    const sellV4Full = await executeWithHash(v4Full.vault, HSKSWAP.whsk, SELL, 50_000n, nextV2Id());
+    const buyV4 = await execute(v4.vault, HSKSWAP.usdt, BUY, 3n * 10n ** 17n, nextV2Id());
+    const buyV4Guard = await execute(v4Guard.vault, HSKSWAP.usdt, BUY, 3n * 10n ** 17n, nextV2Id());
+    const buyV4Full = await executeWithHash(v4Full.vault, HSKSWAP.usdt, BUY, 3n * 10n ** 17n, nextV2Id());
+    for (const [label, receipt] of Object.entries({ sellV4, sellV4Guard, sellV4Full, buyV4, buyV4Guard, buyV4Full })) checkStatus(label, receipt);
+    results.v4GuardOff!.sell!.push(sellV4.gasUsed);
+    results.v4GuardOff!.buy!.push(buyV4.gasUsed);
+    results.v4GuardOn!.sell!.push(sellV4Guard.gasUsed);
+    results.v4GuardOn!.buy!.push(buyV4Guard.gasUsed);
+    results.v4FullWithLossCharged!.sell!.push(sellV4Full.gasUsed);
+    results.v4FullWithLossCharged!.buy!.push(buyV4Full.gasUsed);
     results.v3GuardOff!.sell!.push(sellV3.gasUsed);
     results.v3GuardOff!.buy!.push(buyV3.gasUsed);
     results.v3GuardOn!.sell!.push(sellGuard.gasUsed);
@@ -132,21 +154,31 @@ try {
     results.v2!.sell!.push(sellV2.gasUsed);
     results.v2!.buy!.push(buyV2.gasUsed);
   }
+  // What a refusal costs the agent. Over the trade cap, so it stops at the same early check in each version.
+  const refusedGas: Record<string, bigint> = {};
+  for (const [name, target] of [["v3GuardDailyHash", v3Full.vault], ["v4Full", v4Full.vault]] as const) {
+    const receipt = await executeWithHash(target, HSKSWAP.whsk, 10n ** 27n, 10n ** 12n, nextV2Id());
+    if (receipt.status !== "reverted") throw new Error(`${name}: the oversized trade was not refused`);
+    refusedGas[name] = receipt.gasUsed;
+  }
   ledger.close();
+  const anchorGas = (await wait(await agentWallet.writeContract({ address: v4.vault, abi: VAULT_ABI, functionName: "anchorLog", args: [`0x${"ab".repeat(32)}`, 5n] }))).gasUsed;
 
   const summary = {
     lane: "fork",
     note: "Local fork of mainnet through the real HSKSwap router. Median gas per swap, including 21,000 intrinsic and calldata; L1 data fee excluded because a fork has no oracle state to charge it.",
     rounds: ROUNDS,
     wallTime: new Date().toISOString(),
-    deployGas: { v1: v1.deployGas, v2: v2.deployGas, v3: v3.deployGas },
-    runtimeBytes: { v1: v1.runtimeBytes, v2: v2.runtimeBytes, v3: v3.runtimeBytes },
+    deployGas: { v1: v1.deployGas, v2: v2.deployGas, v3: v3.deployGas, v4: v4.deployGas },
+    anchorLogGas: anchorGas,
+    refusedTradeGas: refusedGas,
+    runtimeBytes: { v1: v1.runtimeBytes, v2: v2.runtimeBytes, v3: v3.runtimeBytes, v4: v4.runtimeBytes },
     guardConfig: { twapWindowSec: WINDOW, bandTicks: 500 },
     medianGas: Object.fromEntries(Object.entries(results).map(([arm, sides]) => [arm, { sell: median(sides.sell!), buy: median(sides.buy!) }])),
   };
-  mkdirSync("evidence/v3", { recursive: true });
-  writeFileSync("evidence/v3/gas-compare.json", JSON.stringify(summary, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2));
-  console.log(readFileSync("evidence/v3/gas-compare.json", "utf8"));
+  mkdirSync("evidence/v4", { recursive: true });
+  writeFileSync("evidence/v4/gas-compare.json", JSON.stringify(summary, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2));
+  console.log(readFileSync("evidence/v4/gas-compare.json", "utf8"));
   probe.close();
 } finally {
   anvil.kill();

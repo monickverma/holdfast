@@ -26,6 +26,10 @@ export interface Intent {
   broadcastBlock?: bigint;
   blockNumber?: bigint;
   amountOut?: bigint;
+  /** What the vault's Traded event says it spent. A thin pool can take less than amountIn. Absent means the same. */
+  amountSpent?: bigint;
+  /** The receipt succeeded with no matching Traded event from the vault, so amountOut is not known. */
+  outcomeUnverified?: boolean;
   gasUsed?: bigint;
   /** Execution plus L1 fee, in wei, from the receipt. */
   feeWei?: bigint;
@@ -41,7 +45,7 @@ export interface Intent {
   decisionHash?: Hex;
 }
 
-const BIGINT_FIELDS = ["amountIn", "minOut", "deadline", "broadcastBlock", "blockNumber", "amountOut", "gasUsed", "feeWei"] as const;
+export const BIGINT_FIELDS = ["amountIn", "minOut", "deadline", "broadcastBlock", "blockNumber", "amountOut", "amountSpent", "gasUsed", "feeWei"] as const;
 
 export class IntentConflict extends Error {}
 
