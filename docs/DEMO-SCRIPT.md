@@ -31,9 +31,9 @@ Before recording: close `.env`, clear terminal history, and start the site with 
 
 ## The generated explainer
 
-`python video/make_video.py` renders a narrated explainer, about two and a half minutes long, to `video/build/holdfast-explainer.mp4`. It needs `pip install playwright pillow imageio-ffmpeg` and Windows speech.
+`python video/make_video.py` renders a narrated explainer, to `video/build/holdfast-explainer.mp4`. It needs `pip install playwright pillow imageio-ffmpeg` and Windows speech.
 
 - **How it is made:** each graph is drawn with WebGL in `video/scenes.html`. The script reads its figures from `evidence/` where a file holds them, so a rerun after new results updates both the graphs and the narration. `--stills` writes one frame per scene for a quick check.
 - **What it shows:** each scene names where its result ran.
 - **What it claims:** it says the trading loop has no model in it and that nothing has been sent on mainnet. If either stops being true, change `narration()` and the scene, then render again.
-- **What it replaces:** the old `submission-video/holdfast-explainer.mp4`, described above.
+- **What it keeps from the old video:** the old `submission-video/holdfast-explainer.mp4`, described above, had five scenes this one lacked: what goes wrong with an agent's key, the hot path piece by piece, the seven techniques, the fixes measured before and after, and the caveats. They are redrawn in this style, in `EXTRA` in `video/scenes.html`; `SCENES` there sets the running order.

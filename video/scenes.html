@@ -17,7 +17,8 @@
 <div id="stage"><canvas id="gl"></canvas><div id="ui"></div></div>
 <script>
 const W = 1280, H = 720, DPR = window.devicePixelRatio || 1;
-const C = { bg: "#FAF7F0", panel: "#FFFDF8", ink: "#1F2B36", muted: "#636F77", line: "#E5DED2", teal: "#008C85", orange: "#C9651E", blue: "#2F6DB5", tealSoft: "#DCEFEA" };
+const C = { bg: "#FAF7F0", panel: "#FFFDF8", ink: "#1F2B36", muted: "#636F77", line: "#E5DED2", teal: "#008C85", orange: "#C9651E", blue: "#2F6DB5", tealSoft: "#DCEFEA", orangeSoft: "#F6E4D5", blueSoft: "#E1E9F4" };
+let CUR = 0;
 const cv = document.getElementById("gl");
 cv.width = W * DPR; cv.height = H * DPR;
 const gl = cv.getContext("webgl2", { antialias: true, preserveDrawingBuffer: true, premultipliedAlpha: false });
@@ -69,7 +70,9 @@ const ease = (v) => 1 - Math.pow(1 - clamp(v), 3);
 const at = (t, start, dur = 0.6) => ease((t - start) / dur);
 const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 
-function chrome(t, i, n, title, lane) {
+/** Title, rule and lane chip. The counter is the scene's place in the running order, set by seek(). */
+function chrome(t, _, n, title, lane) {
+  const i = CUR;
   rect(56, 112, 140 * at(t, 0.1, 0.8), 3, C.teal, 1, 1.5);
   T(56, 26, "HOLDFAST · HSK CHAIN · TRACK 1", { size: 13, col: C.muted, w: 600, sp: 2 });
   T(1224, 26, `${String(i).padStart(2, "0")} / ${String(n).padStart(2, "0")}`, { size: 13, col: C.muted, al: "r", w: 600 });
@@ -91,7 +94,144 @@ function hbar(t, start, x0, y, len, h, col, label, value) {
   T(x0 + len * g + 12, y + h / 2 - 11, value, { size: 17, col: C.ink, w: 700, a: at(t, start + 0.6) });
 }
 
-const SCENES = [
+/** A boxed node: a title and an optional muted subtitle. */
+function node(x, y, w, h, title, sub, col, a) {
+  rect(x, y, w, h, C.panel, a, 12); frame(x, y, w, h, col, a, 12, 2.5);
+  const lines = sub ? sub.split("\n").length : 0, top = y + h / 2 - (22 + lines * 18) / 2;
+  T(x + w / 2, top, title, { size: 16, w: 700, al: "c", col: col === C.line ? C.ink : col, a });
+  if (sub) T(x + w / 2, top + 24, sub, { size: 13, col: C.muted, al: "c", a });
+}
+/** A polyline with a dot running along it. */
+function path(t, start, pts, col, phase = 0) {
+  const a = at(t, start);
+  if (a <= 0) return;
+  for (let k = 1; k < pts.length; k++) line(pts[k - 1][0], pts[k - 1][1], pts[k][0], pts[k][1], 2, C.muted, a * 0.55);
+  const segs = pts.slice(1).map((p, k) => Math.hypot(p[0] - pts[k][0], p[1] - pts[k][1])), total = segs.reduce((s, v) => s + v, 0);
+  let d = (((t - start) * 0.5 + phase) % 1) * total, k = 0;
+  while (k < segs.length - 1 && d > segs[k]) d -= segs[k++];
+  const q = d / segs[k], [x0, y0] = pts[k], [x1, y1] = pts[k + 1];
+  circ(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, 5, col, a);
+}
+
+// Scenes the first explainer had and this one lacked, redrawn here in this video's style.
+const EXTRA = {
+  // What goes wrong with an agent's key, and where it stops
+  problem: (t, D, n) => {
+    chrome(t, 0, n, "What happens when the key goes wrong?", "design");
+    T(56, 136, "A trading agent needs a key. Each of these is a failure of the agent itself.", { size: 19, col: C.muted, a: at(t, 0.3) });
+    const wall = 820;
+    [["Stolen key", "Sells into a pool the thief has pushed"], ["Bad logic", "Trades again and again"], ["Bad price", "Sees a profit that does not exist"], ["Bad prompt", "Talks the model into a bad strategy"]].forEach(([h, s], i) => {
+      const y = 190 + i * 96, a = at(t, 0.7 + i * 0.7);
+      rect(56, y, 360, 76, C.panel, a, 12); frame(56, y, 360, 76, C.orange, a, 12, 2);
+      rect(56, y, 6, 76, C.orange, a, 3);
+      T(80, y + 12, h, { size: 19, w: 700, col: C.orange, a });
+      T(80, y + 42, s, { size: 15, col: C.muted, a });
+      // The bad trade runs toward the funds and stops at the vault.
+      const la = at(t, 1.1 + i * 0.7), cy = y + 38;
+      line(420, cy, wall - 6, cy, 2, C.orange, la * 0.35);
+      const p = clamp(((t - 1.1 - i * 0.7) * 0.6) % 1.4);
+      circ(420 + (wall - 434) * p, cy, 7, C.orange, la * (p >= 1 ? 0.35 : 1));
+      if (p >= 1) T(wall - 26, cy - 34, "✗", { size: 22, w: 800, col: C.orange, al: "c", a: la });
+    });
+    const b = at(t, 3.6);
+    rect(wall, 170, 22, 400, C.teal, b, 8);
+    T(wall + 11, 580, "vault limits,\non chain", { size: 15, w: 600, col: C.teal, al: "c", a: b });
+    rect(900, 250, 324, 240, C.panel, b, 14); frame(900, 250, 324, 240, C.line, b, 14, 1.5);
+    T(1062, 300, "The funds", { size: 26, w: 800, al: "c", a: b });
+    T(1062, 350, "held by the vault,\nnot by the agent", { size: 17, col: C.muted, al: "c", a: b });
+    T(56, 640, "Off-chain promises do not hold if the agent is the thing that failed.", { size: 22, w: 700, col: C.orange, a: at(t, 5) });
+  },
+  // The full hot path: what runs off chain, assumed to fail, and what holds on chain
+  pipeline: (t, D, n) => {
+    chrome(t, 0, n, "The hot path, piece by piece", "design");
+    const z = at(t, 0.2);
+    frame(40, 136, 850, 560, C.orange, z * 0.7, 16, 2); T(60, 146, "OFF CHAIN: ASSUMED TO FAIL", { size: 14, w: 700, col: C.orange, sp: 1.5, a: z });
+    frame(910, 136, 330, 560, C.teal, z * 0.7, 16, 2); T(930, 146, "ON CHAIN: HOLDS ANYWAY", { size: 14, w: 700, col: C.teal, sp: 1.5, a: z });
+    const edges = [
+      [1.6, [[254, 222], [276, 222], [276, 318], [300, 318]]], [1.8, [[254, 332], [300, 332]]], [2.0, [[254, 442], [276, 442], [276, 346], [300, 346]]],
+      [3.0, [[460, 332], [490, 332]]], [4.0, [[650, 332], [680, 332]]], [5.0, [[855, 332], [932, 332]]], [5.8, [[767, 382], [767, 440]]], [7.0, [[1075, 482], [1075, 556]]],
+      [8.4, [[254, 632], [300, 632]]], [8.8, [[400, 600], [400, 384]]],
+    ];
+    edges.forEach(([s, pts], k) => path(t, s, pts, k >= 8 ? C.blue : C.teal, k * 0.13));
+    [
+      [1.0, 64, 180, 190, 84, "Flashblock stream", "200 ms frames", C.teal], [1.2, 64, 290, 190, 84, "Pool read", "One atomic request", C.teal],
+      [1.4, 64, 400, 190, 84, "Gate price", "Age and gap limits", C.teal], [9.6, 64, 510, 190, 70, "Shadow + Frame Drift", "Read only, no key", C.orange],
+      [2.4, 300, 280, 160, 104, "Decide", "Pure code\nNo model", C.teal], [3.4, 490, 280, 160, 104, "Guards", "Breaker\nInventory limit", C.orange],
+      [4.4, 680, 280, 175, 104, "Execute", "Sign once\nSync send", C.teal], [5.4, 680, 440, 175, 84, "Ledger", "Crash recovery", C.teal],
+      [6.2, 932, 180, 286, 302, "HoldfastVault v4", "Key expires\nHourly and daily budgets\nPer-trade and lifetime caps\nPrice floor and band\nDaily loss budget\nNo withdrawal by the key\nFixed pool", C.teal],
+      [6.8, 932, 556, 286, 84, "HSKSwap router", "Output returns to the vault", C.line],
+      [8.0, 64, 600, 190, 66, "Chat model", "Only drafts", C.blue], [8.4, 300, 600, 200, 66, "A person approves", "Plain risk review", C.blue],
+    ].forEach(([s, x, y, w, h, title, sub, col]) => node(x, y, w, h, title, sub, col, at(t, s)));
+  },
+  // Seven techniques, each with its result and a verdict
+  techniques: (t, D, n) => {
+    chrome(t, 0, n, "Seven techniques, seven results", "testnet, mainnet read only, local");
+    const R = [["Shadow trader", "Real decide() on live prices: 0 opportunities at a 20 bps fee", "Kept", 0], ["Frame Drift", "410 of 410 hashes match; 0 of 207 user transactions vanish", "Kept", 0],
+      ["Act now or wait", "All signals fell in one 7-minute stretch", "Unsettled", 1], ["Spread lifetime", "About 6.5 s at P50, sampled every 2 to 2.5 s", "Coarse", 1],
+      ["Route benchmark", "94.9 ms P50 with WARP on; WARP off never run", "Half done", 1], ["Idle, keep warm", "Signer 5.82 to 0.52 ms; send lane gain unproven", "Small", 1],
+      ["Hedged send", "Racing reads saves 0.9 ms at P50; never sent live", "Off", 2]];
+    const col = [C.teal, C.blue, C.orange], soft = [C.tealSoft, C.blueSoft, C.orangeSoft], group = ["kept", "partly shown", "off"];
+    // The tally: one segment per technique, coloured by verdict.
+    R.forEach((r, i) => rect(56 + i * 167, 140, 161, 14, col[r[3]], at(t, 0.4 + i * 0.12), 4));
+    [0, 1, 2].forEach((g) => { const c = R.filter((r) => r[3] === g).length, a = at(t, 1.4);
+      rect(56 + g * 230, 166, 14, 14, col[g], a, 3); T(78 + g * 230, 161, `${c} ${group[g]}`, { size: 15, w: 600, a }); });
+    R.forEach(([name, res, v, g], i) => {
+      const y = 204 + i * 66, a = at(t, 1.2 + i * 0.6);
+      rect(56, y, 1168, 56, C.panel, a, 10); frame(56, y, 1168, 56, C.line, a, 10, 1.2);
+      rect(56, y, 6, 56, col[g], a, 3);
+      T(80, y + 15, name, { size: 18, w: 700, a });
+      T(300, y + 17, res, { size: 16, col: C.muted, a });
+      rect(1080, y + 13, 128, 30, soft[g], a, 15);
+      T(1144, y + 17, v, { size: 15, w: 700, col: col[g], al: "c", a });
+    });
+  },
+  // Problems a code review found, measured before and after the fix
+  fixes: (t, D, n) => {
+    chrome(t, 0, n, "Problems fixed, measured before and after", "local, fork or replay only");
+    T(560, 134, "before", { size: 15, w: 700, col: C.orange, al: "c", a: at(t, 0.3) });
+    T(900, 134, "after", { size: 15, w: 700, col: C.teal, al: "c", a: at(t, 0.3) });
+    [["Value a stolen key loses (fork)", "$2.23", "$0.74"], ["Time a stolen key works", "No end", "30 days at most"], ["Fills in one gap, $15 (replay)", "53, $795 held", "1, $15 held"],
+     ["A dropped transaction", "Blocks for ever", "Clears after 30 s"], ["False frame on a stop", "Fires", "Waits for sealed block"], ["Limit order past its price", "Up to 50 bps", "Never"],
+     ["Requests in a 10 s rate limit", "38", "4"]].forEach(([name, b, a2], i) => {
+      const y = 166 + i * 60, s = 0.6 + i * 0.75, a = at(t, s), g = at(t, s + 0.4, 0.8);
+      T(56, y + 10, name, { size: 18, a });
+      rect(450, y, 220, 42, C.orangeSoft, a, 21); T(560, y + 10, b, { size: 17, w: 600, col: C.orange, al: "c", a });
+      line(678, y + 21, 678 + 104 * g, y + 21, 2.5, C.muted, a * 0.6);
+      circ(678 + 104 * g, y + 21, 5, C.teal, g);
+      rect(790, y, 220, 42, C.tealSoft, g, 21); T(900, y + 10, a2, { size: 17, w: 700, col: C.teal, al: "c", a: g });
+    });
+    T(56, 600, "A review of 20 problems, checked against the code, chose these. Each decision is in docs/ARCHITECTURE.md.", { size: 17, col: C.muted, a: at(t, 6.4) });
+    T(56, 636, "None of this has run on public testnet or mainnet.", { size: 19, w: 700, col: C.orange, a: at(t, 7) });
+  },
+  // What the fixes cost, and what our own review found and left open
+  caveats: (t, D, n) => {
+    chrome(t, 0, n, "The caveats, and how each is handled", "our own review");
+    const a = at(t, 0.4), b = at(t, 3.2);
+    rect(56, 140, 568, 450, C.panel, a, 14); frame(56, 140, 568, 450, C.line, a, 14, 1.5); rect(56, 140, 568, 6, C.blue, a, 3);
+    T(82, 162, "Costs we accepted", { size: 22, w: 700, a });
+    // The three costs with a number, on one axis of percent increase.
+    [["Gas per swap", "+3,278, +13%", 13], ["Deployment gas", "+25%", 25], ["Rate limit recovery", "10.1 to 16.9 s, +67%", 67]].forEach(([h, v, pct], i) => {
+      const y = 214 + i * 62, g = at(t, 0.8 + i * 0.5, 1);
+      T(82, y, h, { size: 16, a });
+      rect(82, y + 26, 300 * pct / 67 * g, 14, C.blue, 1, 4);
+      T(82 + 300 * pct / 67 * g + 10, y + 21, v, { size: 15, w: 700, a: at(t, 1.2 + i * 0.5) });
+    });
+    ["Stops up to one block slower", "Price guards unproven against a real manipulation", "A stop under the floor only alerts"].forEach((s, i) => {
+      const y = 418 + i * 50, la = at(t, 2.4 + i * 0.3);
+      circ(90, y + 11, 4, C.blue, la); T(104, y, s, { size: 16, a: la });
+    });
+    rect(656, 140, 568, 450, C.panel, b, 14); frame(656, 140, 568, 450, C.line, b, 14, 1.5); rect(656, 140, 568, 6, C.orange, b, 3);
+    T(682, 162, "Found by our own review", { size: 22, w: 700, a: b });
+    const open = ["A stop can confirm inside one block, with the stream on", "Other orders can run before a stop", "Nonce too low can block 120 s", "No protection while the agent is offline"];
+    open.forEach((s, i) => { const y = 218 + i * 52, la = at(t, 3.6 + i * 0.35); circ(690, y + 11, 4, C.orange, la); T(704, y, s, { size: 16, a: la }); });
+    const f = at(t, 5.2);
+    rect(682, 434, 516, 42, C.tealSoft, f, 21); T(940, 444, "✓  Chat edits that could re-arm a finished order: now fixed", { size: 15, w: 700, col: C.teal, al: "c", a: f });
+    T(682, 506, "11 found in all; 10 are proved by tests.", { size: 17, w: 700, col: C.orange, a: at(t, 5.6) });
+    T(640, 620, "The vault still caps what the key can spend. We state these rather than hide them.", { size: 20, w: 700, col: C.teal, al: "c", a: at(t, 6.4) });
+  },
+};
+
+const BASE = [
   // 0. Title
   (t, D) => {
     for (let i = 0; i < 26; i++) {
@@ -254,7 +394,7 @@ const SCENES = [
       T(x0 + (r.latencyMs / max) * 470 * g + 10, y + 1, `${fmt(r.latencyMs / 1000, 1)} s`, { size: 16, w: 600, a: at(t, s + 0.5) });
     });
     T(56, 600, `${D.llm.passed} of ${D.llm.total} passed, model ${D.llm.model}, about $${fmt(D.llm.cost, 4)} in all.`, { size: 20, w: 700, a: at(t, 4) });
-    T(56, 636, "New today: chat can set how often the agent trades and which token it spends. A stop-loss is never held back.", { size: 17, col: C.muted, a: at(t, 4.6) });
+    T(56, 636, "Since the last version, chat can set how often the agent trades and which token it spends. A stop-loss is never held back.", { size: 17, col: C.muted, a: at(t, 4.6) });
   },
   // 8. Mainnet readiness: the runbook on a fork, and the stream on mainnet
   (t, D, n) => {
@@ -293,12 +433,15 @@ const SCENES = [
   },
 ];
 
+// The running order. make_video.py's narration() holds one line per entry, in this order.
+const SCENES = [BASE[0], EXTRA.problem, BASE[1], EXTRA.pipeline, BASE[2], BASE[3], BASE[4], BASE[5], BASE[6], EXTRA.techniques, EXTRA.fixes, EXTRA.caveats, BASE[7], BASE[8], BASE[9]];
+
 function wrap(s, n) { const out = []; let cur = ""; for (const w of s.split(" ")) { if ((cur + " " + w).trim().length > n) { out.push(cur.trim()); cur = w; } else cur += " " + w; } out.push(cur.trim()); return out.join("\n"); }
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 /** Draws scene i at t seconds. The fade in and out is drawn here too, so every frame is complete on its own. */
 window.seek = function (i, t, duration) {
-  shapes = []; texts = [];
+  shapes = []; texts = []; CUR = i;
   for (let x = 40; x < W; x += 40) for (let y = 140; y < H; y += 40) circ(x, y, 1.1, C.line, 0.9);
   SCENES[i](t, window.DATA, SCENES.length - 1);
   const fade = Math.min(1, t / 0.35, (duration - t) / 0.35);
