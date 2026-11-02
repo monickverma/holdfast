@@ -1,0 +1,136 @@
+{
+ "wallTime": "2026-11-02T18:23:36.809Z",
+ "source": "evidence/shadow/shadow-samples.jsonl",
+ "samplesSpan": {
+  "first": "2026-11-01T12:40:33.219Z",
+  "last": "2026-11-01T13:23:57.954Z",
+  "hours": 0.7235375
+ },
+ "caveats": [
+  "Fills are simulated at the quotes recorded from the real pool. Our own trades do not move later quotes, so a gap our fill would have closed stays open in the replay.",
+  "A size that was not recorded is scaled from the next larger recorded size on the same side, which has the worse average price.",
+  "Vault limits are open, as in the shadow run, and the vault's price band and the preflight are not simulated. decide(), the policy's pacing and the agent's breaker are the real ones.",
+  "Gas per trade is the recorded estimate: 200,000 gas at the base fee then, plus the L1 fee.",
+  "Open inventory at the end is valued at the outside bid if long and the outside ask if short, the side least favourable to it."
+ ],
+ "lane": "replay: recorded mainnet reads, simulated fills, no model",
+ "engine": "rules",
+ "results": [
+  {
+   "name": "edge, $15, nothing closes it (the rule as it was)",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "15000000",
+     "minNetUsdt": "0"
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 992,
+   "decided": 992,
+   "holds": {
+    "uneconomic": 909,
+    "stale-mark": 31,
+    "opportunity-taken": 4,
+    "inventory-limit": 47
+   },
+   "fills": [
+    {
+     "block": "29595615",
+     "atMs": 1793538365266,
+     "trigger": "edge",
+     "side": "buy",
+     "amountIn": "15",
+     "amountOut": "170.737248011143492477",
+     "networkUsdt": "0.00876",
+     "reason": "Edge: conservative net 7580 micro-USDT after fees and gas."
+    }
+   ],
+   "fillsByTrigger": {
+    "edge": 1
+   },
+   "hskDelta": "170.737248011143492477",
+   "usdtDelta": "-15",
+   "gasUsdt": "0.00876",
+   "netUsdt": "-0.043641",
+   "openInventoryHsk": "170.737248011143492477"
+  },
+  {
+   "name": "edge, $15, closes in this pool",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "15000000",
+     "minNetUsdt": "0",
+     "unwind": true
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 992,
+   "decided": 992,
+   "holds": {
+    "uneconomic": 909,
+    "stale-mark": 31,
+    "opportunity-taken": 4,
+    "inventory-limit": 47
+   },
+   "fills": [
+    {
+     "block": "29595615",
+     "atMs": 1793538365266,
+     "trigger": "edge",
+     "side": "buy",
+     "amountIn": "15",
+     "amountOut": "170.737248011143492477",
+     "networkUsdt": "0.00876",
+     "reason": "Edge: conservative net 7580 micro-USDT after fees and gas."
+    }
+   ],
+   "fillsByTrigger": {
+    "edge": 1
+   },
+   "hskDelta": "170.737248011143492477",
+   "usdtDelta": "-15",
+   "gasUsdt": "0.00876",
+   "netUsdt": "-0.043641",
+   "openInventoryHsk": "170.737248011143492477"
+  },
+  {
+   "name": "edge, $5, closes in this pool",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "5000000",
+     "minNetUsdt": "0",
+     "unwind": true
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 992,
+   "decided": 992,
+   "holds": {
+    "uneconomic": 961,
+    "stale-mark": 31
+   },
+   "fills": [],
+   "fillsByTrigger": {},
+   "hskDelta": "0",
+   "usdtDelta": "0",
+   "gasUsdt": "0",
+   "netUsdt": "0",
+   "openInventoryHsk": "0"
+  }
+ ]
+}

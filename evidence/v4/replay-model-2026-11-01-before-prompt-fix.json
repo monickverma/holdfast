@@ -1,0 +1,68 @@
+{
+ "wallTime": "2026-11-02T18:07:48.532Z",
+ "source": "evidence/shadow/shadow-samples.jsonl",
+ "samplesSpan": {
+  "first": "2026-11-01T12:40:33.219Z",
+  "last": "2026-11-01T13:23:57.954Z",
+  "hours": 0.7235375
+ },
+ "caveats": [
+  "Fills are simulated at the quotes recorded from the real pool. Our own trades do not move later quotes, so a gap our fill would have closed stays open in the replay.",
+  "A size that was not recorded is scaled from the next larger recorded size on the same side, which has the worse average price.",
+  "Vault limits are open, as in the shadow run, and the vault's price band and the preflight are not simulated. decide(), the policy's pacing and the agent's breaker are the real ones.",
+  "Gas per trade is the recorded estimate: 200,000 gas at the base fee then, plus the L1 fee.",
+  "Open inventory at the end is valued at the outside bid if long and the outside ask if short, the side least favourable to it."
+ ],
+ "lane": "replay: recorded mainnet reads, simulated fills, live model",
+ "engine": "model",
+ "model": {
+  "asked": 20,
+  "failures": 1,
+  "costUsd": 0.05211601455499999,
+  "proposals": {
+   "hold": 19,
+   "failed": 1
+  }
+ },
+ "limits": {
+  "maxCalls": 25,
+  "maxUsd": 0.05,
+  "note": "The model was asked only when the signal changed and at most once every 30 blocks, as live."
+ },
+ "policy": {
+  "version": 1,
+  "orders": [],
+  "edge": {
+   "enabled": false,
+   "sizeUsdt": "1000000",
+   "minNetUsdt": "0"
+  },
+  "slippageBps": 50,
+  "maxTwapDeviationBps": 200,
+  "stopConfirmBlocks": 2,
+  "ai": {
+   "enabled": true,
+   "maxSizeUsdt": "15000000",
+   "maxInventoryUsdt": "15000000",
+   "minEdgeUsdt": "0",
+   "maxUnwindLossUsdt": "0",
+   "proposalTtlBlocks": 30,
+   "minBlocksBetweenCalls": 30,
+   "maxCallsPerDay": 25
+  }
+ },
+ "samples": 992,
+ "decided": 992,
+ "holds": {
+  "no-signal": 30,
+  "model-hold": 489,
+  "proposal-stale": 473
+ },
+ "fills": [],
+ "fillsByTrigger": {},
+ "hskDelta": "0",
+ "usdtDelta": "0",
+ "gasUsdt": "0",
+ "netUsdt": "0",
+ "openInventoryHsk": "0"
+}

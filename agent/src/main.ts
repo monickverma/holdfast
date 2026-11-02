@@ -8,6 +8,7 @@ import { loadConfig } from "./config.js";
 import { buildFacts } from "./facts.js";
 import { MarkFeed } from "./mark.js";
 import { assistantFromEnv, NO_MODEL_KEY } from "./nl.js";
+import { strategistFromEnv } from "./strategist.js";
 import { DEFAULT_POLICY, parsePolicy, serializePolicy, type Policy } from "./policy.js";
 import { reviewPolicy } from "./policy-review.js";
 import { JsonlLog } from "./trace.js";
@@ -24,12 +25,20 @@ let policy: Policy = existsSync(policyPath) ? parsePolicy(JSON.parse(readFileSyn
 
 const marks = new MarkFeed();
 marks.start();
-const agent = new Agent({ config, lane: networkProfile().lane, policy: () => policy, mark: () => marks.latest });
 const llmLog = new JsonlLog(join(config.dataDir, "llm.jsonl"));
+const proposals = new JsonlLog(join(config.dataDir, "proposals.jsonl"));
+// The model as the engine: asked in the background when the policy's ai rule is on, never on the path to a trade.
+const strategist = strategistFromEnv(process.env, {
+  maxUsdPerDay: Number(process.env.AI_MAX_USD_PER_DAY ?? 0.5),
+  onUsage: (record) => llmLog.append(record),
+  onProposal: (event) => proposals.append({ wallTime: new Date().toISOString(), ...event }),
+});
+const agent = new Agent({ config, lane: networkProfile().lane, policy: () => policy, mark: () => marks.latest, ...(strategist ? { strategist } : {}) });
 const assistant = assistantFromEnv(process.env, (record) => llmLog.append(record));
 
 console.log(agent.canTrade ? `LIVE: trading through vault ${config.vault}` : "OBSERVE ONLY: no transaction will be signed.");
-if (!assistant) console.log(`${NO_MODEL_KEY}, so the prompt is off. The trading loop does not need it.`);
+if (!assistant) console.log(`${NO_MODEL_KEY}, so the prompt is off, and so is the model engine. The rules and every stop run without it.`);
+else console.log(`Model engine ${strategist!.model}: ${policy.ai?.enabled ? "on" : "off until the policy turns it on"}, at most $${process.env.AI_MAX_USD_PER_DAY ?? 0.5} a day.`);
 
 // STREAM=true also reacts to flashblocks. Polling stays on either way, so a dropped stream only costs speed.
 const running = process.env.STREAM === "true" ? agent.runStreaming() : agent.run();
@@ -50,11 +59,11 @@ try {
       continue;
     }
     if (!assistant) {
-      console.log(JSON.stringify(buildFacts(agent, policy), null, 2));
+      console.log(JSON.stringify(buildFacts(agent, policy, strategist), null, 2));
       continue;
     }
     const spot = agent.lastMarket?.spotPriceX18 ?? 0n;
-    const reply = await assistant.handle(message, buildFacts(agent, policy), policy, spot);
+    const reply = await assistant.handle(message, buildFacts(agent, policy, strategist), policy, spot);
     console.log(reply.text);
     if (reply.policy) {
       const review = reviewPolicy(reply.policy, policy, spot, agent.lastMarket?.vault);

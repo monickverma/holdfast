@@ -1,0 +1,373 @@
+{
+ "wallTime": "2026-11-02T18:50:16.154Z",
+ "source": "evidence/shadow/shadow-2026-11-02/shadow-samples.jsonl",
+ "samplesSpan": {
+  "first": "2026-11-02T17:49:34.158Z",
+  "last": "2026-11-02T18:49:32.065Z",
+  "hours": 0.9994186111111111
+ },
+ "caveats": [
+  "Fills are simulated at the quotes recorded from the real pool. Our own trades do not move later quotes, so a gap our fill would have closed stays open in the replay.",
+  "A size that was not recorded is scaled from the next larger recorded size on the same side, which has the worse average price.",
+  "Vault limits are open, as in the shadow run, and the vault's price band and the preflight are not simulated. decide(), the policy's pacing and the agent's breaker are the real ones.",
+  "Gas per trade is the recorded estimate: 200,000 gas at the base fee then, plus the L1 fee.",
+  "Open inventory at the end is valued at the outside bid if long and the outside ask if short, the side least favourable to it."
+ ],
+ "lane": "replay: recorded mainnet reads, simulated fills, live model",
+ "engine": "model",
+ "model": {
+  "asked": 19,
+  "failures": 0,
+  "costUsd": 0.0510267086625,
+  "proposals": {
+   "hold": 19
+  }
+ },
+ "limits": {
+  "maxCalls": 25,
+  "maxUsd": 0.05,
+  "note": "The model was asked only when the signal changed and at most once every 30 blocks, as live."
+ },
+ "policy": {
+  "version": 1,
+  "orders": [],
+  "edge": {
+   "enabled": false,
+   "sizeUsdt": "1000000",
+   "minNetUsdt": "0"
+  },
+  "slippageBps": 50,
+  "maxTwapDeviationBps": 200,
+  "stopConfirmBlocks": 2,
+  "ai": {
+   "enabled": true,
+   "maxSizeUsdt": "15000000",
+   "maxInventoryUsdt": "15000000",
+   "minEdgeUsdt": "0",
+   "maxUnwindLossUsdt": "0",
+   "proposalTtlBlocks": 30,
+   "minBlocksBetweenCalls": 30,
+   "maxCallsPerDay": 25
+  }
+ },
+ "samples": 1598,
+ "decided": 1598,
+ "holds": {
+  "no-signal": 1,
+  "model-hold": 506,
+  "proposal-stale": 1091
+ },
+ "fills": [],
+ "fillsByTrigger": {},
+ "hskDelta": "0",
+ "usdtDelta": "0",
+ "gasUsdt": "0",
+ "netUsdt": "0",
+ "openInventoryHsk": "0",
+ "answers": [
+  {
+   "block": "29647319",
+   "poolVsOutsideMidBps": 48.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.141777",
+    "sellNetUsdtAtMaxSize": "0.001465"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Pool is 48.5 bps rich to the outside mid (0.087522 vs 0.087065 mid), so a buy nets -0.141777 USDT at max size after fee and gas, and with 0 HSK inventory there is nothing to sell, so hold."
+  },
+  {
+   "block": "29647352",
+   "poolVsOutsideMidBps": 59.4,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.158864",
+    "sellNetUsdtAtMaxSize": "0.01689"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Buying at pool 0.087522 vs outside mid ~0.087005 leaves buy edge -0.158864 USDT at max size (below minEdge 0), and with HSK inventory at 0 there is nothing to sell."
+  },
+  {
+   "block": "29647382",
+   "poolVsOutsideMidBps": 51.9,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.136651",
+    "sellNetUsdtAtMaxSize": "0.01689"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: the pool is 51.9 bps above the outside mid and a $15 buy nets -0.136651 USDT after fee/gas, while inventory has 0 HSK to sell."
+  },
+  {
+   "block": "29647412",
+   "poolVsOutsideMidBps": 34.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.119565",
+    "sellNetUsdtAtMaxSize": "-0.017387"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Pool is 34.6 bps rich to the outside mid (0.087522 vs ~0.08722, narrowing from ~52-59 bps earlier), so buying nets -0.1196 USDT at max size and selling is impossible with 0 HSK inventory, leaving hold as the only sensible action."
+  },
+  {
+   "block": "29647442",
+   "poolVsOutsideMidBps": 36.9,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.121274",
+    "sellNetUsdtAtMaxSize": "-0.012245"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Both edge buy and sell at max size are negative (-0.121274 and -0.012245 USDT), so no trade beats the outside price after fee and gas."
+  },
+  {
+   "block": "29647472",
+   "poolVsOutsideMidBps": 28.3,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.109313",
+    "sellNetUsdtAtMaxSize": "-0.025956"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "The pool is 28.3 bps above the outside mid at 0.087522 versus 0.087275, while buy edge at max size is -0.109313 USDT and sell is impossible with 0 HSK inventory, so the gap does not cover the 0.6% round-trip cost."
+  },
+  {
+   "block": "29647502",
+   "poolVsOutsideMidBps": 37.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.129817",
+    "sellNetUsdtAtMaxSize": "-0.019101"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "With inventory at 0 HSK and both sides negative at max size (buy edge -0.129817 USDT, sell edge -0.019101 USDT) despite the pool trading 37.5 bps above the outside mid, no trade clears costs."
+  },
+  {
+   "block": "29647597",
+   "poolVsOutsideMidBps": 34.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.11273",
+    "sellNetUsdtAtMaxSize": "-0.010532"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "The pool is 34.6 bps above outside mid with a negative buy edge of -0.11273 USDT at max size and zero HSK inventory, so no trade clears the 0.3% fee plus 0.008754 USDT gas."
+  },
+  {
+   "block": "29647628",
+   "poolVsOutsideMidBps": 12.8,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.097352",
+    "sellNetUsdtAtMaxSize": "-0.060233"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Both sides net negative at max size (buy -0.097352 USDT, sell -0.060233 USDT) with the 12.8 bps pool premium over outside mid already collapsing from ~50 bps over the last 20 blocks, so no trade clears the 0.3% fee plus 0.008754 USDT gas."
+  },
+  {
+   "block": "29647658",
+   "poolVsOutsideMidBps": 41,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.1264",
+    "sellNetUsdtAtMaxSize": "-0.00539"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Both buy and sell edges are negative (-0.1264 and -0.00539 USDT) with zero HSK inventory, making hold the only valid choice."
+  },
+  {
+   "block": "29647690",
+   "poolVsOutsideMidBps": 46.7,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.129817",
+    "sellNetUsdtAtMaxSize": "0.008321"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: buying HSK at the pool spot of 0.087522 is 46.7 bps above the outside mid and yields a negative max-size edge of -0.129817 USDT, while the positive sell edge of 0.008321 USDT is unavailable with hsk=0."
+  },
+  {
+   "block": "29647720",
+   "poolVsOutsideMidBps": 30.6,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.10077",
+    "sellNetUsdtAtMaxSize": "-0.010532"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "The pool is 30.6 bps above the outside mid while buy/sell net -0.10077/-0.010532 USDT at max size and inventory is 0 HSK, so neither side clears the 0.3% fee plus gas."
+  },
+  {
+   "block": "29647750",
+   "poolVsOutsideMidBps": 39.2,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.124691",
+    "sellNetUsdtAtMaxSize": "-0.008818"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: with zero HSK inventory, a buy adds inventory but buy net edge at max size is -0.124691 USDT after the 0.3% fee and 0.008754 gas despite the pool trading 39.2 bps above outside mid, while a sell is impossible from zero inventory."
+  },
+  {
+   "block": "29647780",
+   "poolVsOutsideMidBps": 21.4,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.095644",
+    "sellNetUsdtAtMaxSize": "-0.032812"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Pool is 21.4 bps above the outside mid (0.087522 vs 0.087335), buy edge at max size is -0.095644 USDT, and HSK inventory is 0, so hold."
+  },
+  {
+   "block": "29647811",
+   "poolVsOutsideMidBps": 33.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.107604",
+    "sellNetUsdtAtMaxSize": "-0.008818"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Both buy and sell net edges are negative (buy -0.107604 USDT, sell -0.008818 USDT), so no profitable trade is possible; no inventory to sell, and any buy would be refused."
+  },
+  {
+   "block": "29647842",
+   "poolVsOutsideMidBps": 48.5,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.160573",
+    "sellNetUsdtAtMaxSize": "-0.017387"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: the pool is 48.5 bps above the outside mid (0.087522 vs 0.08710 USDT/HSK) while buy edge at max size is -0.160573 USDT and sell edge is -0.017387 USDT, so neither side clears the zero-edge threshold with zero HSK inventory."
+  },
+  {
+   "block": "29647872",
+   "poolVsOutsideMidBps": 36.4,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.116148",
+    "sellNetUsdtAtMaxSize": "-0.008818"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Buy edge is -0.116 USDT at max size because pool price 0.087522 is above outside ask 0.08725 by 36.4 bps, and inventory is zero so no sell possible."
+  },
+  {
+   "block": "29647902",
+   "poolVsOutsideMidBps": 23.1,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.099061",
+    "sellNetUsdtAtMaxSize": "-0.031098"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Hold: the pool is 23.1 bps above the outside mid, but at max size buy nets -0.099061 USDT and sell nets -0.031098 USDT while inventory is 0 HSK, so neither side clears costs."
+  },
+  {
+   "block": "29647932",
+   "poolVsOutsideMidBps": 32.9,
+   "edge": {
+    "buyNetUsdtAtMaxSize": "-0.11273",
+    "sellNetUsdtAtMaxSize": "-0.015673"
+   },
+   "inventory": {
+    "hsk": "0",
+    "usdtFlow": "0",
+    "closeNowUsdt": null
+   },
+   "action": "hold",
+   "amountIn": "0",
+   "reason": "Pool ask at 0.087522 is above the outside ask 0.08729 and buyNetUsdtAtMaxSize is -0.11273, so with zero HSK inventory and no profitable edge, holding is correct."
+  }
+ ]
+}

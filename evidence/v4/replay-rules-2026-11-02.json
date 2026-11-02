@@ -1,0 +1,148 @@
+{
+ "wallTime": "2026-11-02T18:49:58.332Z",
+ "source": "evidence/shadow/shadow-2026-11-02/shadow-samples.jsonl",
+ "samplesSpan": {
+  "first": "2026-11-02T17:49:34.158Z",
+  "last": "2026-11-02T18:49:32.065Z",
+  "hours": 0.9994186111111111
+ },
+ "caveats": [
+  "Fills are simulated at the quotes recorded from the real pool. Our own trades do not move later quotes, so a gap our fill would have closed stays open in the replay.",
+  "A size that was not recorded is scaled from the next larger recorded size on the same side, which has the worse average price.",
+  "Vault limits are open, as in the shadow run, and the vault's price band and the preflight are not simulated. decide(), the policy's pacing and the agent's breaker are the real ones.",
+  "Gas per trade is the recorded estimate: 200,000 gas at the base fee then, plus the L1 fee.",
+  "Open inventory at the end is valued at the outside bid if long and the outside ask if short, the side least favourable to it."
+ ],
+ "lane": "replay: recorded mainnet reads, simulated fills, no model",
+ "engine": "rules",
+ "results": [
+  {
+   "name": "edge, $15, nothing closes it (the rule as it was)",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "15000000",
+     "minNetUsdt": "0"
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 1598,
+   "decided": 1598,
+   "holds": {
+    "opportunity-taken": 67,
+    "uneconomic": 1457,
+    "inventory-limit": 73
+   },
+   "fills": [
+    {
+     "block": "29647319",
+     "atMs": 1793641774158,
+     "trigger": "edge",
+     "side": "sell",
+     "amountIn": "171.385480222115582367",
+     "amountOut": "14.95332",
+     "networkUsdt": "0.008754",
+     "reason": "Edge: conservative net 1465 micro-USDT after fees and gas."
+    }
+   ],
+   "fillsByTrigger": {
+    "edge": 1
+   },
+   "hskDelta": "-171.385480222115582367",
+   "usdtDelta": "14.95332",
+   "gasUsdt": "0.008754",
+   "netUsdt": "-0.024241",
+   "openInventoryHsk": "-171.385480222115582367"
+  },
+  {
+   "name": "edge, $15, closes in this pool",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "15000000",
+     "minNetUsdt": "0",
+     "unwind": true
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 1598,
+   "decided": 1598,
+   "holds": {
+    "opportunity-taken": 67,
+    "uneconomic": 1457,
+    "inventory-limit": 73
+   },
+   "fills": [
+    {
+     "block": "29647319",
+     "atMs": 1793641774158,
+     "trigger": "edge",
+     "side": "sell",
+     "amountIn": "171.385480222115582367",
+     "amountOut": "14.95332",
+     "networkUsdt": "0.008754",
+     "reason": "Edge: conservative net 1465 micro-USDT after fees and gas."
+    }
+   ],
+   "fillsByTrigger": {
+    "edge": 1
+   },
+   "hskDelta": "-171.385480222115582367",
+   "usdtDelta": "14.95332",
+   "gasUsdt": "0.008754",
+   "netUsdt": "-0.024241",
+   "openInventoryHsk": "-171.385480222115582367"
+  },
+  {
+   "name": "edge, $5, closes in this pool",
+   "policy": {
+    "version": 1,
+    "orders": [],
+    "edge": {
+     "enabled": true,
+     "sizeUsdt": "5000000",
+     "minNetUsdt": "0",
+     "unwind": true
+    },
+    "slippageBps": 50,
+    "maxTwapDeviationBps": 200,
+    "stopConfirmBlocks": 2
+   },
+   "samples": 1598,
+   "decided": 1598,
+   "holds": {
+    "uneconomic": 1540,
+    "opportunity-taken": 55,
+    "inventory-limit": 2
+   },
+   "fills": [
+    {
+     "block": "29647332",
+     "atMs": 1793641800833,
+     "trigger": "edge",
+     "side": "sell",
+     "amountIn": "57.128493407371860789",
+     "amountOut": "4.984838",
+     "networkUsdt": "0.008754",
+     "reason": "Edge: conservative net 1906 micro-USDT after fees and gas."
+    }
+   ],
+   "fillsByTrigger": {
+    "edge": 1
+   },
+   "hskDelta": "-57.128493407371860789",
+   "usdtDelta": "4.984838",
+   "gasUsdt": "0.008754",
+   "netUsdt": "-0.013518",
+   "openInventoryHsk": "-57.128493407371860789"
+  }
+ ]
+}

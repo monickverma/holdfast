@@ -1,4 +1,5 @@
 import { formatUnits } from "viem";
+import { DEFAULT_MAX_IMPACT_BPS } from "./economics.js";
 import { isSell, type Order, type Policy } from "./policy.js";
 import type { VaultState } from "./reader.js";
 
@@ -52,11 +53,29 @@ export function reviewPolicy(next: Policy, current: Policy, spotPriceX18: bigint
   }
 
   if (next.edge.enabled) {
-    summary.push(`edge rule on: ${usdt(next.edge.sizeUsdt)} USDT per trade, net above ${usdt(next.edge.minNetUsdt)}`);
-    if (!current.edge.enabled) risks.push("This turns on the edge rule. Nothing closes its trades on another venue, so they leave you holding inventory.");
-    else if (next.edge.sizeUsdt > current.edge.sizeUsdt) risks.push(`This raises the edge size from ${usdt(current.edge.sizeUsdt)} to ${usdt(next.edge.sizeUsdt)} USDT.`);
+    const closes = next.edge.unwind ? ", and it closes its own trades in this pool once the round trip pays after fees and gas" : ", and nothing closes its trades";
+    summary.push(`edge rule on: ${usdt(next.edge.sizeUsdt)} USDT per trade, net above ${usdt(next.edge.minNetUsdt)}${closes}`);
+    if (!current.edge.enabled) {
+      risks.push(next.edge.unwind
+        ? "This turns on the edge rule. It closes in this pool only when that pays, so while the price stays against it, it holds inventory. Nothing hedges it on another venue."
+        : "This turns on the edge rule. Nothing closes its trades on another venue, so they leave you holding inventory.");
+    } else if (next.edge.sizeUsdt > current.edge.sizeUsdt) risks.push(`This raises the edge size from ${usdt(current.edge.sizeUsdt)} to ${usdt(next.edge.sizeUsdt)} USDT.`);
   } else {
     summary.push("edge rule off");
+  }
+
+  const ai = next.ai;
+  if (ai?.enabled) {
+    summary.push(`model engine on: it proposes trades by itself, up to ${usdt(ai.maxSizeUsdt)} USDT each and ${usdt(ai.maxInventoryUsdt)} USDT of HSK held or owed. Each one must beat the outside price after fees and gas, or close what it holds at a loss of at most ${usdt(ai.maxUnwindLossUsdt)} USDT, and then pass the vault`);
+    summary.push(`model calls: at most one every ${ai.minBlocksBetweenCalls} blocks and ${ai.maxCallsPerDay} a day, only when the market signal changes`);
+    const was = current.ai?.enabled ? current.ai : undefined;
+    if (!was) risks.push(`This lets the model trade with no person approving each trade, up to ${usdt(ai.maxSizeUsdt)} USDT a trade. It cannot pass the vault's limits, and a stop-loss never waits for it.`);
+    else {
+      if (ai.maxSizeUsdt > was.maxSizeUsdt) risks.push(`This raises the model's largest trade from ${usdt(was.maxSizeUsdt)} to ${usdt(ai.maxSizeUsdt)} USDT.`);
+      if (ai.maxInventoryUsdt > was.maxInventoryUsdt) risks.push(`This raises what the model may hold or owe from ${usdt(was.maxInventoryUsdt)} to ${usdt(ai.maxInventoryUsdt)} USDT.`);
+    }
+  } else {
+    summary.push("model engine off: the model only answers and drafts");
   }
 
   summary.push(`spends ${next.spendTokens ? next.spendTokens.join(" and ") : "HSK and USDT"} only; the vault trades no other token`);
@@ -68,7 +87,9 @@ export function reviewPolicy(next: Policy, current: Policy, spotPriceX18: bigint
   if (current.minTradeIntervalSec !== undefined && (next.minTradeIntervalSec ?? 0) < current.minTradeIntervalSec) risks.push(`This shortens the gap between trades from ${duration(current.minTradeIntervalSec)} to ${next.minTradeIntervalSec === undefined ? "none" : duration(next.minTradeIntervalSec)}.`);
   if (current.maxTradesPerDay !== undefined && (next.maxTradesPerDay ?? Infinity) > current.maxTradesPerDay) risks.push(`This raises the daily trade count from ${current.maxTradesPerDay} to ${next.maxTradesPerDay ?? "no limit"}.`);
 
-  summary.push(`slippage ${next.slippageBps} bps`);
+  summary.push(`slippage ${next.slippageBps} bps, price impact at most ${next.maxImpactBps ?? DEFAULT_MAX_IMPACT_BPS} bps, at most ${next.maxTwapDeviationBps} ticks from the average price`);
+  if ((next.maxImpactBps ?? DEFAULT_MAX_IMPACT_BPS) > (current.maxImpactBps ?? DEFAULT_MAX_IMPACT_BPS)) risks.push(`This lets a trade pay up to ${next.maxImpactBps} bps against spot. It was ${current.maxImpactBps ?? DEFAULT_MAX_IMPACT_BPS}.`);
+  if (next.maxTwapDeviationBps > current.maxTwapDeviationBps) risks.push(`This lets the agent trade when the pool is up to ${next.maxTwapDeviationBps} ticks from its average price, where a pushed pool is likelier. It was ${current.maxTwapDeviationBps}.`);
   if (next.slippageBps > WIDE_SLIPPAGE_BPS && next.slippageBps > current.slippageBps) risks.push(`Slippage of ${next.slippageBps} bps invites sandwiching. It was ${current.slippageBps}.`);
 
   return { summary, risks };
