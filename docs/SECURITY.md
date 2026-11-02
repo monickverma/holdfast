@@ -1,10 +1,14 @@
 # Holdfast threat model
 
-This covers the current source, vault version 3. It is our own review, not an audit, and the contract has not been audited.
+This covers the current source: vault version 4, and an agent in which a language model can be the trading engine. It is our own review, not an audit, and the contract has not been audited.
 
-**Version 3 is deployed on testnet at `0x9b31…1b28` with its price guard off, no guardian and no stop armed, so those defences are not active there yet.** The older testnet vault `0x4bfc…ee89` has none of them.
+**Version 4 is on no public network.** Version 3 is deployed on testnet at `0x9b31…1b28` with its price guard off, no guardian and no stop armed, so those defences are not active there yet. The older testnet vault `0x4bfc…ee89` has none of them. Nothing is on mainnet.
 
-Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test/HoldfastVault.invariant.t.sol` and `agent/test/`. Results are in `evidence/v3/`.
+**The model engine has never traded on any chain.** It has run against a live model on recorded mainnet data only (`evidence/v4/replay-model*.json`), and the agent tests drive it with scripted replies.
+
+Version 4 adds to version 3: a daily loss budget valued at a price the owner sets, with a breaker that pauses the agent at half; a limit on the share of the balance one trade may spend; a minimum time between trades per token; a strategy pin; and a gapless hash-chained log of trades on chain, which the agent can anchor its own log to.
+
+Tests named below are in `contracts/test/HoldfastVaultV4.t.sol`, `HoldfastVaultV4.invariant.t.sol`, `HoldfastVaultV3.t.sol`, `HoldfastVault.invariant.t.sol` and `agent/test/`. Results are in `evidence/v4/`, and `evidence/v3/` where a row says version 3.
 
 ## What is protected, and what is assumed
 
@@ -16,9 +20,9 @@ Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test
 
 ## Summary
 
-| Threat | Worst case with version 3 | Largest remaining weakness |
+| Threat | Worst case with version 4 | Largest remaining weakness |
 |---|---|---|
-| [Misled or malicious model](#misled-or-malicious-model) | A bad policy the owner approved, bounded by the vault | An owner who approves without reading |
+| [Misled or malicious model](#misled-or-malicious-model) | In chat, a bad policy the owner approved. As the engine, bad timing inside the owner's model limits, then the vault's | An owner who approves without reading; an outside price that is wrong but passes its checks |
 | [Prompt injection](#prompt-injection) | The same | The same |
 | [Stolen agent key](#stolen-agent-key) | Sales at the floor up to the budgets, until the key is ended | The loss rate is the owner's chosen floor and budget |
 | [Stolen owner key](#stolen-owner-key) | **Everything in the vault** | Not defended. Use a multisig as the owner |
@@ -38,25 +42,42 @@ Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test
 
 ## Misled or malicious model
 
-- **Impact.** The model proposes a harmful policy, such as larger sizes or a worse floor.
-- **Attack path.** A manipulated conversation, a provider compromise, or plain error.
-- **Defences.** The model only yields a typed policy, which `agent/src/policy.ts` parses and bounds. `agent/src/policy-review.ts` writes a code-generated review and asks for a longer confirmation for risky changes, and the owner must say yes. No model runs in the trading path: `decide` is a pure function, and each trace records model calls, which are 0 in the execution path. The vault then applies its own limits whatever the policy says.
-- **Weaknesses.** The owner can approve something bad. **No live model call has been tested**: `npm run llm:live` records `BLOCKED` because no API key is available, so this path is proven with scripted replies only.
-- **Further mitigation.** Run `npm run llm:live` with a key before relying on chat.
+The model has two roles, and they are defended differently.
+
+**In chat** (`agent/src/nl.ts`), it drafts a policy that a person approves.
+
+- **Impact.** A harmful policy, such as larger sizes, a looser price check, or the model engine turned on.
+- **Defences.** The model only yields a typed draft. Code does every unit conversion, turns a risk appetite in words into fixed numbers (`RISK_LEVELS`), and `agent/src/policy.ts` parses and bounds the result. `agent/src/policy-review.ts` writes the review the person reads, and asks for a longer confirmation for anything risky, including turning the model engine on or raising its sizes (`chat-sizing.test.ts`).
+- **Measured.** 14 of 14 live requests through OpenRouter to `deepseek/deepseek-v4-pro`, including P&L and position answers checked against the facts given, a risk appetite, model sizing and autonomy (`evidence/v4/llm-live.json`, 2 November 2026). The run before it found a real bug: the model copied the current slippage back, and that overrode the risk level the user asked for. It was fixed in code and tested (`evidence/v4/llm-live-before-risk-fix.json`). No Claude model has been tested live.
+
+**As the trading engine** (`agent/src/strategist.ts`), when the policy's `ai` rule is on, it proposes trades that no person approves one by one.
+
+- **Impact.** The model buys or sells at a bad time, or tries to trade more, or something else, than it may.
+- **Attack path.** Plain error, a provider compromise, or a market state that misleads it.
+- **Defences, in order.**
+  - The model sees a snapshot of numbers that code computed, with no address, key or transaction (`ai-engine.test.ts`, "no address or key"). It can only answer buy, sell or hold with a size. `parseProposal` rejects any other field, any size above the policy's, and anything malformed.
+  - It is asked after a decision, in the background, on sealed blocks only. The path from a block to a trade never waits for it, and each trace still records 0 model calls on that path.
+  - A proposal lives `proposalTtlBlocks` blocks and is used once. A timeout, an outage, a cut-off or malformed answer, or a refusal clears it, and no proposal means hold (`ai-engine.test.ts`, "an outage, a timeout").
+  - `decide()` judges it with the same arithmetic as the rules. A trade that adds inventory must beat the outside price after the pool fee and gas, valued on the side worst for it, and stay inside `maxInventoryUsdt`. A trade that closes inventory is judged on the round trip in this pool, and may lose at most `maxUnwindLossUsdt`, zero by default. The policy's token choice, pacing, TWAP and impact checks, and the vault's caps and budgets apply as for any trade. The transaction's minimum output is set so the worst accepted fill still meets the gate.
+  - The agent's breaker counts model trades as their own family, with the edge rule's hourly count and loss limit.
+  - Preflight, the strategy pin and then the vault, whose limits hold whatever the agent believes.
+  - A stop-loss is decided before any proposal and never waits for one. A strategist that throws does not touch it (`ai-engine.test.ts`, "does not stop a stop-loss").
+  - Calls are capped by the policy (`minBlocksBetweenCalls`, `maxCallsPerDay`), only made when the signal changes, and capped in dollars by the operator (`AI_MAX_USD_PER_DAY`, default $0.50).
+- **Weaknesses.** Every gate that adds inventory trusts the outside price from Gate. Its age, spread and distance from the pool are checked, but a wrong price inside those checks could show an edge that is not there, for up to `maxSizeUsdt` a trade and `maxInventoryUsdt` in all. The model can also simply wait too long, or close at the worst moment the owner's loss allowance permits. **It has never traded on a chain.** Its only live runs are on recorded mainnet data: in two windows it made one trade, the one the rules made (`evidence/v4/replay-model-*.json`). The first run found that it misread its own inventory as the vault's balance and so never sold; the prompt was fixed and that run is kept. A model can misread its input in ways no gate catches, and then it only trades less than it could.
 
 ## Prompt injection
 
 - **Impact and path.** Text in a question or in a data feed tries to steer the model. The viewer feeds evidence into its chat context, so a poisoned evidence file reaches the model.
-- **Defences.** The same as above. Chat on the viewer can only answer: a policy reply is discarded and replaced with fixed text (`viewer.test.ts`, "viewer discards policy proposals"). Answers are labelled model output.
+- **Defences.** The same as above. The model engine's snapshot holds only numbers computed by code, and the reason it gives back is cut to 300 printable characters before anyone reads it. Chat on the viewer can only answer: a policy reply is discarded and replaced with fixed text (`viewer.test.ts`, "viewer discards policy proposals"). Answers are labelled model output.
 - **Weaknesses.** A model answer can still say something false to a reader. It cannot move funds.
 
 ## Stolen agent key
 
 - **Impact.** The thief can call `execute` directly and skip every off-chain check, selling at the worst price the vault allows.
 - **Attack path.** A leaked `.env`, a compromised host, or a malicious dependency in the agent process.
-- **Defences.** On chain, in `execute` (`HoldfastVault.sol:218`): the token pair, a per-trade cap, hourly and daily budgets with a continuous refill, a lifetime cap, a floor, the price band, a deadline, one-time intent IDs, and expiry at most 30 days away. The agent cannot withdraw (`testFuzz_agentNeverGainsWithdrawalPower`). A guardian can end the key in the same block without being able to take anything (`test_revokeEndsTheKeyInTheSameBlock`, `test_attack_guardianHasNoOtherPower`). A stolen key cannot use up the stop's allowance or block it by pausing (`test_attack_stolenKeySpendingItsBudgetLeavesTheStopAllowance`, `test_attack_stolenKeyPausingDoesNotBlockTheStop`).
-- **Measured.** Attack set on a fork: `evidence/v3/attack-results.json`. Rehearsal: a thief skipping the agent was refused on chain (`evidence/v3/rehearsal-fork.json`).
-- **Weaknesses.** The loss is real and is what the owner configured: `input × (market − floor)`, at the budget rate, until the key is ended. In the attack set, 60 HSK sold into a pushed pool lost $2.23 on one run. With no guardian and an absent owner, it continues until a limit runs out.
+- **Defences.** On chain, in `execute` (`HoldfastVault.sol:269`): the token pair, a per-trade cap, hourly and daily budgets with a continuous refill, a lifetime cap, a floor, the price band, a deadline, one-time intent IDs, and expiry at most 30 days away. Version 4 adds a share-of-balance limit (`test_shareOfBalanceLimitsATradeBelowTheAbsoluteCap`, `test_aDonationCannotLiftATradeAboveTheAbsoluteCap`), a minimum time between trades per token (`test_cooldownSpacesTradesPerTokenAndAddsNoWayRound`), and a daily loss budget valued at the owner's mark, which refuses a trade whose worst allowed fill would exceed it and pauses the agent once half is used (`test_aTradeWhoseWorstFillWouldExceedTheBudgetIsRefusedBeforeAnyCall`, `test_theBreakerPersistsBecauseTheTradeThatTripsItSucceeds`, `testFuzz_theLossChargedNeverExceedsTheBudget`). The agent cannot withdraw (`testFuzz_agentNeverGainsWithdrawalPower`). A guardian can end the key in the same block without being able to take anything (`test_revokeEndsTheKeyInTheSameBlock`, `test_attack_guardianHasNoOtherPower`). A stolen key cannot use up the stop's allowance or block it by pausing (`test_attack_stolenKeySpendingItsBudgetLeavesTheStopAllowance`, `test_attack_stolenKeyPausingDoesNotBlockTheStop`).
+- **Measured.** Attack set on a fork against the compiled version 4 vault: 120 of 120 contained, 0 cap violations, `evidence/v4/attack-results.json`. **The loss budget, share limit and cooldown were off in that run**, so it measures the version 3 limits inside version 4; those three are covered by the forge tests above. Rehearsal on version 4, same settings: `evidence/v4/rehearsal-fork.json`.
+- **Weaknesses.** The loss budget is only as good as the owner's mark: it is a price the owner posts, not one read from the pool, so a pushed pool cannot widen it, but a mark left behind the market can. A stale mark refuses the agent, never the owner (`test_aStaleMarkRefusesTheAgentAndNotTheOwner`). Without the loss guard, the loss is real and is what the owner configured: `input × (market − floor)`, at the budget rate, until the key is ended. In the attack set, 60 HSK sold into a pushed pool lost $2.23 on one run. With no guardian and an absent owner, it continues until a limit runs out.
 - **Further mitigation.** Set a guardian, run `npm run monitor` on a schedule, and keep the floor close to the market.
 
 ## Stolen owner key
@@ -69,11 +90,11 @@ Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test
 
 - **Impact.** With the agent's trades, a pushed pool lets a thief sell at a bad price up to the floor. With the stop, a pushed average could fire a sale the market did not call for.
 - **Attack path.** Trade the pool to a price and hold it there, for one block against spot or for a whole window against the average.
-- **Defences.** Optional guard, `setPriceGuard` (`HoldfastVault.sol:587`): every trade must leave the pool within a band of its own time-weighted average, using the price after the swap (`_requireInBand`, `:383`). It fails closed when the oracle cannot answer (`test_guardFailsClosedWhenTheOracleFails`). It is one-sided, because a sale into a pool pushed up is good for the vault (`test_guardIsOneSided`). A stop reads the average, not spot (`test_attack_spotAloneCannotFireAStop`), checks its own band after the swap (`test_attack_sandwichedStopIsRefusedByItsBand`), and never sells under its own floor (`test_attack_stopNeverSellsUnderItsOwnFloor`).
+- **Defences.** Optional guard, `setPriceGuard` (`HoldfastVault.sol:733`): every trade must leave the pool within a band of its own time-weighted average, using the price after the swap (`_requireInBand`, `:492`). It fails closed when the oracle cannot answer (`test_guardFailsClosedWhenTheOracleFails`). It is one-sided, because a sale into a pool pushed up is good for the vault (`test_guardIsOneSided`). A stop reads the average, not spot (`test_attack_spotAloneCannotFireAStop`), checks its own band after the swap (`test_attack_sandwichedStopIsRefusedByItsBand`), and never sells under its own floor (`test_attack_stopNeverSellsUnderItsOwnFloor`).
 - **Measured cost of pushing the real pool** (fork, `evidence/v3/rehearsal-fork.json`, selling then buying straight back with no other trader acting): 120 ticks costs about $16, 396 about $52, 1,165 about $153 and 3,645 about $481, on a pool holding about 4.99M WHSK and 436,795 USDT.
 - **Weaknesses.** **That is a low cost, and a floor on the true cost.** Holding a price for a whole window also pays arbitrageurs, which a fork with no other traders cannot measure, so we do not know the real figure. The pool's traders are thin (462 swaps in 7 days, 94% from one wallet, `evidence/market/`), so an attacker might not be arbitraged quickly. **The guard should be read as raising the cost of an attack and not as preventing it, and the floor stays the real backstop.** The band check uses the post-swap price from the pool, so a single large trade is stopped, but a slow push over many blocks moves the average with it. The guard is off until the owner turns it on, and `deploy-test-market` does not turn it on.
 - **Further mitigation.** A second on-chain price source would need a second deep market to read, and we did not survey for one. A larger pool would improve this more than any code.
-- **Considered and declined.** A net-asset-value daily loss limit in the vault. It needs a trustworthy price for the same pool, so it inherits this weakness, and the band with the daily budget already bounds it.
+- **Considered and declined.** A daily loss limit priced from this pool. It would inherit this weakness. Version 4's loss budget is priced at a mark the owner posts instead, so the pool cannot move it, at the cost of the owner keeping the mark current.
 
 ## Sandwich and MEV
 
@@ -97,13 +118,13 @@ Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test
 ## Agent crash, duplicate sends, partial failure
 
 - **Impact.** A crash can lose track of a transaction, and two paths can act on one signal.
-- **Defences.** A write-ahead ledger signs before sending and recovers by resending identical bytes (`e2e-fork`, "a crash before broadcast recovers"). **We reproduced a real duplicate send in a test:** a poll and a flashblock frame deciding together sent two trades. The `sending` guard and `sendEpoch` in `agent.ts` now refuse it (`safety.test.ts`, "a poll and a frame deciding together send one trade"). A breaker stops repeated failures (`breaker.ts`). `eth_call` preflight skips a doomed send and saves its gas, except on stream frames, where it would miss the latency window.
+- **Defences.** Model trades have their own ledger keys (`ai:N`), so each is counted once and its inventory apart from the rules'. A write-ahead ledger signs before sending and recovers by resending identical bytes (`e2e-fork`, "a crash before broadcast recovers"). **We reproduced a real duplicate send in a test:** a poll and a flashblock frame deciding together sent two trades. The `sending` guard and `sendEpoch` in `agent.ts` now refuse it (`safety.test.ts`, "a poll and a frame deciding together send one trade"). A breaker stops repeated failures (`breaker.ts`). `eth_call` preflight skips a doomed send and saves its gas, except on stream frames, where it would miss the latency window.
 - **Weaknesses.** Nothing restarts the process. The heartbeat file lets `npm run monitor -- --agent` notice, and a person or a supervisor must act.
 
 ## Keeper failure and downtime
 
 - **Impact.** The agent's own stop-loss does not run while it is offline.
-- **Defences.** A stop on the vault that **anyone** can fire once the average crosses its trigger (`triggerStop`, `HoldfastVault.sol:239`), with `npm run keeper` to call it. The caller chooses nothing and is paid nothing, and proceeds stay in the vault (`test_anyoneCanFireATriggeredStop`). An expired or stolen key does not block it (`test_expiredKeyDoesNotBlockTheStop`).
+- **Defences.** A stop on the vault that **anyone** can fire once the average crosses its trigger (`triggerStop`, `HoldfastVault.sol:293`), with `npm run keeper` to call it. The caller chooses nothing and is paid nothing, and proceeds stay in the vault (`test_anyoneCanFireATriggeredStop`). An expired or stolen key does not block it (`test_expiredKeyDoesNotBlockTheStop`).
 - **Weaknesses.** **No payment means no one is obliged to call it.** The owner must run a keeper, or accept that it fires only when someone cares. A stop also fails when its sale is refused by its own floor or band, by design, so in a real crash it may sell nothing. It sells one tranche at a time, so it can lose on each.
 
 ## Accounting and limit resets
@@ -111,7 +132,7 @@ Tests named below are in `contracts/test/HoldfastVaultV3.t.sol`, `contracts/test
 - **Impact.** A limit that resets or doubles would break every promise above.
 - **Attack path.** Trade around a budget reset, trade between the owner's read and write, or change limits to refresh a budget.
 - **Defences.** Continuous refill, not a fixed grid, so no double spend at a boundary (`testFuzz_dailySpendStaysInsideItsEnvelope`). Spend is kept across limit changes (`test_dailyBudgetKeepsWhatWasSpent`). `setLimitsIfRemaining` refuses if a trade happened since the owner read (`test_attack_tradeBetweenReadAndWriteCannotBePapered`). Amounts come from balances, not from the router's return value (`test_attack_feeOnTransferOutputIsMeasuredByBalance`). Stateful invariants hold across 25,600 calls each (`invariant_agentSpendStaysInsideEveryCap`, `invariant_lifetimeAccountingIsExact`, and five more).
-- **How we tested the tests.** 37 of 37 deliberate bugs in the vault were caught, `evidence/v3/mutation-check.json`. Slither reports 25 findings, each triaged in `scripts/slither-check.mjs`, `evidence/v3/slither.json`.
+- **How we tested the tests.** On version 4, 55 of 55 deliberate bugs in the vault were caught, `evidence/v4/mutation-check.json`. Slither 0.11.6 reports 34 findings, each triaged in `scripts/slither-check.mjs`, `evidence/v4/slither.json`; 4 were new on version 4. This is our triage, not an audit. Version 3's run, 37 of 37 and 25 findings, is in `evidence/v3/`.
 - **Weaknesses.** Limits stop at 72 bits, about 4,722 tokens with 18 decimals, and the vault refuses larger rather than cutting them. Not audited.
 
 ## Malicious tokens and reentrancy

@@ -18,6 +18,9 @@ const MAX_STOP_BACKOFF_POWER = 6;
 
 export const isEdgeKey = (key: string): boolean => key.startsWith("edge:");
 export const edgeIntents = (intents: readonly Intent[]): Intent[] => intents.filter((i) => isEdgeKey(i.key));
+/** Trades a model proposed. Their own family, so the model's inventory and losses are counted apart from the rules'. */
+export const isModelKey = (key: string): boolean => key.startsWith("ai:");
+export const modelIntents = (intents: readonly Intent[]): Intent[] => intents.filter((i) => isModelKey(i.key));
 
 /**
  * Why this trade must not go out, or null. Works from the ledger alone, so it survives a restart. A stop-loss is never
@@ -32,13 +35,16 @@ export function breakerVerdict(decision: TradeDecision, intents: readonly Intent
     return headNumber < retryAt ? `Stop retry waits until block ${retryAt} after ${failures.length} failed in a row.` : null;
   }
   if (failures.length >= limits.maxConsecutiveFailures) return `Breaker: ${failures.length} trades failed in a row. The owner must reset it.`;
-  if (decision.trigger !== "edge") return null;
+  // Closing the edge rule's inventory is not latched by its losses, since it only fires when the round trip pays.
+  if (decision.trigger !== "edge" && decision.trigger !== "model") return null;
 
-  const edge = edgeIntents(intents);
-  const recent = edge.filter((i) => i.broadcastBlock !== undefined && i.broadcastBlock + BLOCKS_PER_HOUR > headNumber).length;
-  if (recent >= limits.maxEdgeTradesPerHour) return `Breaker: ${recent} edge trades in the last hour, at the limit of ${limits.maxEdgeTradesPerHour}.`;
-  const { pnlUsdt } = tradingResult(edge, spotPriceX18);
-  if (pnlUsdt < -limits.maxEdgeLossUsdt) return `Breaker: edge trades are down ${-pnlUsdt} micro-USDT at the current price. The owner must reset it.`;
+  // A model's trades are held to the same count and the same loss as the edge rule's, counted on their own.
+  const family = decision.trigger === "model" ? "model" : "edge";
+  const own = family === "model" ? modelIntents(intents) : edgeIntents(intents);
+  const recent = own.filter((i) => i.broadcastBlock !== undefined && i.broadcastBlock + BLOCKS_PER_HOUR > headNumber).length;
+  if (recent >= limits.maxEdgeTradesPerHour) return `Breaker: ${recent} ${family} trades in the last hour, at the limit of ${limits.maxEdgeTradesPerHour}.`;
+  const { pnlUsdt } = tradingResult(own, spotPriceX18);
+  if (pnlUsdt < -limits.maxEdgeLossUsdt) return `Breaker: ${family} trades are down ${-pnlUsdt} micro-USDT at the current price. The owner must reset it.`;
   return null;
 }
 
