@@ -1,5 +1,5 @@
 {
-  "wallTime": "2026-11-02T08:02:32.107Z",
+  "wallTime": "2026-11-02T12:14:53.890Z",
   "suites": [
     {
       "name": "contracts",
@@ -8,7 +8,7 @@
       "passed": 165,
       "failed": 0,
       "skipped": 0,
-      "seconds": 18
+      "seconds": 22
     },
     {
       "name": "fork",
@@ -17,16 +17,16 @@
       "passed": 7,
       "failed": 0,
       "skipped": 0,
-      "seconds": 6
+      "seconds": 8
     },
     {
       "name": "agent",
       "lane": "local",
       "command": "npm run -s test:agent:local",
-      "passed": 400,
+      "passed": 412,
       "failed": 0,
       "skipped": 0,
-      "seconds": 14
+      "seconds": 15
     }
   ]
 }

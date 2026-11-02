@@ -108,7 +108,7 @@ test("viewer has an empty data state and no configured vault", async () => fixtu
 }));
 
 test("viewer starts normally and explains chat without a key", async () => fixture(async (get) => {
-  assert.match(JSON.parse((await get("/api/evidence")).text).chat, /ANTHROPIC_API_KEY is missing/);
+  assert.match(JSON.parse((await get("/api/evidence")).text).chat, /No model key is set/);
   const reply = await get("/api/chat", { message: "What happened?" });
   assert.equal(reply.status, 503); assert.match(reply.text, /key|KEY/);
 }));

@@ -82,6 +82,8 @@ export const HOLD_REASONS: Record<HoldCode, Explanation> = {
   "preflight-unverified": { meaning: "The node could not confirm the trade, so it was not sent. A stop-loss would still go out.", action: "Check the RPC." },
   "preflight-uneconomic": { meaning: "At the vault's own output and the node's gas estimate, the trade no longer pays.", action: "Nothing." },
   "no-gas": { meaning: "The agent key holds too little gas for a node to accept the trade.", action: "Send the agent key some HSK." },
+  "too-soon": { meaning: "The policy spaces trades apart, and the last one was too recent.", action: "It trades once the gap has passed, or change the pacing in the prompt." },
+  "trade-count": { meaning: "The policy's count of trades for the last 24 hours is used up.", action: "It trades again as older trades leave the window, or change the pacing in the prompt." },
   "preflight-refused": { meaning: "The vault was asked first and said it would refuse, so no gas was spent.", action: "See the error it named." },
 };
 

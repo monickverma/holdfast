@@ -27,7 +27,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Contract | Version 4 against the real pool and router | Fork | 7 of 7 | `evidence/v4/verification.json` |
 | Agent to receipt | Version 4: observe, sell, buy, stop-loss, crash recovery, on-chain refusals | Fork | 8 of 8 | `evidence/v4/e2e.json` |
 | Agent to receipt | Version 4 on our own market contracts | Local | 18 of 18 | `evidence/v4/e2e.json` |
-| Agent | The history verifier, the chat fix below, and everything in the version 3 row below | Local | 400 of 400 | `agent/test/`, `evidence/v4/verification.json` |
+| Agent | The history verifier, the chat fix below, chat-set pacing and token choice, the OpenRouter connection, and everything in the version 3 row below | Local | 412 of 412 | `agent/test/`, `evidence/v4/verification.json` |
 | Do the tests catch bugs | 55 deliberate bugs in the version 4 vault | Local | 55 of 55 caught | `evidence/v4/mutation-check.json` |
 | Static analysis | Slither 0.11.6 on version 4 | Local | 34 findings, 0 untriaged. 4 were new on version 4 and we triaged them: one exact comparison with zero, and writes after the router call under the reentrancy lock. Our triage, not an audit | `evidence/v4/slither.json`, `scripts/slither-check.mjs` |
 | Attacks | Compiled version 4 vault, real router, agent key in the attacker's hands | Fork | 120 of 120 contained, 120 of 120 normal trades completed, 0 cap violations. The loss budget, share limit and cooldown were off | `evidence/v4/attack-results.json` |
@@ -58,7 +58,7 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Live model call | `ANTHROPIC_API_KEY` is empty, and no local model is installed. `npm run llm:live` writes `BLOCKED` to `evidence/v4/llm-live.json`. **We make no claim that the LLM integration works end to end.** Only scripted replies are tested | A key, then that one command |
+| Live model call | No model key is set: `OPENROUTER_API_KEY` and `ANTHROPIC_API_KEY` are both empty, and no local model is installed. `npm run llm:live` writes `BLOCKED` to `evidence/v4/llm-live.json`. **We make no claim that the LLM integration works end to end.** Only scripted replies are tested | An OpenRouter or Anthropic key, then that one command. It now also checks pacing and token choice in English |
 | Mainnet | The team chose testnet, for lack of funds. Under the official rule, a project not deployed on mainnet forfeits demo selection, and winners must be on mainnet to claim. Owner and agent keys hold 0 HSK at nonce 0 | The owner's decision and funds: 2.83 HSK for deployment alone, about 4.2 HSK with one swap. [The runbook](MAINNET-RUNBOOK.md) is ready and rehearsed on a fork only |
 
 ## Not done
@@ -68,7 +68,7 @@ The rows below are **version 3 or earlier**, kept as they were.
 | Version 4 on any public network | Not deployed. Testnet still has version 3, and mainnet has nothing |
 | AI in the trading loop | Not built, deliberately. The loop is rules. The model only answers and drafts, which is a weak answer to a track asking for an AI agent as its core engine |
 | Version 3 in use on testnet | Deployed at `0x9b31…1b28`, using 7,886,252 gas and 0.00789 test HSK. Guard off, no guardian, no stop armed, no swaps. The agent key holds about 0.00003 test HSK, too little to trade |
-| Deploying the site | `render.yaml` is written and no public link is live. `holdfast.onrender.com`, a guess from it, returned 503 "Service Suspended" on 2 November 2026. Changing the site is the owner's call |
+| Public chat on the site | The site is live at holdfast-09jn.onrender.com and reads the testnet vault. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
 | Demo video | None in the repository. [A script](DEMO-SCRIPT.md) is ready for the owner to record |
 | Contract source verification on the explorer | Not attempted. The runtime code was compared with the build instead, and matched |
 | External audit | None. Everything here is our own review |

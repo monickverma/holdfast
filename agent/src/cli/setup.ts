@@ -20,6 +20,7 @@ OWNER_PRIVATE_KEY=${generatePrivateKey()}
 AGENT_PRIVATE_KEY=${generatePrivateKey()}
 VAULT_ADDRESS=
 LIVE=false
+OPENROUTER_API_KEY=
 ANTHROPIC_API_KEY=
 `;
   writeFileSync(ENV_PATH, body, { flag: "wx", mode: 0o600 });

@@ -1,6 +1,5 @@
 import { networkProfile } from "./config.js";
 // Runs the agent and a plain-English prompt. Observes only, unless LIVE=true and a key and vault are configured.
-import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -8,7 +7,7 @@ import { Agent } from "./agent.js";
 import { loadConfig } from "./config.js";
 import { buildFacts } from "./facts.js";
 import { MarkFeed } from "./mark.js";
-import { Assistant, DEFAULT_MODEL } from "./nl.js";
+import { assistantFromEnv, NO_MODEL_KEY } from "./nl.js";
 import { DEFAULT_POLICY, parsePolicy, serializePolicy, type Policy } from "./policy.js";
 import { reviewPolicy } from "./policy-review.js";
 import { JsonlLog } from "./trace.js";
@@ -27,12 +26,10 @@ const marks = new MarkFeed();
 marks.start();
 const agent = new Agent({ config, lane: networkProfile().lane, policy: () => policy, mark: () => marks.latest });
 const llmLog = new JsonlLog(join(config.dataDir, "llm.jsonl"));
-const assistant = process.env.ANTHROPIC_API_KEY
-  ? new Assistant(new Anthropic(), process.env.LLM_MODEL ?? DEFAULT_MODEL, (record) => llmLog.append(record))
-  : null;
+const assistant = assistantFromEnv(process.env, (record) => llmLog.append(record));
 
 console.log(agent.canTrade ? `LIVE: trading through vault ${config.vault}` : "OBSERVE ONLY: no transaction will be signed.");
-if (!assistant) console.log("ANTHROPIC_API_KEY is not set, so the prompt is off. The trading loop does not need it.");
+if (!assistant) console.log(`${NO_MODEL_KEY}, so the prompt is off. The trading loop does not need it.`);
 
 // STREAM=true also reacts to flashblocks. Polling stays on either way, so a dropped stream only costs speed.
 const running = process.env.STREAM === "true" ? agent.runStreaming() : agent.run();

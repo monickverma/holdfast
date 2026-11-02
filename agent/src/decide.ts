@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 import { HSKSWAP } from "./config.js";
 import { breakEvenOut, DEFAULT_MAX_IMPACT_BPS, impactBps, markIsSane } from "./economics.js";
-import { isSell, type Order, type Policy } from "./policy.js";
+import { isSell, maySpend, type Order, type Policy } from "./policy.js";
 import { tickAtSqrtPrice, type MarketState, type Quote, type QuoteRequest, type TokenLimits, type VaultState } from "./reader.js";
 
 const E18 = 10n ** 18n;
@@ -62,7 +62,9 @@ export type HoldCode =
   | "preflight-refused"
   | "preflight-unverified"
   | "preflight-uneconomic"
-  | "no-gas";
+  | "no-gas"
+  | "too-soon"
+  | "trade-count";
 
 export interface CostLedger {
   /** Value given up, in USDT micro-units at the conservative mark. Null when no mark exists. */
@@ -108,6 +110,8 @@ export interface DecideInput {
   edgeTaken?: boolean;
   /** Net WHSK wei the edge rule has bought and not sold, which nothing closes on any other venue. */
   edgeInventoryHsk?: bigint;
+  /** Block times, in seconds, of the trades the agent has sent. The policy's pacing counts these. */
+  tradeTimes?: readonly number[];
 }
 
 /** Pure and synchronous. No model and no network: everything it uses was read before it ran. */
@@ -128,22 +132,40 @@ export function decide(input: DecideInput): Decision {
   if (ageMs < -input.maxStateAgeMs) return hold("stale-state", `Block ${market.head.number} is ${-ageMs} ms ahead of this clock, so its age cannot be judged.`);
   if (vault.guard && !vault.guard.oracleOk) return hold("oracle-unavailable", "The pool's price oracle did not answer, so the vault would refuse every trade. The owner can still withdraw.");
 
-  // Stop-losses come first: protecting the position outranks every other reason to act.
+  // Stop-losses come first: protecting the position outranks every other reason to act. For the same reason, the
+  // policy's pacing never holds a stop back.
+  const paced = pacingProblem(input);
   const first: Decision[] = [];
   for (const order of policy.orders) {
     const decision = decideOrder(order, input, runtime.get(order.id));
-    if (decision.action === "trade") return decision;
-    first.push(decision);
+    if (decision.action === "trade" && (decision.trigger === "stop-loss" || !paced)) return decision;
+    first.push(decision.action === "trade" ? hold(paced!.code, `Order ${order.id}: ${paced!.reason}`, decision.ledger) : decision);
   }
 
   if (policy.edge.enabled) {
     const edge = decideEdge(input, vault);
-    if (edge.action === "trade") return edge;
-    first.push(edge);
+    if (edge.action === "trade" && !paced) return edge;
+    first.push(edge.action === "trade" ? hold(paced!.code, `Edge: ${paced!.reason}`, edge.ledger) : edge);
   }
 
   // Report the most informative refusal rather than a generic one.
   return first.find((d) => d.action === "hold" && d.code !== "no-signal") ?? first[0] ?? hold("no-signal", "No active order and the edge rule is off.");
+}
+
+/** The policy's own limits on how often the agent trades, measured in chain time. The vault may have a stricter one. */
+function pacingProblem(input: DecideInput): { code: HoldCode; reason: string } | null {
+  const { policy } = input;
+  const now = Number(input.market.head.timestamp);
+  const times = input.tradeTimes ?? [];
+  if (policy.minTradeIntervalSec !== undefined && times.length > 0) {
+    const since = now - Math.max(...times);
+    if (since < policy.minTradeIntervalSec) return { code: "too-soon", reason: `the last trade was ${since} s ago, and the policy spaces trades ${policy.minTradeIntervalSec} s apart.` };
+  }
+  if (policy.maxTradesPerDay !== undefined) {
+    const today = times.filter((t) => now - t < 86_400).length;
+    if (today >= policy.maxTradesPerDay) return { code: "trade-count", reason: `${today} trades in the last 24 hours, and the policy allows ${policy.maxTradesPerDay}.` };
+  }
+  return null;
 }
 
 /** The inputs the next decision needs quoted. Sizes use the last known limits, and decide() rejects a mismatch. */
@@ -155,8 +177,8 @@ export function plannedQuotes(policy: Policy, market: MarketState | null, runtim
   }
   if (policy.edge.enabled && market) {
     const sell = edgeSellSize(policy, market);
-    if (sell > 0n) requests.push({ tokenIn: HSKSWAP.whsk, amountIn: sell });
-    requests.push({ tokenIn: HSKSWAP.usdt, amountIn: policy.edge.sizeUsdt });
+    if (sell > 0n && maySpend(policy, true)) requests.push({ tokenIn: HSKSWAP.whsk, amountIn: sell });
+    if (maySpend(policy, false)) requests.push({ tokenIn: HSKSWAP.usdt, amountIn: policy.edge.sizeUsdt });
   }
   return requests;
 }
@@ -342,8 +364,8 @@ function decideEdge(input: DecideInput, vault: VaultState): Decision {
   if (gap > MAX_MARK_GAP_BPS) return hold("mark-disagrees", `Reference price is ${gap.toFixed(0)} bps from the pool's TWAP, over ${MAX_MARK_GAP_BPS}.`);
 
   const sides: Array<{ tokenIn: Address; amountIn: bigint; limits: TokenLimits }> = [
-    { tokenIn: HSKSWAP.whsk, amountIn: edgeSellSize(policy, market), limits: vault.whsk },
-    { tokenIn: HSKSWAP.usdt, amountIn: policy.edge.sizeUsdt, limits: vault.usdt },
+    ...(maySpend(policy, true) ? [{ tokenIn: HSKSWAP.whsk, amountIn: edgeSellSize(policy, market), limits: vault.whsk }] : []),
+    ...(maySpend(policy, false) ? [{ tokenIn: HSKSWAP.usdt, amountIn: policy.edge.sizeUsdt, limits: vault.usdt }] : []),
   ];
 
   let best: { tokenIn: Address; amountIn: bigint; out: bigint; limits: TokenLimits; ledger: CostLedger; quote: Quote } | null = null;
