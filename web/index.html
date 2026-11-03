@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Holdfast</title>
-<meta name="description" content="A non-custodial vault and trading agent on HSK Chain. An agent key can trade inside limits the owner sets on chain, and cannot withdraw. Testnet stage.">
+<meta name="description" content="A non-custodial vault and trading agent on HSK Chain. An agent key can trade inside limits the owner sets on chain, and cannot withdraw. Mainnet v4 and testnet v3 deployments, with public evidence and measured progress.">
 <link rel="stylesheet" href="/style.css">
 <script type="module" src="/app.js"></script>
 </head>
@@ -13,11 +13,11 @@
 <header class="mast">
   <a class="mark" href="#top">Holdfast</a>
   <nav aria-label="Sections">
-    <a href="#enforced">Limits</a>
-    <a href="#how">Roles</a>
+    <a href="#networks">Networks</a>
+    <a href="#progress">Progress</a>
     <a href="#vault">Vault</a>
     <a href="#proof">Proof</a>
-    <a href="#refused">Refused</a>
+    <a href="#documentation">Docs</a>
   </nav>
   <div class="mast-right">
     <span id="network" class="chip" role="status">Reading network…</span>
@@ -32,10 +32,10 @@
     <p class="lead">Holdfast is a non-custodial vault and trading agent on HSK Chain. An agent key can trade one pool inside limits the owner sets on chain, and it cannot withdraw. The contract enforces those limits whatever the agent or its model is told to do.</p>
     <ol class="steps" aria-label="How a trade happens">
       <li><strong>You write a strategy</strong> in plain English. A model turns it into a policy that must pass a schema.</li>
-      <li><strong>Deterministic code trades it.</strong> No model runs in the trading path.</li>
+      <li><strong>Rules or a model propose a trade.</strong> Deterministic checks approve the size, price and risk before execution.</li>
       <li><strong>The vault checks every trade</strong> against your limits and refuses anything outside them.</li>
     </ol>
-    <p class="notice"><strong>Stage: testnet.</strong> No mainnet deployment or swap has happened. The contract is not audited, no outside user has tried it, and profit is not claimed.</p>
+    <p class="notice"><strong>Mainnet v4 is deployed. Testnet v3 is available too.</strong> The recorded mainnet checks show an unfunded, unconfigured vault with zero trades. Deployment is complete; profitable trading is not demonstrated. <a href="#networks">Choose a network and inspect the proof</a>.</p>
     <p class="links"><a href="https://github.com/monickverma/holdfast">Source code</a><a href="https://github.com/monickverma/holdfast/blob/main/BENCHMARKS.md">Benchmarks and method</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/ARCHITECTURE.md">Architecture</a><a href="https://github.com/monickverma/holdfast/blob/main/docs/SECURITY.md">Threat model</a></p>
   </div>
   <aside class="console" aria-labelledby="console-title">
@@ -44,6 +44,62 @@
     <div id="attacks-list" class="attack-buttons"></div>
     <div id="verdict" class="verdict" role="status" aria-live="polite"><p class="verdict-idle">Choose an attack to see what the vault says.</p></div>
   </aside>
+</section>
+
+<section id="networks" class="clause">
+  <h2>Two networks. One clear view.</h2>
+  <p>Choose the deployed vault you want to inspect. The vault balances, market checks and attack simulations below follow your selection. Recorded benchmarks keep their original network labels.</p>
+  <div class="network-picker"><label for="network-select">View network</label> <select id="network-select"><option value="mainnet">Mainnet · chain 177 · v4</option><option value="testnet">Testnet · chain 133 · v3</option></select></div>
+  <div class="ledger-split deployment-cards">
+    <article data-network="mainnet">
+      <span class="lane" data-lane="mainnet">Mainnet · 177</span><h3>Version 4 · deployed</h3>
+      <p>Real HSKSwap market. Deployed 3 November 2026 IST. Funding and safety configuration remain before trading.</p>
+      <p class="address"><a href="https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c">0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c</a></p>
+      <p class="links"><a href="/?network=mainnet#vault" class="view-network">View mainnet vault</a><a href="https://hsk.blockscout.com/tx/0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34">Deployment receipt</a><a href="https://github.com/monickverma/holdfast/blob/main/evidence/v4/mainnet-deployment.json">Deployment record</a></p>
+    </article>
+    <article data-network="testnet">
+      <span class="lane" data-lane="testnet">Testnet · 133</span><h3>Version 3 · deployed</h3>
+      <p>Our synthetic test market with free tWHSK and tUSDT. Useful for demonstrations; its prices and trades do not prove real-market profit.</p>
+      <p class="address"><a href="https://testnet-explorer.hskchain.net/address/0x9b31aeda4839747a4251d623ddfee4152c961b28">0x9b31aeda4839747a4251d623ddfee4152c961b28</a></p>
+      <p class="links"><a href="/?network=testnet#vault" class="view-network">View testnet vault</a><a href="https://github.com/monickverma/holdfast/blob/main/evidence/v3/testnet-deployment.json">Deployment record</a></p>
+    </article>
+  </div>
+  <p id="selection-status" class="server-note" role="status"></p>
+  <noscript><p>Enable JavaScript to load chain reads and change the interactive view. Both deployment records and explorer links above work without it.</p></noscript>
+</section>
+
+<section id="progress" class="clause">
+  <h2>What improved, with the evidence</h2>
+  <p>Start with the measurements, then open the source behind each result. These are separate local, fork, testnet, mainnet-read and replay runs; passing tests are not proof of profit or an external security audit.</p>
+  <p id="progress-status" role="status">Loading the progress record…</p>
+  <div id="highlights" class="tiles"></div>
+  <h3>Before and after</h3><div id="improvements"></div>
+  <h3 class="after">Recorded verification</h3>
+  <p>Counts below come from saved run artifacts. Each source includes its date and method; the suites were not all rerun together.</p>
+  <div id="tiles" class="tiles"></div>
+  <h3>Review criteria, out of 10</h3>
+  <p>Original council review → 3 November assessment. These are reviewer judgments, not official scores or completion percentages. The AI engine has improved; live model trading and sustained profit remain unproven.</p>
+  <div id="criteria"></div>
+  <p id="criteria-note" class="sub"></p>
+  <h3 class="after">The three repository comparisons</h3>
+  <p>Historical review from 2 November 2026, before Holdfast's mainnet deployment. The reviewer read the other projects' code and documents but did not run them. This is a dated comparison, not a live leaderboard.</p>
+  <div id="comparison"></div>
+  <details><summary>Comparison criteria and weights</summary><div id="comparison-weights"></div></details>
+  <p id="comparison-source" class="sub"></p>
+  <p><a href="/api/progress" download="holdfast-progress.json">Download the progress record</a> · <a href="/api/proof" download="holdfast-proof.json">Download the verification summary</a></p>
+</section>
+
+<section id="documentation" class="clause">
+  <h2>How to use Holdfast</h2>
+  <ol class="steps-list">
+    <li><strong>Pick mainnet or testnet.</strong> Check the chain number and vault address. Changing this view only changes what the page reads.</li>
+    <li><strong>Inspect the current state.</strong> Open the vault and venue sections for balances, caps, guard status and read timestamps. A deployed vault may still be unable to trade.</li>
+    <li><strong>Try an attack safely.</strong> “Try to break it” asks the selected chain to simulate a call. No transaction is sent and no gas is spent.</li>
+    <li><strong>Follow a proof link.</strong> Every measurement names its environment and a source. Owner controls require your wallet, a matching chain and a transaction review.</li>
+  </ol>
+  <div id="doc-links" class="doc-grid"></div>
+  <details><summary>What the evidence labels mean</summary><div><p><strong>Mainnet read:</strong> data read from the real network, without a trade. <strong>Testnet:</strong> free test tokens in our own market. <strong>Fork:</strong> a local copy of chain state. <strong>Local:</strong> tests or model evaluations. <strong>Replay:</strong> simulated decisions on recorded prices. A replay gain is not money earned.</p></div></details>
+  <p class="callout">Still open: mainnet funding and safety settings, explorer source verification, model-driven chain execution, operational monitoring and an external audit. No sustained profitable trading has been demonstrated.</p>
 </section>
 
 <section id="enforced" class="clause">
@@ -76,17 +132,17 @@
 
 <section id="how" class="clause">
   <h2>Who can do what</h2>
-  <p>The model is outside the trust boundary. It only ever produces a policy that is checked against a schema, and no model runs in the trading path. The vault does not trust the agent either.</p>
+  <p>The model has no signing key. It can translate a strategy or, when explicitly enabled, propose buy, sell or hold. Deterministic checks and the vault constrain every proposal. The model engine is off by default and has only been evaluated locally and on recorded data.</p>
   <div class="arch" role="group" aria-label="Architecture, from untrusted inputs to on-chain enforcement">
     <div class="zone zone-untrusted">
       <h3>Not trusted</h3>
-      <div class="node"><h4>Model</h4><p>Turns a plain-English strategy into a typed policy. Prompt injection stops here: it can only yield a policy the schema accepts.</p></div>
+      <div class="node"><h4>Model</h4><p>Turns plain English into a typed policy, or proposes a trade. Schema checks restrict its output; accepted output still needs risk checks.</p></div>
       <div class="node"><h4>Market data</h4><p>Pool reads and flashblock frames. A node can lie or lag, so the vault reads the price again itself.</p></div>
     </div>
     <div class="flow" aria-hidden="true"></div>
     <div class="zone zone-agent">
       <h3>Agent process</h3>
-      <div class="node"><h4>Decide</h4><p>Deterministic code: a pure function of market and policy, and no model call.</p></div>
+      <div class="node"><h4>Decide</h4><p>Rules or an optional model proposal, checked against size, inventory, freshness and economics. A missing or stale proposal means hold.</p></div>
       <div class="node"><h4>Execute</h4><p>Write-ahead ledger, one send at a time, an optional preflight by <code>eth_call</code>, and reorg handling. Holds one key, which cannot withdraw.</p></div>
     </div>
     <div class="flow" aria-hidden="true"></div>
@@ -111,7 +167,8 @@
 </section>
 
 <section id="vault" class="clause">
-  <h2>This server's vault</h2>
+  <h2 id="vault-title">Selected vault</h2>
+  <p id="deployment-status" class="sub"></p>
   <p id="vault-status" role="status">Reading the vault…</p>
   <div id="vault-body"></div>
   <div id="wallet-panel" class="wallet" hidden>
@@ -143,7 +200,7 @@
 <section id="proof" class="clause">
   <h2>Measured, and where</h2>
   <p>Every number here is read from the repository's evidence files by this server, and every one names where it ran. A file that is not there shows as “not yet run”.</p>
-  <div id="tiles" class="tiles"></div>
+  <p><a href="#progress">See the verification counts and progress overview</a>. The detailed methods and charts follow.</p>
 
   <div class="figure">
     <h3>Checking the history without trusting the agent</h3>
@@ -188,7 +245,7 @@
         <tr><td>Market move to receipt: P50 1,628.5 → 225.2 ms, P90 2,230.2 → 413.5 ms, polling then flashblock stream, 45 + 45 orders</td><td><span class="lane" data-lane="testnet">Testnet</span> own test market, older vault</td></tr>
         <tr><td>Market read: P50 364.2 → 203.9 ms, 400 + 400 reads</td><td><span class="lane" data-lane="mainnet">Mainnet</span> real HSKSwap pool, read only</td></tr>
         <tr><td>Flashblock frames against sealed blocks: 410 of 410 hashes matched, 0 of 207 user transactions vanished</td><td><span class="lane" data-lane="mainnet">Mainnet</span> read only</td></tr>
-        <tr><td>Real pool over 7 days: 462 swaps, one wallet made 94% of them, so no latency race exists there today</td><td><span class="lane" data-lane="mainnet">Mainnet</span> read only</td></tr>
+        <tr><td>Real pool over 7 days: 462 swaps, one wallet made 94% of them, in that historical observation window</td><td><span class="lane" data-lane="mainnet">Mainnet</span> read only</td></tr>
         <tr><td>Simulated profit over 43 minutes: none with an assumed 20 bps outside fee; $0.42 at most acting at once without it, all within 7 minutes</td><td><span class="lane" data-lane="replay">Simulated</span> mainnet prices, simulated fills</td></tr>
       </tbody>
     </table></div>
@@ -240,6 +297,7 @@
 </main>
 <footer class="foot">
   <p>Holdfast is a hackathon project on HSK Chain. Nothing on this page is investment advice. Source and evidence are public in the <a href="https://github.com/monickverma/holdfast">repository</a>.</p>
+  <p id="build-version" role="status">Reading the server revision…</p>
 </footer>
 <div id="tip" class="tip" role="tooltip" hidden></div>
 </body>

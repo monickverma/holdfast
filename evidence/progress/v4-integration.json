@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "sha256": "b74665f8421e5883a4007a7aa36d17a78f4df88adf754d0491f89494d41abf2e",
+      "path": "agent/src/arb.ts"
+    },
+    {
+      "sha256": "812424275c52992cdfdf924d24d643f782b973e4cb6aecc09372231a7c0f384f",
+      "path": "agent/src/arb-read.ts"
+    },
+    {
+      "sha256": "6992f4ddb3f18e485f5e15efdcd98cf562a5f138836a33ea90e79a9bdc643853",
+      "path": "agent/src/arb-search.ts"
+    },
+    {
+      "sha256": "172093b998a20f486b84c0b9130f4b2d52650c8e4ab153e4f6c611947376f925",
+      "path": "agent/src/arb-research.ts"
+    },
+    {
+      "sha256": "58c831a10c7804b35edcccc7db517935bbadb8607d0da2d00ee4f76d40ef1c22",
+      "path": "agent/src/cli/arb-search.ts"
+    },
+    {
+      "sha256": "e10e4f42560866c3227fd6a430a2ade7f9a036f71417deef7b237f21a8349ddc",
+      "path": "agent/src/cli/arb-cost-replay.ts"
+    },
+    {
+      "sha256": "63349c74aa0db9ca36e21cb740a115780a21b5b664dc3a2541ed2d881b394204",
+      "path": "agent/src/cli/arb-split-replay.ts"
+    },
+    {
+      "sha256": "288e0439df2b22c23a3d5a52214b0617a5268bc3b982772519711da8cc78d3f0",
+      "path": "agent/test/arb-search.test.ts"
+    },
+    {
+      "sha256": "309eed6df8228d898ec1ee6899edc496ec1758144a80a4179aab1d976105da36",
+      "path": "agent/test/arb-research.test.ts"
+    },
+    {
+      "sha256": "5a968e3c54457110de2e664cda5547639fd1e18f2b3a92170363497f2005993f",
+      "path": "scripts/arb-cex-research.mjs"
+    },
+    {
+      "sha256": "9adb3075b97cf14274f5186872de59e8149cf43f167e9aed8c40c8ac5890de3c",
+      "path": "scripts/arb-fee-sensitivity.mjs"
+    }
+  ],
+  "build": "pass",
+  "command": "node --test --test-isolation=none .test-build/test/*.test.js",
+  "sourceCommit": "5d6a9cda39dfc1bdfb48d9fde48e746434cfd6c6",
+  "tests": {
+    "skipped": 0,
+    "failed": 0,
+    "passed": 463
+  },
+  "currentWorkspaceBase": "9be6f67",
+  "runtime": "Node v26.7.0, existing workspace dependencies",
+  "status": "Compatibility verified in isolated copy; not committed, merged, or deployed",
+  "lane": "local isolated integration, no public transactions or paid model calls",
+  "publicCopyNote": "Local absolute paths omitted; original base commit, file hashes and test result retained."
+}

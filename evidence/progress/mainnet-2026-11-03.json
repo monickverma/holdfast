@@ -1,0 +1,46 @@
+{
+  "lane": "mainnet read-only",
+  "at": "2026-11-03T06:36:25.538Z",
+  "vault": "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c",
+  "deploymentTransaction": "0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34",
+  "chainId": 177,
+  "block": "29670325",
+  "blockHash": "0xa9316197c001703f837e1e35bbe25fdab0312b6dcbe6a8b7ee005198145dfb05",
+  "runtimeBytes": 21021,
+  "deployment": {
+    "succeeded": true,
+    "address": "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c",
+    "block": "29657434",
+    "gasUsed": "4666365"
+  },
+  "state": {
+    "VERSION": "4",
+    "owner": "0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489",
+    "agent": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+    "guardian": "0x0000000000000000000000000000000000000000",
+    "twapWindow": 0,
+    "lossGuardOn": false,
+    "logCount": "0",
+    "agentExpiry": 1794266799
+  },
+  "balancesWei": {
+    "vault": "0",
+    "owner": "299408939236675359",
+    "agent": "0"
+  },
+  "tokens": {
+    "WHSK": {
+      "balance": "0",
+      "maxTrade": "0"
+    },
+    "USDT": {
+      "balance": "0",
+      "maxTrade": "0"
+    }
+  },
+  "tradedEventsSinceDeployment": 0,
+  "explorer": {
+    "isContract": true,
+    "sourceVerified": false
+  }
+}

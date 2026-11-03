@@ -28,7 +28,9 @@ const quantile = (q: Row | undefined) => ({ n: num(q?.n), value: num(q?.value), 
 export function readProof(evidenceDir: string) {
   // The newest recording wins. Older directories stay as they were, and are read only when nothing newer exists.
   const newest = (name: string) => read(evidenceDir, `v4/${name}`) ?? read(evidenceDir, `v3/${name}`);
-  const verification = newest("verification.json");
+  const recordedVerification = newest("verification.json");
+  const agentVerification = read(evidenceDir, "progress/site-verification.json");
+  const verification: Row | null = recordedVerification && { ...recordedVerification, suites: (recordedVerification.suites ?? []).map((s: Row) => s.name === "agent" && agentVerification ? { ...s, ...agentVerification, lane: "local" } : s) };
   const mutation = newest("mutation-check.json");
   const venueMainnet = read(evidenceDir, "v4/venue-mainnet.json");
   const venueTestnet = read(evidenceDir, "v4/venue-testnet.json");
@@ -54,7 +56,7 @@ export function readProof(evidenceDir: string) {
   return {
     verification: verification && {
       wallTime: text(verification.wallTime),
-      suites: (Array.isArray(verification.suites) ? verification.suites : []).map((s: Row) => ({ name: text(s.name), lane: text(s.lane), command: text(s.command), passed: num(s.passed), failed: num(s.failed), skipped: num(s.skipped) })),
+      suites: (Array.isArray(verification.suites) ? verification.suites : []).map((s: Row) => ({ name: text(s.name), lane: text(s.lane), command: text(s.command), passed: num(s.passed), failed: num(s.failed), skipped: num(s.skipped), wallTime: text(s.wallTime ?? verification.wallTime), source: s.name === "agent" && agentVerification ? "evidence/progress/site-verification.json" : "evidence/v4/verification.json" })),
     },
     verifier,
     mutation: mutation && { wallTime: text(mutation.wallTime), lane: text(mutation.lane), mutants: count(mutation.mutants), killed: count(mutation.killed), survived: count(mutation.survived), didNotCompile: count(mutation.didNotCompile) },

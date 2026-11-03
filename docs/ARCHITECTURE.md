@@ -2,7 +2,7 @@
 
 Holdfast trades WHSK/USDT on HSKSwap from a vault that limits what its agent key can do. This document covers what it defends against, what each layer promises, how each layer fails, what was wrong, and what was built, in what order and why.
 
-The contract is not audited. Nothing here claims profit. The source is vault version 4, which is on no public network. Version 3 is deployed on testnet with its price guard off and has not traded there. The public swaps came from an older vault. Nothing is on mainnet.
+The contract is not audited. Nothing here claims profit. Vault version 4 is deployed on mainnet at `0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c`; the 3 November read found it unfunded and unconfigured, with zero trades. Version 3 is deployed on testnet with its price guard off. Historical public swaps came from an older testnet vault. See [deployment proof](../evidence/v4/mainnet-deployment.json), [current assessment](PROGRESS.md) and the [website guide](WEBSITE.md).
 
 **The first section below describes the system as it is now: vault version 4, and an agent whose trading engine can be a language model. Everything after it describes vault version 2 and its layers, as written then, and much of it still applies.** Where they differ, trust the first section, [SECURITY.md](SECURITY.md) for the threat model, [READINESS.md](READINESS.md) for the deployment checklist and [STATUS.md](STATUS.md) for what was done, tested and left open. Line numbers after the first section refer to version 2 and are kept in `contracts/baseline/HoldfastVaultV2.sol`.
 

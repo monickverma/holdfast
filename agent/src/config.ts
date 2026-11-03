@@ -22,6 +22,8 @@ export function testMarket() {
   return m as { router: Address; quoter: Address; pool: Address; whsk: Address; usdt: Address; vault: Address; chainId: number; generation?: number };
 }
 
+export type MarketAddresses = Record<"router" | "quoter" | "pool" | "whsk" | "usdt" | "gasOracle", Address> & { fee: number };
+
 export const MAINNET_MARKET = {
   router: "0x2c16f75b95Cf1390c328aB70e2CEE7f4b80bD8F3",
   quoter: "0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD",

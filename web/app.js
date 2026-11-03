@@ -6,6 +6,21 @@ const el = (tag, text, className) => { const node = document.createElement(tag);
 const link = (text, href) => { const a = el('a', text); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; };
 const short = (address) => (address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'none');
 const number = (value) => (value === null || value === undefined ? 'not yet run' : Number(value).toLocaleString('en-US'));
+const selectedNetwork = new URLSearchParams(location.search).get('network') === 'testnet' ? 'testnet' : 'mainnet';
+const api = (path) => `${path}?network=${selectedNetwork}`;
+const sourceLink = (path, label = 'Evidence') => link(label, `https://github.com/monickverma/holdfast/blob/main/${path}`);
+try { const theme = sessionStorage.getItem('holdfast-theme'); if (['light', 'dark'].includes(theme)) document.documentElement.dataset.theme = theme; } catch {}
+$('#network-select').value = selectedNetwork;
+$('#network-select').onchange = (event) => { const url = new URL(location.href); url.searchParams.set('network', event.target.value); location.assign(url.href); };
+for (const card of document.querySelectorAll('[data-network]')) {
+  const active = card.dataset.network === selectedNetwork;
+  card.classList.toggle('selected', active);
+  if (active) card.querySelector('.view-network').setAttribute('aria-current', 'true');
+}
+$('#network').textContent = `${selectedNetwork === 'mainnet' ? 'Mainnet · 177' : 'Testnet · 133'}`;
+$('#network').dataset.lane = selectedNetwork;
+$('#vault-title').textContent = `${selectedNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'} vault`;
+$('#selection-status').textContent = `Viewing ${selectedNetwork}. The selection does not switch your wallet or send a transaction.`;
 const LANE_NAMES = { mainnet: 'Mainnet', testnet: 'Testnet', fork: 'Fork', replay: 'Replay', local: 'Local' };
 const laneOf = (text) => { const key = String(text ?? '').toLowerCase().split(/[\s,]/)[0]; return Object.hasOwn(LANE_NAMES, key) ? key : 'local'; };
 const laneChip = (lane) => { const key = laneOf(lane); const chip = el('span', LANE_NAMES[key], 'lane'); chip.dataset.lane = key; return chip; };
@@ -24,6 +39,7 @@ $('#theme').onclick = () => {
   const root = document.documentElement;
   const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   root.dataset.theme = dark ? 'light' : 'dark';
+  try { sessionStorage.setItem('holdfast-theme', root.dataset.theme); } catch {}
 };
 
 // ---------- Attacks ----------
@@ -48,10 +64,10 @@ function renderVerdict(result) {
 async function loadAttacks() {
   const list = $('#attacks-list');
   try {
-    const response = await fetch('/api/demo');
+    const response = await fetch(api('/api/demo'));
     const { attacks, available } = await response.json();
     if (!available) {
-      $('#verdict').replaceChildren(el('p', 'This server has no vault configured, so there is nothing to attack.', 'verdict-idle'));
+      $('#verdict').replaceChildren(el('p', 'No deployment record is available for this network, so there is nothing to simulate.', 'verdict-idle'));
       return;
     }
     for (const attack of attacks) {
@@ -63,7 +79,7 @@ async function loadAttacks() {
         $('#verdict').replaceChildren(el('p', 'Asking the node…', 'verdict-idle'));
         delete $('#verdict').dataset.state;
         try {
-          const reply = await fetch(`/api/demo/${attack.id}`);
+          const reply = await fetch(api(`/api/demo/${attack.id}`));
           const result = await reply.json();
           if (!reply.ok) throw new Error(result.error);
           renderVerdict(result);
@@ -118,7 +134,7 @@ function renderVault(vault) {
   const body = $('#vault-body');
   if (!vault.tokens) { status.textContent = vault.status; return; }
   const generation = vault.version ?? null;
-  status.replaceChildren(laneChip(vault.lane), ` Read from chain ${vault.chainId} at block ${number(vault.block)}, by this server, within the last few seconds.`);
+  status.replaceChildren(laneChip(vault.lane), ` Read from chain ${vault.chainId} at block ${number(vault.block)} (${new Date(vault.blockTime * 1000).toISOString()}). Cached for up to 15 seconds.`);
   if (generation === null || generation < 3) {
     body.append(el('p', 'This vault is an older generation, deployed before the price guard, stop, guardian and daily budget in the contract described above. Those show as not available here. A redeployment is needed before they apply to this address. Its swaps are self-trades in our own thin test market, not volume.', 'callout'));
   }
@@ -132,12 +148,13 @@ function renderVault(vault) {
     fact('Owner', addr(vault.owner)),
     fact('Agent key', addr(vault.agent)),
     fact('Guardian', vault.guardian === null ? 'Not in this generation' : /^0x0+$/.test(vault.guardian) ? 'None set' : addr(vault.guardian)),
-    fact('Trading', vault.paused ? 'Paused' : 'Not paused', vault.paused ? 'warn' : 'good'),
+    fact('Pause state', vault.paused === null ? 'Unavailable' : vault.paused ? 'Paused' : 'Not paused', vault.paused === null ? 'none' : vault.paused ? 'warn' : 'good'),
     fact('Agent key expiry', expiry[0], expiry[1]),
     fact('Price guard', vault.guard === null ? 'Not in this generation' : vault.guard.on ? `On: ${vault.guard.bandTicks} ticks around a ${vault.guard.windowSec} s average` : 'Off', vault.guard === null ? 'none' : vault.guard.on ? 'good' : 'warn'),
     fact('Stop', vault.stop === null ? 'Not in this generation' : !vault.stop.armed ? 'Not armed' : vault.stop.ready ? 'Armed, ready to fire' : 'Armed, waiting', vault.stop === null ? 'none' : vault.stop.armed ? 'good' : 'none'),
   );
   body.append(facts);
+  if (vault.tokens.every((t) => Number(t.maxTrade) === 0)) body.append(el('p', 'Trading is disabled by zero per-trade caps. Deployment alone does not activate trading.', 'callout'));
   const grid = el('div', undefined, 'token-grid');
   for (const token of vault.tokens) {
     const card = el('div', undefined, 'token');
@@ -190,6 +207,9 @@ function setupWallet(vault) {
     if (!controls.length) { box.append(el('p', 'This wallet has no role on this vault, so there is nothing for it to do here.', 'muted')); return; }
     for (const control of controls) box.append(controlRow(control, vault, () => account, provider));
   };
+
+  provider()?.on?.('accountsChanged', () => { account = null; $('#controls').replaceChildren(); $('#confirm').close(); state.textContent = 'Wallet account changed. Connect again to review your role.'; });
+  provider()?.on?.('chainChanged', () => { $('#confirm').close(); $('#controls').replaceChildren(); if (account) refresh().catch(() => { state.textContent = 'Wallet state unavailable. Connect again.'; }); });
 
   $('#connect').onclick = async () => {
     if (!provider()) { state.textContent = 'No wallet found in this browser. The page stays read only.'; return; }
@@ -248,6 +268,11 @@ function controlRow(control, vault, accountOf, provider) {
 }
 
 async function reviewAndSend(control, data, detail, vault, from, provider) {
+  const checkWallet = async () => {
+    const chain = Number(await provider.request({ method: 'eth_chainId' }));
+    const accounts = await provider.request({ method: 'eth_accounts' });
+    if (chain !== vault.chainId || accounts[0]?.toLowerCase() !== from.toLowerCase()) throw new Error('Wallet network or account changed. Reconnect and review the transaction again.');
+  };
   const dialog = $('#confirm');
   const body = $('#confirm-body');
   const check = $('#confirm-check');
@@ -260,6 +285,7 @@ async function reviewAndSend(control, data, detail, vault, from, provider) {
   check.textContent = 'Asking your wallet\'s node what the vault would say…';
   dialog.showModal();
   try {
+    await checkWallet();
     await provider.request({ method: 'eth_call', params: [{ from, to: vault.address, data }, 'latest'] });
     check.textContent = 'The vault would accept this. Your wallet will show it to you before anything is signed.';
     send.disabled = false;
@@ -271,6 +297,8 @@ async function reviewAndSend(control, data, detail, vault, from, provider) {
     send.disabled = true;
     check.textContent = 'Waiting for your wallet…';
     try {
+      await checkWallet();
+      if (!dialog.open) throw new Error('Transaction review was closed. Review it again.');
       const hash = await provider.request({ method: 'eth_sendTransaction', params: [{ from, to: vault.address, data }] });
       check.replaceChildren('Sent, and not yet confirmed: ', link(short(hash), `${vault.explorer}/tx/${hash}`), '. Reload this page after a few seconds to see the vault\'s new state.');
     } catch (error) {
@@ -287,6 +315,8 @@ function tile(value, label, source) {
   const meta = el('p', '', 'tile-source');
   if (source?.lane) meta.append(laneChip(source.lane));
   if (source?.text) meta.append(` ${source.text}`);
+  if (source?.path) meta.append(' · ', sourceLink(source.path));
+  if (source?.date) meta.append(` · ${source.date}`);
   card.append(meta);
   return card;
 }
@@ -296,7 +326,7 @@ function llmLabel(llm) {
   if (llm?.status === 'BLOCKED') return 'Live model call: not tested. No API key was available, so no claim is made that it works';
   if (!llm) return 'Live model call';
   const where = llm.model ? ` on ${llm.model}${llm.provider ? ` via ${llm.provider}` : ''}` : '';
-  return `Live model checks${llm.status ? ` ${llm.status === 'PASS' ? 'passed' : llm.status.toLowerCase()}` : ''}${where}, in one run. The model stays outside the trading path`;
+  return `Live model checks${llm.status ? ` ${llm.status === 'PASS' ? 'passed' : llm.status.toLowerCase()}` : ''}${where}, in one run. Chat evaluation, not a model-driven on-chain trade`;
 }
 
 function renderTiles(proof) {
@@ -306,14 +336,14 @@ function renderTiles(proof) {
   const fraction = (s) => (s ? `${number(s.passed)} of ${number((s.passed ?? 0) + (s.failed ?? 0))}` : 'not yet run');
   const m = proof.mutation; const s = proof.slither; const a = proof.attacks;
   tiles.append(
-    tile(fraction(suite('contracts')), 'Contract tests pass, including seven invariants at 25,600 calls each', { lane: 'local', text: suite('contracts')?.command ?? '' }),
-    tile(fraction(suite('fork')), 'Tests against the real HSKSwap pool', { lane: 'fork' }),
-    tile(fraction(suite('agent')), 'Agent, viewer and SDK tests pass', { lane: 'local' }),
-    tile(m ? `${number(m.killed)} of ${number(m.mutants)}` : 'not yet run', 'Deliberate bugs in the vault caught by the tests', { lane: m?.lane ?? 'local', text: 'npm run check:mutation' }),
-    tile(s ? `${number(s.untriaged)} open` : 'not yet run', s ? `Of ${number(s.findings)} Slither findings, each triaged in the script` : 'Slither findings', { lane: 'local', text: 'npm run check:slither' }),
-    tile(a ? `${number(a.contained)} of ${number(a.attacks)}` : 'not yet run', a ? `Attacks contained, with ${number(a.completed)} of ${number(a.benign)} normal trades completed and ${number(a.capViolations)} cap violations` : 'Attack set', { lane: a?.lane ?? 'fork', text: 'npm run attack-set' }),
-    tile(proof.rehearsal ? number(proof.rehearsal.steps.length) : 'not yet run', 'Deployment rehearsal steps passed, from preflight to recovery', { lane: proof.rehearsal?.lane ?? 'fork', text: 'npm run rehearse' }),
-    tile(llmValue(proof.llm), llmLabel(proof.llm), { lane: 'local', text: 'npm run llm:live' }),
+    tile(fraction(suite('contracts')), 'Contract tests pass, including seven invariants at 25,600 calls each', { lane: 'local', text: 'Recorded contract suite', path: suite('contracts')?.source, date: suite('contracts')?.wallTime }),
+    tile(fraction(suite('fork')), 'Tests against a local fork of the real HSKSwap pool', { lane: 'fork', path: suite('fork')?.source, date: suite('fork')?.wallTime }),
+    tile(fraction(suite('agent')), 'Agent, viewer, SDK and research tests pass', { lane: 'local', path: suite('agent')?.source, date: suite('agent')?.wallTime }),
+    tile(m ? `${number(m.killed)} of ${number(m.mutants)}` : 'not yet run', 'Deliberate bugs in the vault caught by the tests', { lane: m?.lane ?? 'local', text: 'npm run check:mutation', path: 'evidence/v4/mutation-check.json', date: m?.wallTime }),
+    tile(s ? `${number(s.untriaged)} open` : 'not yet run', s ? `Of ${number(s.findings)} Slither findings, each triaged in the script` : 'Slither findings', { lane: 'local', text: 'npm run check:slither', path: 'evidence/v4/slither.json', date: s?.wallTime }),
+    tile(a ? `${number(a.contained)} of ${number(a.attacks)}` : 'not yet run', a ? `Attacks contained, with ${number(a.completed)} of ${number(a.benign)} normal trades completed and ${number(a.capViolations)} cap violations` : 'Attack set', { lane: a?.lane ?? 'fork', text: 'npm run attack-set', path: 'evidence/v4/attack-results.json', date: a?.wallTime }),
+    tile(proof.rehearsal ? number(proof.rehearsal.steps.length) : 'not yet run', 'Deployment rehearsal steps passed, from preflight to recovery', { lane: proof.rehearsal?.lane ?? 'fork', text: 'npm run rehearse', path: 'evidence/v4/rehearsal-fork.json', date: proof.rehearsal?.wallTime }),
+    tile(llmValue(proof.llm), llmLabel(proof.llm), { lane: 'local', text: 'npm run llm:live', path: 'evidence/v4/llm-live.json', date: proof.llm?.wallTime }),
   );
 }
 
@@ -435,7 +465,7 @@ async function loadProof() {
 async function loadVenue() {
   const status = $('#venue-status'); const body = $('#venue-body');
   try {
-    const response = await fetch('/api/venue'); if (!response.ok) throw new Error();
+    const response = await fetch(api('/api/venue')); if (!response.ok) throw new Error();
     const venue = await response.json();
     if (!venue.market) { status.textContent = venue.status ?? 'Not verified right now.'; return; }
     status.replaceChildren(laneChip(venue.lane), ` Live read at block ${number(venue.block)} on chain ${venue.chainId}, ${venue.readAt}. Verdict: ${venue.verdict}.`);
@@ -456,16 +486,20 @@ async function loadVenue() {
 // ---------- Run data ----------
 
 async function load() {
-  const response = await fetch('/api/evidence'); if (!response.ok) throw new Error();
+  const response = await fetch(api('/api/evidence')); if (!response.ok) throw new Error();
   const data = await response.json();
   const chip = $('#network');
   const lane = data.vault?.lane ?? data.network;
   chip.textContent = `${LANE_NAMES[laneOf(lane)]}${data.vault?.chainId ? `, chain ${data.vault.chainId}` : ''}`;
   chip.dataset.lane = laneOf(lane);
+  const deployment = data.deployment;
+  if (deployment?.address) {
+    $('#deployment-status').replaceChildren(`Version ${deployment.generation} deployment: `, link(deployment.address, `${deployment.explorer}/address/${deployment.address}`), ' · ', sourceLink(deployment.source, 'Recorded proof'));
+  } else $('#deployment-status').textContent = 'No deployment record is available for this network.';
   renderVault(data.vault);
   if (data.chatOpen) { $('#chat-section').hidden = false; $('#chat-status').textContent = data.chat; }
   if (data.empty) {
-    $('#state-public').textContent = 'This public server holds no run data, so its live tables are hidden. The results above are from the repository. Mainnet execution: not yet run.';
+    $('#state-public').textContent = 'This public server holds no run data, so its live tables are hidden. The results above are from the repository. No mainnet execution is recorded in this server’s run data.';
     return;
   }
   $('#lanes-section').hidden = false;
@@ -501,13 +535,40 @@ $('#chat').onsubmit = async event => {
   event.preventDefault(); const button = $('#ask'); button.disabled = true;
   const answer = $('#answer'); answer.textContent = 'Waiting for model output…';
   try {
-    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: $('#question').value }) });
+    const response = await fetch(api('/api/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: $('#question').value }) });
     const result = await response.json(); answer.textContent = result.error ?? `${result.label}: ${result.text}`;
   } catch { answer.textContent = 'Chat is unavailable.'; }
   finally { button.disabled = false; }
 };
 
 loadAttacks();
+loadProgress();
 loadProof();
 loadVenue();
-load().catch(() => { $('#state-public').textContent = 'Live run data could not be loaded. The results above are from the repository.'; $('#vault-status').textContent = 'The vault could not be read.'; $('#network').textContent = 'Network unknown'; });
+load().catch(() => { $('#state-public').textContent = 'Live run data could not be loaded. The results above are from the repository.'; $('#vault-status').textContent = 'The vault could not be read.'; $('#network').textContent = `${selectedNetwork} · live read unavailable`; });
+
+// ---------- Evidence-backed progress ----------
+async function loadProgress() {
+  try {
+    const response = await fetch('/api/progress');
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    $('#progress-status').textContent = `Progress record: ${data.asOf}. Historical runs retain their own dates in the linked artifacts.`;
+    for (const item of data.highlights) $('#highlights').append(tile(item.value, item.label, { lane: item.lane, path: item.source, text: item.note }));
+    const proofs = (paths) => { const box = el('span'); paths.forEach((path, i) => { if (i) box.append(' · '); box.append(sourceLink(path, i ? 'Method' : 'Evidence')); }); return box; };
+    table($('#improvements'), ['Area', 'Before → after', 'What that demonstrates', 'Proof'], data.improvements.map((r) => [r.area, r.change, r.meaning, proofs(r.sources)]));
+    table($('#criteria'), ['Criterion', 'Original /10', 'Current /10', 'What remains'], data.criteria.map((r) => [r.name, r.before, r.after, r.limit]));
+    $('#criteria-note').replaceChildren(`Unweighted total: ${data.criteria.reduce((n, r) => n + r.before, 0)} → ${data.criteria.reduce((n, r) => n + r.after, 0)} /100. Different rubric from the weighted comparison below. `, sourceLink('docs/PROGRESS.md', 'Assessment and reasoning'));
+    table($('#comparison'), ['Repository', 'Historical score /100', 'Reviewed revision'], data.comparison.projects.map((p) => [link(p.name, p.url), p.score, link(p.commit, `${p.url}/tree/${p.commit}`)]));
+    table($('#comparison-weights'), ['Criterion', 'Weight %', ...data.comparison.projects.map((p) => p.name)], data.comparison.criteria.map((r) => [r.name, r.weight, ...r.scores]));
+    $('#comparison-source').append(sourceLink(data.comparison.source, 'Read the original comparison'), '. Holdfast’s later deployment and model/chat evidence are shown above; the historical scores have not been silently revised.');
+    for (const doc of data.docs) {
+      const card = el('article', undefined, 'token'); const heading = el('h3'); heading.append(sourceLink(doc.path, doc.title));
+      card.append(heading, el('p', doc.description)); $('#doc-links').append(card);
+    }
+  } catch { $('#progress-status').replaceChildren('Progress could not be loaded. ', sourceLink('docs/PROGRESS.md', 'Read the documented assessment')); }
+}
+
+fetch('/healthz').then((r) => r.json()).then((health) => {
+  $('#build-version').replaceChildren('Server revision: ', health.commit ? link(health.commit.slice(0, 7), `https://github.com/monickverma/holdfast/commit/${health.commit}`) : 'not supplied by this host');
+}).catch(() => { $('#build-version').textContent = 'Server revision unavailable.'; });
