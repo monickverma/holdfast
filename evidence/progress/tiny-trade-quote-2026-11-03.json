@@ -1,0 +1,55 @@
+{
+  "lane": "mainnet read-only quotes; no transactions",
+  "at": "2026-11-03T06:55:32.893Z",
+  "block": "29670898",
+  "balances": {
+    "owner": {
+      "address": "0x1137FA10a0aE7e5Ac228d1B3b86CAc02b92Ef489",
+      "nativeHsk": "0.299408939236675359"
+    },
+    "agent": {
+      "address": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+      "nativeHsk": "0"
+    },
+    "vault": {
+      "address": "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c",
+      "nativeHsk": "0"
+    }
+  },
+  "configuration": {
+    "whskCap": "0",
+    "vaultWhsk": "0",
+    "vaultUsdt": "0",
+    "ownerWhsk": "0"
+  },
+  "inputWhsk": "0.0001",
+  "sellOutputUsdt": "0.000008",
+  "indicativeRoundTrips": [
+    {
+      "route": "HSKSwap -> HSKSwap",
+      "outputWhsk": "0.00007998108751651",
+      "pnlHskBeforeNetworkCosts": "-0.00002001891248349"
+    },
+    {
+      "route": "HSKSwap -> DODO",
+      "outputWhsk": "0.000091182370951403",
+      "pnlHskBeforeNetworkCosts": "-0.000008817629048597"
+    }
+  ],
+  "gasPriceGwei": "500.001",
+  "l1FeeForSynthetic400BytesHsk": "0.000001949880840261",
+  "costsHsk": {
+    "intrinsic21000GasExcludingL1": "0.010500021",
+    "plainSwapFrom104740GasBenchmark": "0.052372054620840261",
+    "guardedSwapFrom172896GasBenchmark": "0.086450122776840261",
+    "firstSwapRunbook202215Gas": "0.101109652095840261"
+  },
+  "limitations": [
+    "The balance of any other user wallet is unknown.",
+    "Native HSK must be wrapped into WHSK; wrapping, approvals, transfers and vault configuration cost additional gas.",
+    "Same-pool buy is quoted against the original block state; this is indicative, not a stateful round-trip simulation.",
+    "Cross-venue quote is not executable by the current fixed-router vault.",
+    "Gas figures use previously measured fork gas, not eth_estimateGas for an executable transaction at this size.",
+    "No vault trade can execute with zero cap and zero funds."
+  ]
+}

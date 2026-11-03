@@ -13,6 +13,7 @@ import { buildFacts } from "../facts.js";
 import { assistantFromEnv, MODEL_KEYS, NO_MODEL_KEY, type Assistant } from "../nl.js";
 import { DEFAULT_POLICY } from "../policy.js";
 import { readProof } from "../proof.js";
+import { viewerNetwork, type ViewerNetwork, type Network } from "../viewer-network.js";
 import { VAULT_ABI, readHead, readMarket } from "../reader.js";
 import { quantileReport } from "../stats.js";
 import { BIGINT_FIELDS, type Intent } from "../ledger.js";
@@ -162,13 +163,12 @@ const ERC20 = parseAbi(["function balanceOf(address) view returns (uint256)"]);
 /** A vault from an earlier generation has no such function. Its absence is shown as absent, never as a default. */
 const orNull = <T>(promise: Promise<T>) => promise.catch(() => null);
 
-async function vaultLimits(address: string | undefined) {
+async function vaultLimits(address: string | undefined, context: ViewerNetwork) {
   if (!address) return { status: "No vault is set." };
   if (!isAddress(address)) return { status: "Vault configuration is invalid." };
   try {
     // Profile endpoint and chain check keep vault reads in the correct lane.
-    const profile = networkProfile();
-    const market = profile.network === "testnet" ? testMarket() : HSKSWAP;
+    const { profile, market } = context;
     const client = createPublicClient({ transport: http(profile.rpcUrl, { timeout: 10_000, retryCount: 0 }) });
     if (await client.getChainId() !== profile.chainId) throw new Error("Wrong chain");
     const blockNumber = await client.getBlockNumber();
@@ -197,15 +197,19 @@ async function vaultLimits(address: string | undefined) {
 }
 
 /** The venue check and the market, both read from chain now. Signs nothing, and the agent key is kept out of the config. */
-async function readVenueNow(address: string | undefined) {
-  const profile = networkProfile();
-  const rpc = new RpcClient(process.env.RPC_URL ?? profile.rpcUrl, { maxRetries: 0 });
+async function readVenueNow(address: string | undefined, context: ViewerNetwork) {
+  const { profile, market } = context;
+  const rpc = new RpcClient(profile.rpcUrl, { maxRetries: 0 });
   try {
-    const { vault: _manifestVault, ...config } = loadConfig({ ...process.env, AGENT_PRIVATE_KEY: undefined, MODE: "observe", LIVE: undefined });
-    const report = await verifyVenue(rpc, address && isAddress(address) ? { ...config, vault: address } : config);
-    const market = profile.network === "testnet" ? testMarket() : HSKSWAP;
+    const config = { ...loadConfig({ NETWORK: "mainnet", MODE: "observe" }), chainId: profile.chainId,
+      rpcUrl: profile.rpcUrl, poolKind: profile.network === "testnet" ? "constant-product" as const : "v3" as const,
+      legacyVault: context.generation < 2, guardedVault: context.generation >= 3,
+      ...(address && isAddress(address) ? { vault: address } : {}) };
+    // A mismatched RPC must never produce quotes labelled as the selected chain.
+    if (Number(await rpc.call<string>("eth_chainId")) !== profile.chainId) throw new Error("Wrong chain");
+    const report = await verifyVenue(rpc, config, undefined, market);
     const head = await readHead(rpc);
-    const state = await readMarket(rpc, config, head, [{ tokenIn: market.whsk, amountIn: 10n ** 18n }, { tokenIn: market.whsk, amountIn: 10n ** 19n }, { tokenIn: market.usdt, amountIn: 10n ** 6n }]);
+    const state = await readMarket(rpc, config, head, [{ tokenIn: market.whsk, amountIn: 10n ** 18n }, { tokenIn: market.whsk, amountIn: 10n ** 19n }, { tokenIn: market.usdt, amountIn: 10n ** 6n }], market);
     const [one, ten, buy] = state.quotes;
     return {
       lane: profile.lane, chainId: report.chainId, block: head.number.toString(), readAt: new Date().toISOString(), verdict: report.verdict,
@@ -263,6 +267,7 @@ const STATIC: Record<string, [string, string]> = {
   "/charts.js": ["charts.js", "text/javascript"],
   "/wallet.js": ["wallet.js", "text/javascript"],
   "/style.css": ["style.css", "text/css"],
+  "/api/progress": ["progress.json", "application/json"],
 };
 
 export function createViewer(options: {
@@ -274,7 +279,8 @@ export function createViewer(options: {
   cacheMs?: number;
   chatToken?: string;
   chatDailyLimit?: number;
-  venue?: () => Promise<unknown>;
+  venue?: (network: Network) => Promise<unknown>;
+  vault?: (network: Network) => Promise<unknown>;
   limits?: { api?: number; demo?: number; chat?: number };
 } = {}) {
   const dataDir = options.dataDir ?? join(root, "data");
@@ -290,28 +296,34 @@ export function createViewer(options: {
   const assistant = options.assistant === undefined
     ? assistantFromEnv(process.env, (record) => llmLog.append(record))
     : options.assistant;
-  const address = options.vaultAddress ?? process.env.VAULT_ADDRESS ?? (networkProfile().network === "testnet" ? testMarket().vault : undefined);
-  const evidence = cached(cacheMs, async () => ({ ...readEvidence(dataDir), vault: await vaultLimits(address) }));
+  const defaultNetwork = networkProfile().network;
   const proof = cached(Math.max(cacheMs, 60_000), async () => readProof(evidenceDir));
-  // Around twenty reads a time, so a crowd of visitors shares one every minute.
-  const venue = cached(Math.max(cacheMs, 60_000), options.venue ?? (() => readVenueNow(address)));
-  const profile = networkProfile();
-  const rpc: RpcRequest = options.rpc ?? (async (method, params) => {
-    const response = await fetch(profile.rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10_000) });
-    return await response.json() as { result?: unknown; error?: { message?: string; data?: unknown } };
-  });
-  // One upstream call per attack per window, however many visitors press the button.
-  const demos = new Map(Object.keys(DEMO_ATTACKS).map((name) => [name, cached(cacheMs, async () => {
-    const market = profile.network === "testnet" ? testMarket() : HSKSWAP;
-    if (!address || !isAddress(address)) throw new Error("No vault");
-    const client = createPublicClient({ transport: http(profile.rpcUrl, { timeout: 10_000, retryCount: 0 }) });
-    if (await client.getChainId() !== profile.chainId) throw new Error("Wrong chain");
-    const block = await client.getBlock();
-    const read = <T>(functionName: string, args: unknown[] = []) => client.readContract({ address, abi: VAULT_ABI, functionName, args, blockNumber: block.number } as never) as Promise<T>;
-    const [agent, owner, maxTrade, remaining] = await Promise.all([read<Address>("agent"), read<Address>("owner"), read<bigint>("maxTrade", [market.whsk]), read<bigint>("remaining", [market.whsk])]);
-    const outcome = await runDemo(name, { vault: address, agent, owner, tokenIn: market.whsk, maxTrade, spendable: remaining < maxTrade ? remaining : maxTrade, timestamp: block.timestamp }, block.number, rpc);
-    return { ...outcome, lane: profile.lane, chainId: profile.chainId, vault: address, explorer: explorers[profile.lane], readAt: new Date().toISOString(), note: "A real eth_call against this vault's state. Nothing was signed or sent." };
-  })]));
+  const runs = new Map((["mainnet", "testnet"] as const).map((network) => {
+    const context = viewerNetwork(network, evidenceDir);
+    const { profile, market } = context;
+    // Legacy operator overrides apply only to the operator's selected network.
+    const address = network === defaultNetwork
+      ? options.vaultAddress ?? process.env.VAULT_ADDRESS ?? context.address
+      : context.address;
+    const evidence = cached(cacheMs, async () => ({ ...readEvidence(dataDir), vault: options.vault ? await options.vault(network) : await vaultLimits(address, context) }));
+    const venue = cached(Math.max(cacheMs, 60_000), () => options.venue ? options.venue(network) : readVenueNow(address, context));
+    const rpc: RpcRequest = options.rpc ?? (async (method, params) => {
+      const response = await fetch(profile.rpcUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10_000) });
+      return await response.json() as { result?: unknown; error?: { message?: string; data?: unknown } };
+    });
+    // One upstream call per attack per window, however many visitors press the button.
+    const demos = new Map(Object.keys(DEMO_ATTACKS).map((name) => [name, cached(cacheMs, async () => {
+      if (!address || !isAddress(address)) throw new Error("No vault");
+      const client = createPublicClient({ transport: http(profile.rpcUrl, { timeout: 10_000, retryCount: 0 }) });
+      if (await client.getChainId() !== profile.chainId) throw new Error("Wrong chain");
+      const block = await client.getBlock();
+      const read = <T>(functionName: string, args: unknown[] = []) => client.readContract({ address, abi: VAULT_ABI, functionName, args, blockNumber: block.number } as never) as Promise<T>;
+      const [agent, owner, maxTrade, remaining] = await Promise.all([read<Address>("agent"), read<Address>("owner"), read<bigint>("maxTrade", [market.whsk]), read<bigint>("remaining", [market.whsk])]);
+      const outcome = await runDemo(name, { vault: address, agent, owner, tokenIn: market.whsk, maxTrade, spendable: remaining < maxTrade ? remaining : maxTrade, timestamp: block.timestamp }, block.number, rpc);
+      return { ...outcome, lane: profile.lane, chainId: profile.chainId, vault: address, explorer: explorers[profile.lane], readAt: new Date().toISOString(), note: "A real eth_call against this vault's state. Nothing was signed or sent." };
+    })]));
+    return [network, { context, profile, address, evidence, venue, demos }] as const;
+  }));
   /** A person at this machine, not a proxied visitor. */
   const isLoopback = (req: IncomingMessage, localHost: string) => req.headers.host === localHost && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "") && !req.headers["x-forwarded-for"];
   /** The proxy appends the address it saw, so the last entry is the one a client cannot choose. */
@@ -338,8 +350,13 @@ export function createViewer(options: {
       res.end(text);
     };
     try {
-      const path = decodeURIComponent(req.url ?? "/");
-      if (path.includes("..") || path.includes("\\") || path.includes("\0") || path.includes("%")) return send(400, { error: "Path refused." });
+      const rawPath = decodeURIComponent(req.url ?? "/");
+      if (rawPath.includes("..") || rawPath.includes("\\") || rawPath.includes("\0") || rawPath.includes("%")) return send(400, { error: "Path refused." });
+      const url = new URL(req.url ?? "/", "http://viewer.invalid");
+      const path = decodeURIComponent(url.pathname);
+      const selected = url.searchParams.get("network") ?? defaultNetwork;
+      if (!["mainnet", "testnet"].includes(selected) || url.searchParams.getAll("network").length > 1) return send(400, { error: "Choose mainnet or testnet." });
+      const { context, profile, address, evidence, venue, demos } = runs.get(selected as Network)!;
       const localHost = `127.0.0.1:${(res.socket?.address() as { port: number }).port}`;
       const renderHost = process.env.RENDER_EXTERNAL_HOSTNAME;
 
@@ -354,13 +371,14 @@ export function createViewer(options: {
       const chatOpen = Boolean(assistant) && (local || Boolean(chatToken));
       if (req.method === "GET" && STATIC[path]) {
         const [name, type] = STATIC[path]!;
-        return send(200, readFileSync(join(root, "web", name), "utf8"), type);
+        const content = readFileSync(join(root, "web", name), "utf8");
+        return send(200, type === "application/json" ? JSON.parse(content) : content, type);
       }
-      if (req.method === "GET" && path === "/healthz") return send(200, { ok: true });
+      if (req.method === "GET" && path === "/healthz") return send(200, { ok: true, commit: /^[a-f0-9]{40}$/i.test(process.env.RENDER_GIT_COMMIT ?? "") ? process.env.RENDER_GIT_COMMIT : null });
       if (req.method === "GET" && path.startsWith("/api/") && !allowApi(client)) return send(429, { error: "Too many requests. Try again in a minute." }, "application/json", { "Retry-After": "60" });
       if (req.method === "GET" && path === "/api/evidence") {
         return send(200, {
-          ...await evidence(), network: profile.network,
+          ...await evidence(), network: profile.network, deployment: context.deployment,
           chat: !assistant ? `${NO_MODEL_KEY}. Chat is unavailable.` : chatOpen ? "Questions only. Answers are model output." : "Chat is off on this public server, because each answer costs money.",
           chatOpen,
         });
@@ -405,7 +423,7 @@ export function createViewer(options: {
         if (chatToday.used >= chatDailyLimit) return send(429, { error: "Today's question budget is used up." });
         chatToday.used++;
         const base = buildFacts({ lastMarket: undefined } as unknown as Agent, DEFAULT_POLICY) as Row;
-        const reply = await assistant.handle(`Answer questions only. Policy changes belong in the REPL.\n${message}`, { status: base.status, evidence: readEvidence(dataDir), vault: await vaultLimits(address) }, DEFAULT_POLICY, 0n);
+        const reply = await assistant.handle(`Answer questions only. Policy changes belong in the REPL.\n${message}`, { status: base.status, evidence: readEvidence(dataDir), vault: await vaultLimits(address, context), network: selected }, DEFAULT_POLICY, 0n);
         return send(200, { label: "Model output", text: reply.kind === "answer" ? reply.text : "This panel only answers questions. Policy changes stay in the existing REPL." });
       }
       send(404, { error: "Not found." });

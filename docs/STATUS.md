@@ -1,5 +1,7 @@
 # Status of the system
 
+**Public viewer:** [mainnet](https://holdfast-09jn.onrender.com/?network=mainnet) and [testnet](https://holdfast-09jn.onrender.com/?network=testnet), with progress, source links and a [website guide](WEBSITE.md). The latest local agent/viewer/research test count is recorded separately in [site-verification.json](../evidence/progress/site-verification.json); older test counts below retain their original scope.
+
 What was done in this round of engineering, what evidence backs it, and what is still open. "Lane" is where something ran. **On mainnet, only the version 4 deployment has run: no limits, guardian, funds or trades. A language model can now be the trading engine, inside limits code enforces, but it has never traded on any chain: it has run on recorded mainnet data only. The live chat check passes 14 of 14 requests through OpenRouter to DeepSeek V4 Pro, not a Claude model. Version 4 is deployed on mainnet and on no other public network. Version 3 is deployed on testnet but has not traded there, and its guard is off. No profit has been shown in any lane.**
 
 ## What the audit found
@@ -66,7 +68,7 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Mainnet trading | Version 4 is deployed on mainnet, which meets the deployment rule. The owner key holds about 0.30 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
+| Mainnet trading | Version 4 is deployed on mainnet, with deployment proven; organizer acceptance of its timing has not been confirmed. The owner key holds about 0.30 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
 
 ## Not done
 
@@ -74,10 +76,10 @@ The rows below are **version 3 or earlier**, kept as they were.
 |---|---|
 | Version 4 on testnet | Not deployed. Testnet still has version 3. Mainnet has version 4, unconfigured |
 | The model engine on a chain | Built and tested locally and on recorded data, but never run against a vault on any network, in simulate or live mode. Testnet needs the owner's approval for each transaction, and version 4 is not on testnet |
-| Arbitrage | Not built. Every trade is in one pool. The closing leg is a second trade in that same pool, later. Nothing trades on a second venue |
+| Arbitrage execution | No cross-venue executor. Read-only route sizing, split-exit research, depth-aware exchange hedges and fee replay are implemented; [research and evidence](STRATEGY-RESEARCH.md). Live trading still uses one pool |
 | Chat for the model's mandate and the vault's new limits | Chat sets the model's sizes and on or off. The vault's share limit, cooldown and strategy pin have no admin command and no chat control |
 | Version 3 in use on testnet | Deployed at `0x9b31…1b28`, using 7,886,252 gas and 0.00789 test HSK. Guard off, no guardian, no stop armed, no swaps. The agent key holds about 0.00003 test HSK, too little to trade |
-| Public chat on the site | The site is live at holdfast-09jn.onrender.com and reads the testnet vault. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
+| Public chat on the site | The site is live at holdfast-09jn.onrender.com and offers both mainnet and testnet vaults. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
 | Demo video | None in the repository. [A script](DEMO-SCRIPT.md) is ready for the owner to record |
 | Contract source verification on the explorer | Not attempted. The runtime code was compared with the build instead, and matched |
 | External audit | None. Everything here is our own review |
@@ -112,7 +114,7 @@ We read [Vyuh](https://github.com/Sandesh13fr/vyuh) as a reference, the source a
 | Agent's choice of fee tier | Fixed at deployment | The agent chooses |
 | Tooling | Own stdio MCP, SDK, keeper, monitor, plain web page | MCP SDK, keeper, Ponder indexer, Next.js console, published guard SDK. **Its tooling is broader, and an indexer is something we lack** |
 | Verification | Version 4: 165 contract tests and a fork end-to-end run. Version 3: 7 invariants at 25,600 calls each, 37 of 37 mutants, Slither triage, attack set, 26-step rehearsal | By its own documents, 52 Solidity tests and 4 of 4 fork tests, with deploy, indexer and console wallet flows "not yet verified" |
-| Deployed | Older vault on testnet, 1,050 swaps and refusals on chain. **Version 3 deployed on testnet, no swaps yet** | We did not confirm a deployment |
+| Deployed | **Version 4 on mainnet, unfunded and unconfigured in the 3 November read; version 3 on testnet.** Older testnet vaults produced the historical swaps and refusals | We did not confirm a deployment |
 
 **Where Vyuh is ahead:** flexibility, a factory that serves many users, an indexer, and a more complete-looking product. A team wanting configurable policy across many vaults would prefer it.
 

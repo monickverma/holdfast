@@ -1,0 +1,41 @@
+{
+  "lane": "replay / hypothetical atomic costs; no executed trades",
+  "source": "evidence/arb/baseline.samples.jsonl",
+  "samples": 565,
+  "uniqueBlocks": 565,
+  "best": {
+    "route": "hskswap-30>solidly-20",
+    "sizeUsdt": 0.25,
+    "block": "29658247",
+    "grossUsdt": 0.001903,
+    "breakEvenGas": "43439"
+  },
+  "scenarios": [
+    {
+      "gas": "50000",
+      "positiveSamples": 0,
+      "bestNetUsdt": -0.000286
+    },
+    {
+      "gas": "100000",
+      "positiveSamples": 0,
+      "bestNetUsdt": -0.002474
+    },
+    {
+      "gas": "150000",
+      "positiveSamples": 0,
+      "bestNetUsdt": -0.004662
+    },
+    {
+      "gas": "200000",
+      "positiveSamples": 0,
+      "bestNetUsdt": -0.00685
+    }
+  ],
+  "caveats": [
+    "Gas budgets are hypotheses, not fork measurements.",
+    "Reuses the old 200-byte L1 fee approximation; new live search uses 400 bytes.",
+    "Repeated quotes are not cumulative profit. No fills or earnings are claimed.",
+    "Only the recorded routes and sizes are repriced."
+  ]
+}

@@ -12,6 +12,7 @@ import { DEMO_ATTACKS, runDemo } from "../src/demo.js";
 import { readProof } from "../src/proof.js";
 import { VAULT_ABI } from "../src/reader.js";
 import { quantileReport } from "../src/stats.js";
+import { viewerNetwork } from "../src/viewer-network.js";
 
 async function fixture(work: (get: (path: string, body?: unknown) => Promise<{ status: number; text: string }>, dir: string) => Promise<void>, assistant: Parameters<typeof createViewer>[0] = {}) {
   // Outside data/, so a crashed test can never show its made-up rows as evidence.
@@ -51,6 +52,45 @@ const withServer = async (options: Parameters<typeof createViewer>[0], work: (po
   }
 };
 const trace = (lane: string, ms: number, i: number) => ({ id: `${lane}-${i}`, lane, wallTime: "saved-time", attrs: { decisionToBroadcastMs: ms }, spans: [{ stage: "state", startMs: 0, endMs: ms, ok: true }] });
+
+test("concurrent network requests keep their vault, venue and cache separate", async () => {
+  const vaultReads: string[] = []; const venueReads: string[] = [];
+  await withServer({
+    vault: async (network) => { vaultReads.push(network); await new Promise((r) => setTimeout(r, 10)); return { lane: network, address: `${network}-vault` }; },
+    venue: async (network) => { venueReads.push(network); return { lane: network }; },
+  }, async (port) => {
+    const replies = await Promise.all(["mainnet", "testnet", "mainnet", "testnet"].map(async (network) => {
+      const response = await rawGet(port, `/api/evidence?network=${network}`);
+      assert.equal(response.status, 200);
+      const data = JSON.parse(response.text);
+      assert.equal(data.network, network); assert.equal(data.vault.lane, network); assert.equal(data.vault.address, `${network}-vault`);
+      const venue = JSON.parse((await rawGet(port, `/api/venue?network=${network}`)).text);
+      assert.equal(venue.lane, network);
+    }));
+    assert.equal(replies.length, 4);
+    assert.deepEqual(vaultReads.sort(), ["mainnet", "testnet"]); assert.deepEqual(venueReads.sort(), ["mainnet", "testnet"]);
+  });
+});
+
+test("network deep links load, and unknown or ambiguous networks cannot fall through", async () => withServer({}, async (port) => {
+  assert.equal((await rawGet(port, "/?network=testnet")).status, 200);
+  for (const path of ["/api/evidence?network=fork", "/api/demo?network=177", "/api/venue?network=mainnet&network=testnet", "/?network="]) assert.equal((await rawGet(port, path)).status, 400);
+  const progress = await rawGet(port, "/api/progress");
+  assert.equal(progress.status, 200); assert.ok(Array.isArray(JSON.parse(progress.text).criteria));
+}));
+
+test("deployment manifests select distinct markets without changing the server environment", () => {
+  const original = process.env.NETWORK;
+  const evidence = join(process.cwd(), "evidence");
+  const mainnet = viewerNetwork("mainnet", evidence); const testnet = viewerNetwork("testnet", evidence);
+  assert.equal(mainnet.profile.chainId, 177); assert.equal(testnet.profile.chainId, 133);
+  assert.equal(mainnet.address, "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c");
+  assert.equal(testnet.address, "0x9b31aeda4839747a4251d623ddfee4152c961b28");
+  assert.notEqual(mainnet.market.whsk, testnet.market.whsk); assert.notEqual(mainnet.market.pool, testnet.market.pool);
+  assert.equal(process.env.NETWORK, original);
+  const missing = viewerNetwork("testnet", join(evidence, "missing"));
+  assert.equal(missing.address, undefined); assert.match(missing.market.whsk, /^0x0+$/);
+});
 
 test("viewer refuses raw, encoded and Windows path traversal", async () => fixture(async (get) => {
   for (const path of ["/../package.json", "/%2e%2e/package.json", "/%252e%252e/package.json", "/..%5cpackage.json", "/%00"]) assert.equal((await get(path)).status, 400);
@@ -137,9 +177,9 @@ test("viewer withholds an unlinked row when its directory mixes lanes", async ()
   assert.equal(data.incomplete, true);
 }));
 
-test("every response carries the security headers and the health check says nothing", async () => withServer({}, async (port) => {
+test("every response carries the security headers and health exposes only a public revision", async () => withServer({}, async (port) => {
   const health = await rawGet(port, "/healthz");
-  assert.equal(health.status, 200); assert.deepEqual(JSON.parse(health.text), { ok: true });
+  assert.equal(health.status, 200); assert.deepEqual(JSON.parse(health.text), { ok: true, commit: null });
   const page = await rawGet(port, "/");
   assert.match(String(page.headers["content-security-policy"]), /script-src 'self'; style-src 'self'/);
   assert.doesNotMatch(String(page.headers["content-security-policy"]), /unsafe|https?:/);

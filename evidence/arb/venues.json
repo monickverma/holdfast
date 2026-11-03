@@ -1,0 +1,859 @@
+{
+  "startedAt": "2026-11-02T23:39:30.816Z",
+  "lane": "mainnet read-only, no trades",
+  "rpc": "https://mainnet.hsk.xyz",
+  "chainId": 177,
+  "block": "29657817",
+  "method": "eth_call at one block for every chain read; candidates from factory getPool over fee tiers 100, 500, 2500, 3000, 10000, two-hop routes through WETH, USDC.e, WBTC, and the top 50 WHSK and USDT holders on https://hsk.blockscout.com",
+  "hskswap": {
+    "pool": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+    "poolFactory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+    "router": "0x2c16f75b95Cf1390c328aB70e2CEE7f4b80bD8F3",
+    "routerFactory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+    "routerFactoryV2": "0x0000000000000000000000000000000000000000",
+    "quoter": "0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD",
+    "quoterFactory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+    "weth9": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+    "tiers": [
+      {
+        "fee": 100,
+        "tickSpacing": 1
+      },
+      {
+        "fee": 500,
+        "tickSpacing": 10
+      },
+      {
+        "fee": 2500,
+        "tickSpacing": 0
+      },
+      {
+        "fee": 3000,
+        "tickSpacing": 60
+      },
+      {
+        "fee": 10000,
+        "tickSpacing": 200
+      }
+    ]
+  },
+  "factoryPools": [
+    {
+      "route": "WHSK/USDT",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDT",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDT",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDT",
+      "fee": 3000,
+      "pool": "0x4ff515761864e7838B0AdB8b5b2B8B7A068905dC"
+    },
+    {
+      "route": "WHSK/USDT",
+      "fee": 10000,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WETH",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WETH",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WETH",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WETH",
+      "fee": 3000,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WETH",
+      "fee": 10000,
+      "pool": null
+    },
+    {
+      "route": "WETH/USDT",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WETH/USDT",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WETH/USDT",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WETH/USDT",
+      "fee": 3000,
+      "pool": "0xb92b79ed6b370D5cFee2E14B1D0983C258304C16"
+    },
+    {
+      "route": "WETH/USDT",
+      "fee": 10000,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDC.e",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDC.e",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDC.e",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/USDC.e",
+      "fee": 3000,
+      "pool": "0xB580D654cE892181937Aac80EA165950CB7D0E02"
+    },
+    {
+      "route": "WHSK/USDC.e",
+      "fee": 10000,
+      "pool": "0x9861246B8BdF619Cc0e8C0422E0a662b51A2c3F4"
+    },
+    {
+      "route": "USDC.e/USDT",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "USDC.e/USDT",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "USDC.e/USDT",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "USDC.e/USDT",
+      "fee": 3000,
+      "pool": null
+    },
+    {
+      "route": "USDC.e/USDT",
+      "fee": 10000,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WBTC",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WBTC",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WBTC",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WBTC",
+      "fee": 3000,
+      "pool": null
+    },
+    {
+      "route": "WHSK/WBTC",
+      "fee": 10000,
+      "pool": null
+    },
+    {
+      "route": "WBTC/USDT",
+      "fee": 100,
+      "pool": null
+    },
+    {
+      "route": "WBTC/USDT",
+      "fee": 500,
+      "pool": null
+    },
+    {
+      "route": "WBTC/USDT",
+      "fee": 2500,
+      "pool": null
+    },
+    {
+      "route": "WBTC/USDT",
+      "fee": 3000,
+      "pool": "0xd9EA2cE468957Ba49cCC38C4758Ed6ecD561449A"
+    },
+    {
+      "route": "WBTC/USDT",
+      "fee": 10000,
+      "pool": null
+    }
+  ],
+  "v2Pair": null,
+  "venues": [
+    {
+      "address": "0x4ff515761864e7838B0AdB8b5b2B8B7A068905dC",
+      "source": "factory.getPool, WHSK/USDT, fee 3000",
+      "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+      "codeBytes": 22142,
+      "pair": "WHSK/USDT",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WHSK": 4989056.165216507,
+        "USDT": 436628.577461
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 3000,
+      "liquidity": "1475831005908433993",
+      "tick": -300685,
+      "explorer": "https://hsk.blockscout.com/address/0x4ff515761864e7838B0AdB8b5b2B8B7A068905dC",
+      "route": "WHSK/USDT"
+    },
+    {
+      "address": "0xb92b79ed6b370D5cFee2E14B1D0983C258304C16",
+      "source": "factory.getPool, WETH/USDT, fee 3000",
+      "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+      "codeBytes": 22142,
+      "pair": "WETH/USDT",
+      "token0": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WETH": 21.24660448537335,
+        "USDT": 48310.22478
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 3000,
+      "liquidity": "1012957283335421",
+      "tick": -199027,
+      "explorer": "https://hsk.blockscout.com/address/0xb92b79ed6b370D5cFee2E14B1D0983C258304C16",
+      "route": "WETH/USDT"
+    },
+    {
+      "address": "0xB580D654cE892181937Aac80EA165950CB7D0E02",
+      "source": "factory.getPool, WHSK/USDC.e, fee 3000",
+      "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+      "codeBytes": 22142,
+      "pair": "USDC.e/WHSK",
+      "token0": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+      "token1": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "balances": {
+        "USDC.e": 0.076788,
+        "WHSK": 0.8144977532441299
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 3000,
+      "liquidity": "249999999999",
+      "tick": 299933,
+      "explorer": "https://hsk.blockscout.com/address/0xB580D654cE892181937Aac80EA165950CB7D0E02",
+      "route": "WHSK/USDC.e"
+    },
+    {
+      "address": "0x9861246B8BdF619Cc0e8C0422E0a662b51A2c3F4",
+      "source": "factory.getPool, WHSK/USDC.e, fee 10000",
+      "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+      "codeBytes": 22142,
+      "pair": "USDC.e/WHSK",
+      "token0": "0x054ed45810DbBAb8B27668922D110669c9D88D0a",
+      "token1": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "balances": {
+        "USDC.e": 0.000006,
+        "WHSK": 4e-18
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 10000,
+      "liquidity": "0",
+      "tick": 299991,
+      "explorer": "https://hsk.blockscout.com/address/0x9861246B8BdF619Cc0e8C0422E0a662b51A2c3F4",
+      "route": "WHSK/USDC.e"
+    },
+    {
+      "address": "0xd9EA2cE468957Ba49cCC38C4758Ed6ecD561449A",
+      "source": "factory.getPool, WBTC/USDT, fee 3000",
+      "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+      "codeBytes": 22142,
+      "pair": "WBTC/USDT",
+      "token0": "0x6119CA49a79f5825C8B345F8d7aC36B272565b14",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WBTC": 0.65524018,
+        "USDT": 50748.104885
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 3000,
+      "liquidity": "1823343427",
+      "tick": 66526,
+      "explorer": "https://hsk.blockscout.com/address/0xd9EA2cE468957Ba49cCC38C4758Ed6ecD561449A",
+      "route": "WBTC/USDT"
+    },
+    {
+      "address": "0x112745933CAa2E340d3691ad9A4EEaA365CAB790",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 4817,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 18147.834364666265,
+        "USDT": 371.144709
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x112745933CAa2E340d3691ad9A4EEaA365CAB790",
+      "explorerName": null
+    },
+    {
+      "address": "0xd8B24e241b47b40dD38496317288A5dc9e5118bF",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 14790,
+      "pair": "HASHOO/WHSK",
+      "token0": "0x9dDe86Fd131d9F8Ec1860FD9d40257593DbE6420",
+      "token1": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "balances": {
+        "HASHOO": 621816707.4851168,
+        "WHSK": 8443.002474528492
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0xd8B24e241b47b40dD38496317288A5dc9e5118bF",
+      "explorerName": "VolatileV1 AMM - HASHOO/WHSK"
+    },
+    {
+      "address": "0xc5a076cad94176c2996B32d8466Be1cE757FAa27",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 21970,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 6581.8352821616345,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xc5a076cad94176c2996B32d8466Be1cE757FAa27",
+      "explorerName": "MCV2_Bond"
+    },
+    {
+      "address": "0x1985914e3c753DDf55E3BeBB012B571599A5566d",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x48517c889cF9De316711077835c33243E2F021ee",
+      "codeBytes": 22962,
+      "pair": "WHSK/Hashoo",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xF21Ec04a8C69fED6BDD56934616967d62B420d93",
+      "balances": {
+        "WHSK": 3064.8253941716316,
+        "Hashoo": 531335966.6792968
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 10000,
+      "liquidity": "1272804605524200523144613",
+      "tick": 120676,
+      "explorer": "https://hsk.blockscout.com/address/0x1985914e3c753DDf55E3BeBB012B571599A5566d",
+      "explorerName": "HuskeyPool"
+    },
+    {
+      "address": "0xA2F4C3ede0bf2016eDAc7F2419aC8BEF6A6b20B5",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x48517c889cF9De316711077835c33243E2F021ee",
+      "codeBytes": 22962,
+      "pair": "WHSK/WETH",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+      "balances": {
+        "WHSK": 2958.974806351217,
+        "WETH": 0.009914214653242687
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 2500,
+      "liquidity": "2728397857610612",
+      "tick": -99810,
+      "explorer": "https://hsk.blockscout.com/address/0xA2F4C3ede0bf2016eDAc7F2419aC8BEF6A6b20B5",
+      "explorerName": "HuskeyPool"
+    },
+    {
+      "address": "0xc070B6a1386b0f13Caf24168539C2566Bda11E47",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 45,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 2937.3868513726793,
+        "USDT": 256.073419
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xc070B6a1386b0f13Caf24168539C2566Bda11E47",
+      "explorerName": "DLP_c070b6a1"
+    },
+    {
+      "address": "0x711d26AA3ff64dd9Dc5FA22B7c64C26c1b28f8f2",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+      "codeBytes": 8719,
+      "pair": "WHSK/WETH",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0",
+      "balances": {
+        "WHSK": 1093.0577967864556,
+        "WETH": 0.0419099775449549
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0x711d26AA3ff64dd9Dc5FA22B7c64C26c1b28f8f2",
+      "explorerName": "Hyperindex LP Token"
+    },
+    {
+      "address": "0x5083fc3735FE93B1D809476dA913B33432fA0Be0",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 16144,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 1000,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x5083fc3735FE93B1D809476dA913B33432fA0Be0",
+      "explorerName": null
+    },
+    {
+      "address": "0xa168f1CB4503f55953Bfc320542F6845B099F7BE",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+      "codeBytes": 8719,
+      "pair": "WHSK/CELA",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xC7DcECe84EC314F08014dA2036632afb7fb1e05C",
+      "balances": {
+        "WHSK": 769.0536113559485,
+        "CELA": 663170.3426214415
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0xa168f1CB4503f55953Bfc320542F6845B099F7BE",
+      "explorerName": "Hyperindex LP Token"
+    },
+    {
+      "address": "0x562723560131C47417dfcD6BB1A089E4D7C7943C",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 7980,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 513.0982341721234,
+        "USDT": 65.793616
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x562723560131C47417dfcD6BB1A089E4D7C7943C",
+      "explorerName": "MultiSigWalletWithTimelock"
+    },
+    {
+      "address": "0x340bDfC78724B3C4E28385462D9A36d469ad047B",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 14790,
+      "pair": "WHSK/USDT",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WHSK": 493.6314742597073,
+        "USDT": 44.002372
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0x340bDfC78724B3C4E28385462D9A36d469ad047B",
+      "explorerName": "Pair"
+    },
+    {
+      "address": "0xd4aa0CA4Abd7B8Aab8677c123c1dDbf65cC417D8",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x842B084c3A62eCa35237B3F94b3b45f429047100",
+      "codeBytes": 22142,
+      "pair": "WHSK/HASHOO",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xBE419E15259bD11DA0069A751c0F6EacA87d4d11",
+      "balances": {
+        "WHSK": 487.304705439073,
+        "HASHOO": 911715945.031451
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 10000,
+      "liquidity": "2248596696140724400453107",
+      "tick": 120155,
+      "explorer": "https://hsk.blockscout.com/address/0xd4aa0CA4Abd7B8Aab8677c123c1dDbf65cC417D8",
+      "explorerName": "UniswapV3Pool"
+    },
+    {
+      "address": "0xF8365695ccC4FCa53241d7d42BbDc3b2e7d43AE4",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+      "codeBytes": 8719,
+      "pair": "WHSK/USDT",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WHSK": 429.64770222496935,
+        "USDT": 38.132505
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0xF8365695ccC4FCa53241d7d42BbDc3b2e7d43AE4",
+      "explorerName": "Hyperindex LP Token"
+    },
+    {
+      "address": "0x66e8c5D59E77eEBd8289D5BB76222F04f571BC67",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24437,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 284.87694535801444,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x66e8c5D59E77eEBd8289D5BB76222F04f571BC67",
+      "explorerName": "EVM2EVMOnRamp"
+    },
+    {
+      "address": "0x94296382a0e7e85DB9e65C513dE5c1774E34F59E",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 20552,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 230.12688408004283,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x94296382a0e7e85DB9e65C513dE5c1774E34F59E",
+      "explorerName": null
+    },
+    {
+      "address": "0x344d02cEBb36ABBA6e55A9cefC703A75cA09E4E0",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 2471,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 205.94603313110804,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x344d02cEBb36ABBA6e55A9cefC703A75cA09E4E0",
+      "explorerName": null
+    },
+    {
+      "address": "0xa5ef140471486a25a71cd75AE38A26e945D2E3c4",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24009,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 203.45833314409978,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xa5ef140471486a25a71cd75AE38A26e945D2E3c4",
+      "explorerName": "PoolManager"
+    },
+    {
+      "address": "0xB27B6441158B55526659bB1E2cf6731DeD79Bd1E",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+      "codeBytes": 8719,
+      "pair": "RWAC/WHSK",
+      "token0": "0x6c5D2f3054b121a97366a7Eb9388d6888995C333",
+      "token1": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "balances": {
+        "RWAC": 1347306.5232618942,
+        "WHSK": 198.02450102437064
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0xB27B6441158B55526659bB1E2cf6731DeD79Bd1E",
+      "explorerName": "Hyperindex LP Token"
+    },
+    {
+      "address": "0x51b6eD01F7fFF85652bfACb00A87D8A37d37b413",
+      "source": "top 50 WHSK and USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 8549,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 156.1901707224598,
+        "USDT": 2360.663883
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x51b6eD01F7fFF85652bfACb00A87D8A37d37b413",
+      "explorerName": null
+    },
+    {
+      "address": "0x0B004c8e028495dC94e53e432810FAa4E66EfEe1",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 18717,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 122.11200276564438,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x0B004c8e028495dC94e53e432810FAa4E66EfEe1",
+      "explorerName": "LockReleaseTokenPool"
+    },
+    {
+      "address": "0x0C94b3926BCa4A652D0bf56C459bB0786DaCf6Dd",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 9983,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 55.57614898396725,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x0C94b3926BCa4A652D0bf56C459bB0786DaCf6Dd",
+      "explorerName": "FeeManager"
+    },
+    {
+      "address": "0x8532bf796e79090A087302f94fa8Ccb2f5479549",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x48517c889cF9De316711077835c33243E2F021ee",
+      "codeBytes": 22962,
+      "pair": "WBTC/WHSK",
+      "token0": "0x6119CA49a79f5825C8B345F8d7aC36B272565b14",
+      "token1": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "balances": {
+        "WBTC": 0.00005479,
+        "WHSK": 39.47347563873094
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 2500,
+      "liquidity": "436960533849",
+      "tick": 366217,
+      "explorer": "https://hsk.blockscout.com/address/0x8532bf796e79090A087302f94fa8Ccb2f5479549",
+      "explorerName": "HuskeyPool"
+    },
+    {
+      "address": "0xcF04937f60B15fD388323EBecf7343BD53b83F23",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+      "codeBytes": 8719,
+      "pair": "WHSK/HAPE",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xD54c2f476da8960Fe25Eac65df596b76007131AB",
+      "balances": {
+        "WHSK": 36.02052089063375,
+        "HAPE": 85746.0437007495
+      },
+      "kind": "constant product (V2 interface)",
+      "explorer": "https://hsk.blockscout.com/address/0xcF04937f60B15fD388323EBecf7343BD53b83F23",
+      "explorerName": "Hyperindex LP Token"
+    },
+    {
+      "address": "0xb2b53f05eb21cF00fE6Cc7Eb43BdBD1c249ddAc5",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 45,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 27.72665275435046,
+        "USDT": 2.781297
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xb2b53f05eb21cF00fE6Cc7Eb43BdBD1c249ddAc5",
+      "explorerName": "DLP_b2b53f05"
+    },
+    {
+      "address": "0x1506de22674dfB4f5A757CE525b22B97560a8D4A",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x48517c889cF9De316711077835c33243E2F021ee",
+      "codeBytes": 22962,
+      "pair": "WHSK/USDT",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029",
+      "balances": {
+        "WHSK": 26.298905752138268,
+        "USDT": 0.17092
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 2500,
+      "liquidity": "181583334475",
+      "tick": -301013,
+      "explorer": "https://hsk.blockscout.com/address/0x1506de22674dfB4f5A757CE525b22B97560a8D4A",
+      "explorerName": "HuskeyPool"
+    },
+    {
+      "address": "0x30a7FE028159c72D3a2cd369371262eEbD918288",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 1863,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 23.22944306515271,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x30a7FE028159c72D3a2cd369371262eEbD918288",
+      "explorerName": "aWHSK"
+    },
+    {
+      "address": "0x13484FB069f074A1584De1724c5c17A94BfD2aa3",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24437,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 21.18186578028923,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x13484FB069f074A1584De1724c5c17A94BfD2aa3",
+      "explorerName": "EVM2EVMOnRamp"
+    },
+    {
+      "address": "0xb496a899001a75994cE8acc0bA30bc061058d6D1",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24440,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 18.12603874483288,
+        "USDT": 1.937903
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xb496a899001a75994cE8acc0bA30bc061058d6D1",
+      "explorerName": "AvowVault"
+    },
+    {
+      "address": "0xf1FdBC6BEe0361051678BB3d5676277523062860",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 10213,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 17.46239900691188,
+        "USDT": 0
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xf1FdBC6BEe0361051678BB3d5676277523062860",
+      "explorerName": null
+    },
+    {
+      "address": "0xe7A407c2C914278aA9F53779d433aB2C8d446948",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24440,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 14.77191590673183,
+        "USDT": 2.89806
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xe7A407c2C914278aA9F53779d433aB2C8d446948",
+      "explorerName": "AvowVault"
+    },
+    {
+      "address": "0xE3d177285510688f91A6CEA0c3CeFE72898D0cF4",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": null,
+      "codeBytes": 24440,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 12,
+        "USDT": 2.993018
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xE3d177285510688f91A6CEA0c3CeFE72898D0cF4",
+      "explorerName": "AvowVault"
+    },
+    {
+      "address": "0xc35423Ec6B42EF0F1269191A361F8768e840d605",
+      "source": "top 50 WHSK holder on the explorer",
+      "factory": "0x9E142529a6f236B7cD639fB13987cf9e8b3F6940",
+      "codeBytes": 22142,
+      "pair": "WHSK/HSKM5",
+      "token0": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1",
+      "token1": "0xe9809b1F269e275B062c03b48a963Bc15C4a1dcc",
+      "balances": {
+        "WHSK": 11.588357763057326,
+        "HSKM5": 8631.198922398155
+      },
+      "kind": "concentrated liquidity (V3 interface)",
+      "fee": 500,
+      "liquidity": "316227661510398943856",
+      "tick": 66136,
+      "explorer": "https://hsk.blockscout.com/address/0xc35423Ec6B42EF0F1269191A361F8768e840d605",
+      "explorerName": "UniswapV3Pool"
+    },
+    {
+      "address": "0xA211825406AC7Cf50C510840BdC03b687Ce52739",
+      "source": "top 50 USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 163,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 0,
+        "USDT": 50004.376874
+      },
+      "explorer": "https://hsk.blockscout.com/address/0xA211825406AC7Cf50C510840BdC03b687Ce52739",
+      "explorerName": "ERC1967Proxy"
+    },
+    {
+      "address": "0x8204A398248482A723F2D5f11A4954902B52E339",
+      "source": "top 50 USDT holder on the explorer",
+      "factory": null,
+      "codeBytes": 1863,
+      "kind": "no token0/token1: not a recognised pool",
+      "balances": {
+        "WHSK": 0,
+        "USDT": 36.222161
+      },
+      "explorer": "https://hsk.blockscout.com/address/0x8204A398248482A723F2D5f11A4954902B52E339",
+      "explorerName": "aUSDT"
+    }
+  ],
+  "summary": {
+    "whskUsdtVenues": [
+      {
+        "address": "0x4ff515761864e7838B0AdB8b5b2B8B7A068905dC",
+        "kind": "concentrated liquidity (V3 interface)",
+        "fee": 3000,
+        "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+        "balances": {
+          "WHSK": 4989056.165216507,
+          "USDT": 436628.577461
+        }
+      },
+      {
+        "address": "0x340bDfC78724B3C4E28385462D9A36d469ad047B",
+        "kind": "constant product (V2 interface)",
+        "fee": null,
+        "factory": null,
+        "balances": {
+          "WHSK": 493.6314742597073,
+          "USDT": 44.002372
+        }
+      },
+      {
+        "address": "0xF8365695ccC4FCa53241d7d42BbDc3b2e7d43AE4",
+        "kind": "constant product (V2 interface)",
+        "fee": null,
+        "factory": "0x09ee9eCc6E2B458508E05Da7f90E324AE54620D2",
+        "balances": {
+          "WHSK": 429.64770222496935,
+          "USDT": 38.132505
+        }
+      },
+      {
+        "address": "0x1506de22674dfB4f5A757CE525b22B97560a8D4A",
+        "kind": "concentrated liquidity (V3 interface)",
+        "fee": 2500,
+        "factory": "0x48517c889cF9De316711077835c33243E2F021ee",
+        "balances": {
+          "WHSK": 26.298905752138268,
+          "USDT": 0.17092
+        }
+      }
+    ],
+    "sameRouterFactory": true
+  }
+}

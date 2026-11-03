@@ -1,0 +1,1046 @@
+{
+  "lane": "historical top-of-book sensitivity; simulated, not executable returns",
+  "input": "evidence/shadow/shadow-samples.jsonl",
+  "cut": 595,
+  "caveats": [
+    "Previously inspected data, not an untouched holdout and not evidence of out-of-sample performance.",
+    "No historical order-book depth, lot rounding, minimum orders, funding or rebalancing costs; optimistic hedge assumptions.",
+    "Each row is an alternative strategy. Never sum rows or repeatedly count one persistent spread as earnings.",
+    "Fee scenarios are fixed tests, not attainable fee tiers. 2s hedge uses later recorded quotes and excludes unknown gaps.",
+    "Only roughly 43 minutes of data; no annualized returns or statistical significance claim."
+  ],
+  "rows": [
+    {
+      "partition": "first60pct",
+      "feeBps": 0,
+      "samples": 595,
+      "usable": 563,
+      "hours": 0.46990472222222224,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 38,
+          "opportunities": 8,
+          "after2s": {
+            "netUsdt": 0.03940775821960178,
+            "worst": -0.0009558998204853945,
+            "losers": 1,
+            "trades": 7
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 72,
+          "opportunities": 7,
+          "after2s": {
+            "netUsdt": -0.00012643781322935893,
+            "worst": -0.04365043970716921,
+            "losers": 2,
+            "trades": 6
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 72,
+          "opportunities": 7,
+          "after2s": {
+            "netUsdt": -0.10066223944349446,
+            "worst": -0.1476352733435865,
+            "losers": 2,
+            "trades": 6
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "first60pct",
+      "feeBps": 5,
+      "samples": 595,
+      "usable": 563,
+      "hours": 0.46990472222222224,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 32,
+          "opportunities": 7,
+          "after2s": {
+            "netUsdt": -0.008023049277887846,
+            "worst": -0.008459801870574945,
+            "losers": 1,
+            "trades": 7
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 32,
+          "opportunities": 7,
+          "after2s": {
+            "netUsdt": 0.08836319582702348,
+            "worst": -0.011753578763494043,
+            "losers": 1,
+            "trades": 7
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 32,
+          "opportunities": 7,
+          "after2s": {
+            "netUsdt": 0.14803224987269403,
+            "worst": -0.05196652572479844,
+            "losers": 1,
+            "trades": 7
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "first60pct",
+      "feeBps": 10,
+      "samples": 595,
+      "usable": 563,
+      "hours": 0.46990472222222224,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 3,
+          "opportunities": 2,
+          "after2s": {
+            "netUsdt": 0.000377075368736636,
+            "worst": -0.008339106583979638,
+            "losers": 1,
+            "trades": 2
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 3,
+          "opportunities": 2,
+          "after2s": {
+            "netUsdt": -0.03229670287584943,
+            "worst": -0.041725446586331386,
+            "losers": 1,
+            "trades": 2
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "first60pct",
+      "feeBps": 20,
+      "samples": 595,
+      "usable": 563,
+      "hours": 0.46990472222222224,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "last40pct",
+      "feeBps": 0,
+      "samples": 397,
+      "usable": 390,
+      "hours": 0.25206388888888887,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 12,
+          "opportunities": 5,
+          "after2s": {
+            "netUsdt": 0.0037573632981216555,
+            "worst": -0.009492762221044681,
+            "losers": 2,
+            "trades": 5
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 78,
+          "opportunities": 6,
+          "after2s": {
+            "netUsdt": 0.09661694060647334,
+            "worst": 0.007566642985610817,
+            "losers": 0,
+            "trades": 6
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 78,
+          "opportunities": 6,
+          "after2s": {
+            "netUsdt": 0.18950166948053465,
+            "worst": 0.005980913733845673,
+            "losers": 0,
+            "trades": 6
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "last40pct",
+      "feeBps": 5,
+      "samples": 397,
+      "usable": 390,
+      "hours": 0.25206388888888887,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 12,
+          "opportunities": 5,
+          "after2s": {
+            "netUsdt": -0.03376641538352215,
+            "worst": -0.01699239583993285,
+            "losers": 2,
+            "trades": 5
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 12,
+          "opportunities": 5,
+          "after2s": {
+            "netUsdt": -0.030328185955556586,
+            "worst": -0.04019328662540768,
+            "losers": 2,
+            "trades": 5
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 12,
+          "opportunities": 5,
+          "after2s": {
+            "netUsdt": -0.17453297363300185,
+            "worst": -0.13726618071587404,
+            "losers": 2,
+            "trades": 5
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "last40pct",
+      "feeBps": 10,
+      "samples": 397,
+      "usable": 390,
+      "hours": 0.25206388888888887,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 2,
+          "opportunities": 2,
+          "after2s": {
+            "netUsdt": -0.04898405891764559,
+            "worst": -0.024492029458822794,
+            "losers": 2,
+            "trades": 2
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 2,
+          "opportunities": 2,
+          "after2s": {
+            "netUsdt": -0.13038013674593676,
+            "worst": -0.06519006837296838,
+            "losers": 2,
+            "trades": 2
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 2,
+          "opportunities": 2,
+          "after2s": {
+            "netUsdt": -0.4244788284845622,
+            "worst": -0.2122394142422811,
+            "losers": 2,
+            "trades": 2
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    },
+    {
+      "partition": "last40pct",
+      "feeBps": 20,
+      "samples": 397,
+      "usable": 390,
+      "hours": 0.25206388888888887,
+      "rows": [
+        {
+          "side": "buy",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 1,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 5,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 15,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 50,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "buy",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        },
+        {
+          "side": "sell",
+          "sizeUsdt": 150,
+          "positiveSamples": 0,
+          "opportunities": 0,
+          "after2s": {
+            "netUsdt": 0,
+            "worst": null,
+            "losers": 0,
+            "trades": 0
+          }
+        }
+      ]
+    }
+  ]
+}

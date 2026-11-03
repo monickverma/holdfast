@@ -1,7 +1,7 @@
 // Is this the market we think it is? Every check reads the chain, signs nothing, and records who answered.
 // A check nobody could answer is not a pass: `verdict` is "unverified", and a live agent will not start on it.
 import { decodeFunctionResult, encodeFunctionData, keccak256, parseAbi, type Abi, type Address, type Hex } from "viem";
-import { CODE_HASHES, HSKSWAP, type Config } from "./config.js";
+import { CODE_HASHES, HSKSWAP, type Config, type MarketAddresses } from "./config.js";
 import { maxTradeCostWei } from "./preflight.js";
 import { sameAddress, VAULT_ABI } from "./reader.js";
 import type { RpcClient } from "./rpc.js";
@@ -51,7 +51,7 @@ export function worst(checks: readonly Pick<VenueCheck, "status">[]): CheckStatu
 
 export const allowsLive = (report: Pick<VenueReport, "verdict">): boolean => report.verdict === "pass" || report.verdict === "warn";
 
-export async function verifyVenue(rpc: RpcClient, config: Pick<Config, "chainId" | "vault" | "agentKey" | "legacyVault" | "guardedVault" | "agentAddress" | "poolKind">, agentAddress?: Address): Promise<VenueReport> {
+export async function verifyVenue(rpc: RpcClient, config: Pick<Config, "chainId" | "vault" | "agentKey" | "legacyVault" | "guardedVault" | "agentAddress" | "poolKind">, agentAddress?: Address, market: MarketAddresses = HSKSWAP): Promise<VenueReport> {
   const checks: VenueCheck[] = [];
   const add = (name: string, status: CheckStatus, detail: string) => checks.push({ name, status, source: "authoritative", detail });
   const read = async <T>(address: Address, abi: Abi, functionName: string, args: unknown[] = []): Promise<T | undefined> => {
@@ -80,7 +80,7 @@ export async function verifyVenue(rpc: RpcClient, config: Pick<Config, "chainId"
     return { chainId, block, verdict: "unverified", checks };
   }
 
-  const contracts: Record<string, Address> = { router: HSKSWAP.router, quoter: HSKSWAP.quoter, pool: HSKSWAP.pool, whsk: HSKSWAP.whsk, usdt: HSKSWAP.usdt };
+  const contracts: Record<string, Address> = { router: market.router, quoter: market.quoter, pool: market.pool, whsk: market.whsk, usdt: market.usdt };
   if (config.vault) contracts.vault = config.vault;
   for (const [name, address] of Object.entries(contracts)) {
     try {
@@ -97,23 +97,23 @@ export async function verifyVenue(rpc: RpcClient, config: Pick<Config, "chainId"
     }
   }
 
-  expect("whsk decimals", await read<number>(HSKSWAP.whsk, VENUE_ABI, "decimals"), WHSK_DECIMALS);
-  expect("usdt decimals", await read<number>(HSKSWAP.usdt, VENUE_ABI, "decimals"), USDT_DECIMALS);
-  expect("pool token0", await read<Address>(HSKSWAP.pool, VENUE_ABI, "token0"), HSKSWAP.whsk);
-  expect("pool token1", await read<Address>(HSKSWAP.pool, VENUE_ABI, "token1"), HSKSWAP.usdt);
-  expect("pool fee", await read<number>(HSKSWAP.pool, VENUE_ABI, "fee"), HSKSWAP.fee);
+  expect("whsk decimals", await read<number>(market.whsk, VENUE_ABI, "decimals"), WHSK_DECIMALS);
+  expect("usdt decimals", await read<number>(market.usdt, VENUE_ABI, "decimals"), USDT_DECIMALS);
+  expect("pool token0", await read<Address>(market.pool, VENUE_ABI, "token0"), market.whsk);
+  expect("pool token1", await read<Address>(market.pool, VENUE_ABI, "token1"), market.usdt);
+  expect("pool fee", await read<number>(market.pool, VENUE_ABI, "fee"), market.fee);
 
   // The test market has no factory. On a real V3 venue the factory is what says this pool belongs to this pair.
   if (config.poolKind === "v3") {
-    const factory = await read<Address>(HSKSWAP.pool, VENUE_ABI, "factory");
+    const factory = await read<Address>(market.pool, VENUE_ABI, "factory");
     if (factory === undefined) add("pool factory", "unverified", "The pool did not name a factory.");
     else {
-      expect("factory lists this pool", await read<Address>(factory, VENUE_ABI, "getPool", [HSKSWAP.whsk, HSKSWAP.usdt, HSKSWAP.fee]), HSKSWAP.pool);
-      expect("router's factory", await read<Address>(HSKSWAP.router, VENUE_ABI, "factory"), factory);
+      expect("factory lists this pool", await read<Address>(factory, VENUE_ABI, "getPool", [market.whsk, market.usdt, market.fee]), market.pool);
+      expect("router's factory", await read<Address>(market.router, VENUE_ABI, "factory"), factory);
     }
   }
 
-  if (config.vault) await checkVault(config.vault, config, chainId, read, expect, add, rpc, agentAddress);
+  if (config.vault) await checkVault(config.vault, config, chainId, read, expect, add, rpc, agentAddress, market);
   return { chainId, block, verdict: worst(checks), checks };
 }
 
@@ -126,12 +126,13 @@ async function checkVault(
   expect: (name: string, actual: unknown, wanted: unknown) => void,
   add: (name: string, status: CheckStatus, detail: string) => void,
   rpc: RpcClient,
-  agentAddress?: Address,
+  agentAddress: Address | undefined,
+  market: MarketAddresses,
 ): Promise<void> {
-  expect("vault router", await read<Address>(vault, VENUE_ABI, "router"), HSKSWAP.router);
-  expect("vault token A", await read<Address>(vault, VENUE_ABI, "tokenA"), HSKSWAP.whsk);
-  expect("vault token B", await read<Address>(vault, VENUE_ABI, "tokenB"), HSKSWAP.usdt);
-  expect("vault fee", await read<number>(vault, VENUE_ABI, "poolFee"), HSKSWAP.fee);
+  expect("vault router", await read<Address>(vault, VENUE_ABI, "router"), market.router);
+  expect("vault token A", await read<Address>(vault, VENUE_ABI, "tokenA"), market.whsk);
+  expect("vault token B", await read<Address>(vault, VENUE_ABI, "tokenB"), market.usdt);
+  expect("vault fee", await read<number>(vault, VENUE_ABI, "poolFee"), market.fee);
 
   const owner = await read<Address>(vault, VAULT_ABI as Abi, "owner");
   const agent = await read<Address>(vault, VAULT_ABI as Abi, "agent");
@@ -150,7 +151,7 @@ async function checkVault(
     else add("agent key valid", Number(expiry) > now ? "pass" : "fail", `Expires at ${Number(expiry)}, now ${now}.`);
   }
 
-  for (const [symbol, token] of [["whsk", HSKSWAP.whsk], ["usdt", HSKSWAP.usdt]] as const) {
+  for (const [symbol, token] of [["whsk", market.whsk], ["usdt", market.usdt]] as const) {
     const [maxTrade, floor] = await Promise.all([read<bigint>(vault, VAULT_ABI as Abi, "maxTrade", [token]), read<bigint>(vault, VAULT_ABI as Abi, "floorPriceX18", [token])]);
     if (maxTrade === undefined || floor === undefined) add(`${symbol} limits`, "unverified", "The vault did not answer.");
     else if (maxTrade === 0n) add(`${symbol} limits`, "warn", "No trade cap is set, so this token cannot be traded.");

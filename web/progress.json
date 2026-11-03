@@ -1,0 +1,320 @@
+{
+  "asOf": "3 November 2026",
+  "highlights": [
+    {
+      "value": "1,628 → 225 ms",
+      "label": "Median market move → receipt: polling to flashblock stream, 45 + 45 orders.",
+      "lane": "testnet",
+      "note": "86% lower P50; own test market",
+      "source": "evidence/event-to-receipt/report.json"
+    },
+    {
+      "value": "14 / 14",
+      "label": "Live chat evaluation passed on one model after fixing a risk-setting bug (previous run: 13 / 14).",
+      "lane": "local",
+      "note": "2 Nov · OpenRouter / DeepSeek",
+      "source": "evidence/v4/llm-live.json"
+    },
+    {
+      "value": "20 × 46",
+      "label": "Cross-venue routes × trade sizes, evaluated on each of three observed blocks.",
+      "lane": "mainnet",
+      "note": "Read-only quotes; no orders",
+      "source": "evidence/arb/search-2026-11-03.json"
+    },
+    {
+      "value": "+31.17%",
+      "label": "Better gross spread from a split exit: 0.001938 → 0.002542 USDT. Not net or earned profit.",
+      "lane": "replay",
+      "note": "−0.001835 USDT at assumed 100k gas",
+      "source": "evidence/arb/split-replay.json"
+    }
+  ],
+  "improvements": [
+    {
+      "area": "Public deployment",
+      "change": "Testnet only → mainnet v4 + testnet v3",
+      "meaning": "Mainnet receipt confirmed. Mainnet caps, funding and guards were unset in the 3 November read.",
+      "sources": [
+        "evidence/v4/mainnet-deployment.json",
+        "evidence/progress/mainnet-2026-11-03.json"
+      ]
+    },
+    {
+      "area": "AI trading engine",
+      "change": "Rules only → optional buy / sell / hold proposals",
+      "meaning": "29 local engine tests; two recorded-price replay windows. Off by default; never traded on chain. One replay trade ended at −0.024241 USDT before model-call cost.",
+      "sources": [
+        "evidence/v4/replay-model-2026-11-02.json",
+        "agent/test/ai-engine.test.ts"
+      ]
+    },
+    {
+      "area": "Chat and risk sizing",
+      "change": "13 / 14 → 14 / 14 live evaluation requests",
+      "meaning": "Risk settings fixed, positions and P&L checked. One small run on one model, not a reliability estimate. Public-site chat needs operator configuration.",
+      "sources": [
+        "evidence/v4/llm-live.json",
+        "evidence/v4/llm-live-before-risk-fix.json"
+      ]
+    },
+    {
+      "area": "Reaction latency",
+      "change": "P50 1,628.5 → 225.2 ms; P90 2,230.2 → 413.5 ms",
+      "meaning": "Testnet polling versus stream, 45 + 45 orders. Own market and older vault; not current mainnet execution latency.",
+      "sources": [
+        "evidence/event-to-receipt/report.json",
+        "BENCHMARKS.md"
+      ]
+    },
+    {
+      "area": "Market reads",
+      "change": "P50 364.2 → 203.9 ms (44% lower)",
+      "meaning": "400 + 400 mainnet reads; batching reduced read latency. Does not measure trade execution.",
+      "sources": [
+        "BENCHMARKS.md"
+      ]
+    },
+    {
+      "area": "Vault protections",
+      "change": "v3 limits → v4 loss budget, share cap, cooldown and strategy pin",
+      "meaning": "Implemented and tested, with a verifiable on-chain log. These controls must be configured; the mainnet deployment alone does not enable them.",
+      "sources": [
+        "contracts/HoldfastVault.sol",
+        "docs/ARCHITECTURE.md"
+      ]
+    },
+    {
+      "area": "Mutation testing",
+      "change": "37 / 37 → 55 / 55 deliberate bugs caught",
+      "meaning": "Broader hand-picked mutation set. This is not exhaustive vulnerability coverage or an external audit.",
+      "sources": [
+        "evidence/v4/mutation-check.json",
+        "evidence/v3/mutation-check.json"
+      ]
+    },
+    {
+      "area": "Arbitrage research",
+      "change": "Single routes → finer sizing and split exits",
+      "meaning": "565 baseline samples had zero positive net estimates. Split exit breaks even at about 58,062 hypothetical total gas. No cross-venue executor or actual fills.",
+      "sources": [
+        "evidence/arb/split-replay.json",
+        "docs/STRATEGY-RESEARCH.md"
+      ]
+    },
+    {
+      "area": "Profitability checks",
+      "change": "Top-of-book scenarios → depth, fees, minimum orders and time splits",
+      "meaning": "Fresh exchange hedges were negative. Historical 5-bp replay changed from +0.148032 to −0.174533 USDT across chronological segments. No sustained or realized profit.",
+      "sources": [
+        "evidence/arb/fee-sensitivity.json",
+        "docs/STRATEGY-RESEARCH.md"
+      ]
+    }
+  ],
+  "criteria": [
+    {
+      "name": "Mainnet requirement / eligibility",
+      "before": 0,
+      "after": 5,
+      "limit": "Deployed; timing acceptance unknown and vault unconfigured."
+    },
+    {
+      "name": "Closed-loop automation",
+      "before": 5,
+      "after": 6,
+      "limit": "Model-driven chain execution unproven."
+    },
+    {
+      "name": "AI as core engine",
+      "before": 1,
+      "after": 4,
+      "limit": "Proposals tested locally and in replay only."
+    },
+    {
+      "name": "Arbitrage and spreads",
+      "before": 2,
+      "after": 3,
+      "limit": "Research improved; no executor or live fills."
+    },
+    {
+      "name": "Sustained profitability",
+      "before": 0,
+      "after": 0,
+      "limit": "No demonstrated positive realized P&L."
+    },
+    {
+      "name": "Risk control and stop-loss",
+      "before": 7,
+      "after": 8,
+      "limit": "No external audit or continuously operating keeper."
+    },
+    {
+      "name": "Natural-language interface",
+      "before": 2,
+      "after": 6,
+      "limit": "Public chat and full owner workflow remain incomplete."
+    },
+    {
+      "name": "Completeness",
+      "before": 3,
+      "after": 5,
+      "limit": "Funded configuration and operational validation remain."
+    },
+    {
+      "name": "Technical maturity",
+      "before": 7,
+      "after": 8,
+      "limit": "Production reliability remains unproven."
+    },
+    {
+      "name": "Innovation",
+      "before": 4,
+      "after": 5,
+      "limit": "Guarded proposals and logs; routing research uses established methods."
+    }
+  ],
+  "comparison": {
+    "source": "docs/reviews/2026-11-02-repository-comparison.md",
+    "projects": [
+      {
+        "name": "Holdfast",
+        "score": 65.7,
+        "url": "https://github.com/monickverma/holdfast",
+        "commit": "197c8b2"
+      },
+      {
+        "name": "Sentinel",
+        "score": 53.9,
+        "url": "https://github.com/mesh-pch/sentinel-hashkey",
+        "commit": "6840d73"
+      },
+      {
+        "name": "Vyuh",
+        "score": 48.7,
+        "url": "https://github.com/Sandesh13fr/vyuh",
+        "commit": "7524ab6"
+      },
+      {
+        "name": "HSK Perps",
+        "score": 29.4,
+        "url": "https://github.com/9xj89gzrtw-hue/hsk-perps-trading-agent",
+        "commit": "0585364"
+      }
+    ],
+    "criteria": [
+      {
+        "name": "Fit to problem statement",
+        "weight": 20,
+        "scores": [
+          7,
+          4,
+          6.5,
+          2
+        ]
+      },
+      {
+        "name": "On-chain execution",
+        "weight": 20,
+        "scores": [
+          4,
+          6,
+          1,
+          2
+        ]
+      },
+      {
+        "name": "Security enforced on chain",
+        "weight": 15,
+        "scores": [
+          8.5,
+          6.5,
+          6,
+          1.5
+        ]
+      },
+      {
+        "name": "Tests and evidence",
+        "weight": 15,
+        "scores": [
+          9,
+          5,
+          5.5,
+          5
+        ]
+      },
+      {
+        "name": "Trading usefulness",
+        "weight": 10,
+        "scores": [
+          5,
+          3,
+          3,
+          2
+        ]
+      },
+      {
+        "name": "Product and demo readiness",
+        "weight": 12,
+        "scores": [
+          5,
+          7,
+          6.5,
+          4
+        ]
+      },
+      {
+        "name": "Engineering quality",
+        "weight": 8,
+        "scores": [
+          8,
+          6.5,
+          7,
+          6
+        ]
+      }
+    ]
+  },
+  "docs": [
+    {
+      "title": "Website guide",
+      "path": "docs/WEBSITE.md",
+      "description": "Networks, wallet controls, proof downloads and what each status means."
+    },
+    {
+      "title": "Progress and scores",
+      "path": "docs/PROGRESS.md",
+      "description": "Implemented, tested and still missing, with the assessment rubric."
+    },
+    {
+      "title": "Benchmarks and methods",
+      "path": "BENCHMARKS.md",
+      "description": "Sample sizes, latency and gas measurements, and reproduction commands."
+    },
+    {
+      "title": "Strategy research",
+      "path": "docs/STRATEGY-RESEARCH.md",
+      "description": "Papers, arbitrage experiments, costs and negative results."
+    },
+    {
+      "title": "Architecture and AI",
+      "path": "docs/ARCHITECTURE.md",
+      "description": "Model proposals, deterministic checks and contract enforcement."
+    },
+    {
+      "title": "Mainnet runbook",
+      "path": "docs/MAINNET-RUNBOOK.md",
+      "description": "Deployment, funding and safety configuration; these steps can spend funds."
+    },
+    {
+      "title": "Security and limits",
+      "path": "docs/SECURITY.md",
+      "description": "Threat model, trust assumptions and the limits of the protections."
+    },
+    {
+      "title": "Repository comparison",
+      "path": "docs/reviews/2026-11-02-repository-comparison.md",
+      "description": "The dated review of Holdfast, Sentinel, Vyuh and HSK Perps."
+    }
+  ]
+}
