@@ -49,6 +49,7 @@ We did not take the README's word for anything. The vault's limits held under re
 | Whole lifecycle | Version 4: deploy, limits, guard, attacks, stop, keeper, rotation, halt, withdrawal, monitor | Fork | 26 of 26 steps, with the loss budget, share limit and cooldown off | `evidence/v4/rehearsal-fork.json` |
 | Mainnet procedure | Every step of [the runbook](MAINNET-RUNBOOK.md), with test keys, ending in one swap through the real router | Fork | Preflight `pass`, swap included | `evidence/v4/mainnet-dress-rehearsal-fork.json` |
 | Version 4 deployment | Runbook step 2 only, with a 110% gas margin, at `0xbbd6…7d3c` | Mainnet | Deployed in block 29,657,434, 4,666,365 gas. Runtime code matches the build on a re-read; the tool's own read just after the receipt did not | `evidence/v4/mainnet-deployment.json` |
+| Agent key renewal | `admin renew --days 29.99`, the most the vault's 30-day cap allows | Mainnet | Block 29,782,687, 30,904 gas. The agent key now expires 5 December 2026, 20:47 UTC, read back from the vault | `evidence/v4/mainnet-agent-renewal.json` |
 
 The rows below are **version 3 or earlier**, kept as they were.
 
@@ -74,7 +75,7 @@ The rows below are **version 3 or earlier**, kept as they were.
 
 | Item | Why | What it needs |
 |---|---|---|
-| Mainnet trading | Version 4 was deployed on mainnet on 3 November at 04:56 IST (2 November, 23:26 UTC), after the listed deadline. The organizers have not ruled on whether it counts, so it is not known to meet the deployment rule. The owner key holds about 0.30 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
+| Mainnet trading | Version 4 was deployed on mainnet on 3 November at 04:56 IST (2 November, 23:26 UTC), after the listed deadline. The organizers have not ruled on whether it counts, so it is not known to meet the deployment rule. The owner key holds about 0.28 HSK and the agent key 0, too little for runbook steps 3 to 11 | About 1 HSK more on the owner for limits, guard, guardian, loss budget (0.25) and a 1 HSK float, and 0.55 HSK on the agent for one swap |
 
 ## Not done
 
