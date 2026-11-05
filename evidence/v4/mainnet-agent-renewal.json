@@ -1,0 +1,26 @@
+{
+  "lane": "mainnet",
+  "generation": 4,
+  "note": "The owner renewed the agent key on the mainnet version 4 vault, with the owner's approval. The vault caps an agent key at 30 days ahead (MAX_AGENT_TTL), so 29.99 days was used to stay inside it if the block landed late.",
+  "vault": "0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c",
+  "agent": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+  "command": "node .test-build/src/cli/admin.js renew --days 29.99 --broadcast --confirm-mainnet",
+  "txHash": "0xe3bc0ba55c290313d498efe04ce7b9bbedf7cb2566aea2c4a94a484fc700ab31",
+  "receipt": {
+    "status": "0x1",
+    "block": "29782687",
+    "blockTime": "2026-11-05T21:01:49Z",
+    "gasUsed": "30904",
+    "l2FeeWei": "15452030904000000",
+    "l1FeeWei": "12882438015432"
+  },
+  "previousExpiry": "1794266799",
+  "agentExpiry": "1796503642",
+  "agentExpiryUtc": "2026-12-05T20:47:22Z",
+  "readBack": {
+    "agentCall": "0x6ddB61023935F3E05F4fb94551eA18e0f04d2FcA",
+    "agentExpiryCall": "1796503642",
+    "ownerBalanceAfterHsk": "0.28394402589465995"
+  },
+  "explorer": "https://hsk.blockscout.com/tx/0xe3bc0ba55c290313d498efe04ce7b9bbedf7cb2566aea2c4a94a484fc700ab31"
+}

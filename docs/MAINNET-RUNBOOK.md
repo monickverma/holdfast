@@ -1,6 +1,6 @@
 # Mainnet runbook
 
-**Only step 2, the deployment, has run on mainnet**, on 3 November 2026 with `--gas-margin 110`: [`evidence/v4/mainnet-deployment.json`](../evidence/v4/mainnet-deployment.json). Every command below ran on a local fork of mainnet with Anvil's public test keys, in this order: [`evidence/v4/mainnet-dress-rehearsal-fork.json`](../evidence/v4/mainnet-dress-rehearsal-fork.json), repeatable with `node scripts/mainnet-dress-rehearsal.mjs`. These commands spend real money and the contract is not audited, so running them is the owner's decision.
+**Only step 2, the deployment, has run on mainnet**, on 3 November 2026 with `--gas-margin 110`: [`evidence/v4/mainnet-deployment.json`](../evidence/v4/mainnet-deployment.json). The agent key was then renewed to 5 December 2026 with `admin renew --days 29.99`: [`evidence/v4/mainnet-agent-renewal.json`](../evidence/v4/mainnet-agent-renewal.json). Every command below ran on a local fork of mainnet with Anvil's public test keys, in this order: [`evidence/v4/mainnet-dress-rehearsal-fork.json`](../evidence/v4/mainnet-dress-rehearsal-fork.json), repeatable with `node scripts/mainnet-dress-rehearsal.mjs`. These commands spend real money and the contract is not audited, so running them is the owner's decision.
 
 ## What it costs
 

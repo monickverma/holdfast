@@ -108,7 +108,7 @@ Attack details are in `evidence/attack-results.json`. Reentrancy is covered only
 
 ## Addresses
 
-Mainnet (chain 177) Holdfast vault, version 4: [`0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c`](https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c). Deployed by the owner key `0x1137…f489` for agent `0x6ddB…2FcA`, whose access expires 7 days after deployment unless renewed. The runtime code matches the build. No limits, guardian, price guard, loss budget or funds are set, so it cannot trade yet.
+Mainnet (chain 177) Holdfast vault, version 4: [`0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c`](https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c). Deployed by the owner key `0x1137…f489` for agent `0x6ddB…2FcA`, whose access was renewed to 5 December 2026, 20:47 UTC, in [`0xe3bc0ba5…00ab31`](https://hsk.blockscout.com/tx/0xe3bc0ba55c290313d498efe04ce7b9bbedf7cb2566aea2c4a94a484fc700ab31) (`evidence/v4/mainnet-agent-renewal.json`). The vault never trusts an agent key more than 30 days ahead, so it needs renewing before then. The runtime code matches the build. No limits, guardian, price guard, loss budget or funds are set, so it cannot trade yet.
 
 Mainnet deployment transaction: [`0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34`](https://hsk.blockscout.com/tx/0x24d61d8021a549b45680db3108431d661bf488294783b9f59bc7ba2c39e3be34), block 29,657,434, 4,666,365 gas, 2.333 HSK plus a 0.0002 HSK L1 fee. Record: `evidence/v4/mainnet-deployment.json`.
 
