@@ -44,6 +44,83 @@ Two windows, both read on mainnet by `npm run shadow`, read only: 1 November 12:
 
 **What the replays found.** The first 2 November model run held all 19 times while selling would have netted +0.0015 to +0.0169 USDT. Its reasons said an inventory of 0 HSK left nothing to sell. Inventory is the model's own net position, and the vault's balance, which was in the snapshot, is what a sell spends. The prompt now says so, a test covers it, and the run above is the one after the fix. Both runs before the fix are kept: `replay-model-2026-11-02-before-prompt-fix.json`, and `replay-model-2026-11-01-before-prompt-fix.json`, which also predates logging the model's answers.
 
+## Cross-venue arbitrage
+
+**Finding: no route between on-chain venues paid after gas in the live scan or in either replay. Over about 20 days of history, an estimate finds a route that paid in 0.17% of blocks, all within about 47 minutes on 5 November, worth at most +0.0024 USDT, and another contract took it.** WHSK/USDT trades in one deep pool and four small ones. The small ones are mispriced against HSKSwap, but on most days the most a round trip could take from them before gas is about a fifth of what two swaps cost. **We did not build an arbitrage leg**, for the reasons [below](#why-we-did-not-build-it). Nothing here is our trade: every number is a quote, an estimate from history, a replay or someone else's receipt, and each is labelled.
+
+**Where WHSK and USDT trade on mainnet,** read only, `scripts/arb-venues.mjs`, `evidence/v4/arb-venues-2026-11-02.json`. Candidates came from the HSKSwap factory's `getPool` at every fee tier, the same factory for routes through WETH, USDC.e and WBTC, and the 50 largest WHSK and USDT holders on hsk.blockscout.com that are contracts. Each was then read on chain. Fees were confirmed by reproducing a past swap to the unit.
+
+| Venue | Address | Kind, fee | Holds | Last trade |
+|---|---|---|---|---|
+| HSKSwap WHSK/USDT | `0x4ff5…05dc` | Concentrated liquidity, 0.30% | 4.99M WHSK, 436,629 USDT | Trades every few hours |
+| DODO vending machine | `0xc070…1E47` | 0.24% LP fee and a maintainer fee, 0.30% together | 2,937 WHSK, 256 USDT | 30 October |
+| Solidly-style pair | `0x340b…047B` | Constant product, 0.20% | 494 WHSK, 44.0 USDT | 16 October |
+| Hyperindex pair | `0xF836…3AE4` | Constant product, 0.30% | 430 WHSK, 38.1 USDT | 16 October |
+| Pool on factory `0x4851…21ee` | `0x1506…8D4A` | Concentrated liquidity, 0.25% | 26 WHSK, 0.17 USDT | Not sampled: no quoter on chain names its factory, and 0.17 USDT is below the smallest size |
+| Through WETH | Hyperindex WHSK/WETH `0x711d…f8f2`, HSKSwap WETH/USDT `0xb92b…4C16` | 0.30% each | 1,093 WHSK and 0.042 WETH; 21.2 WETH and 48,310 USDT | 30 October; active |
+
+- **HSKSwap has no other tier of the pair.** `getPool` returns nothing at 0.01%, 0.05%, 0.25% or 1%. The only HSKSwap route through a third token, WHSK/USDC.e, holds 0.08 USDC.e and has no USDC.e/USDT pool to close through.
+- **The vault cannot reach any of these.** Its router, tokens and pool fee are fixed at deployment, and it calls `exactInputSingle` on that one pool. A second venue would need a new contract, a new deployment and the owner's money.
+- **Who already trades the deep pool.** The wallet behind 433 of 462 swaps in the 7-day read sends them all to contract `0x1127…B790`, which holds 18,148 WHSK and 371 USDT and has sent 17,960 transactions. It pays 501 gwei, about 0.0052 USDT a swap.
+
+**The scan,** mainnet read only, no trades, `npm run build:agent` then `node .test-build/src/cli/arb-scan.js`, `evidence/v4/arb-scan-2026-11-02.json` and every sample in `arb-scan-2026-11-02.samples.jsonl`. 565 samples in 565 different blocks, one about every 8.5 s, from 23:53 to 01:13 UTC on 2–3 November (1.33 hours, blocks 29,658,247 to 29,660,645), 0 failed reads. In each sample every read is pinned to one block hash: HSKSwap's QuoterV2, DODO's own `querySellBase` and `querySellQuote`, and the pairs' reserves with each pair's fee. 15 routes (every pair of the four WHSK/USDT venues both ways, HSKSwap against itself, and the WETH triangle both ways) at 0.1, 0.25, 0.5, 1, 5 and 15 USDT, sizes set before the first sample. Network cost per leg is 104,740 gas, the median HSKSwap router swap on a fork, at the block's base fee plus `eth_maxPriorityFeePerGas` (500.001 gwei throughout), plus the L1 fee for a 200-byte transaction: 0.004584 USDT a leg, one transaction a leg. The other venues' swaps were not measured, and are charged the same gas.
+
+| Route, best size | Before gas, every sample | After gas |
+|---|---:|---:|
+| Buy on HSKSwap, sell on the Solidly pair, 0.25 USDT | +0.0019 | −0.0073 |
+| Buy on DODO, sell on the Solidly pair, 0.25 USDT | +0.0018 | −0.0074 |
+| Buy on DODO, sell on the Hyperindex pair, 0.1 USDT | +0.0006 | −0.0086 |
+| Buy on HSKSwap, sell on the Hyperindex pair, 0.1 USDT | +0.0005 | −0.0086 |
+| HSKSwap against itself, 0.1 USDT | −0.0006 | −0.0098 |
+| Each of the other 10 routes, best size | −0.0006 to −0.0026 | −0.0097 to −0.0151 |
+
+- **Samples in which any route netted above zero after gas: 0 of 565.** Opportunities: 0. Best after gas: −0.0073 USDT. The replay of taking each one once therefore made no trade and ended at 0.
+- **Before gas, 4 routes paid in all 565 samples,** all into the two stale pairs, which price WHSK 0.7–1.3% above HSKSwap's ask after their fees. Larger sizes pay less, because a pair holding 44 USDT moves against the trade at once.
+- **HSKSwap's price did not move during the scan:** its spot read 0.08752 in every sample. An hour in which nothing traded says little about the next. The history below covers about 20 days.
+- **What would change it:** one contract doing both legs in one transaction. The competitor below shows what that really costs: 149,729 gas through the Hyperindex pair and 273,775 through the Solidly pair, against 209,480 for two of our legs. That saves about 0.0026 USDT on a Hyperindex route and costs about 0.0028 more on a Solidly one. The best route in the scan would still be about −0.0060. On the Solidly pair's reserves, a round trip covers two swaps' gas only if HSKSwap's price falls about 1.6% from the scan's level, a gap of about 3% before fees. That threshold is our calculation from those reserves, not a sample.
+
+**The history,** mainnet read only, no trades, `node .test-build/src/cli/arb-history.js`, `evidence/v4/arb-history-2026-11-06.json`. The Solidly and Hyperindex pairs did not trade from 16 October until 5 November, and the script proves it rather than taking the explorer's word: no log from either pair, and no WHSK or USDT transfer into or out of either, from block 28,913,952 to 29,775,061. That is 861,109 blocks, about 20 days, in 692 log requests. With the pairs' reserves fixed, a round trip's value depended only on HSKSwap's price, and each of HSKSwap's 1,373 Swap events in that time records the price it left. Spot ranged from 0.085707 to 0.088858. Each price was run through the 6 routes between HSKSwap and the two pairs at the scan's six sizes, with the pairs' reserves read at the window's last block. **This is an estimate, not a quote:** HSKSwap's leg is its spot less its 0.3% fee with no price impact, which flatters every trip. DODO and the WETH route changed during the window, so they are not in it.
+
+| Blocks, of 861,109 | Count | Share |
+|---|---:|---:|
+| Some route paid before gas | 749,585 | 87% |
+| Paid after gas, one transaction a leg at 104,740 gas | 1,422 | 0.17% |
+| Paid after gas, one atomic transaction at the competitor's real gas | 1,119 | 0.13% |
+
+- **Every block that paid after gas, either way, is in one unbroken run from block 29,773,640 to 29,775,061:** 1,422 blocks, about the last 47 minutes before 16:47 UTC on 5 November, while HSKSwap's spot fell from 0.0861 to 0.0857. The atomic ones are its last 1,119 blocks. Nothing paid after gas in the 19 days before.
+- **Best:** block 29,775,061, buying on HSKSwap and selling on the Solidly pair at 0.5 USDT: +0.0114 before gas, +0.0024 after two transactions, +0.0014 atomic.
+- **The window ended because someone took it.** In blocks 29,775,062 and 29,775,063, contract `0xf9Ee…a07d` traded both pairs.
+
+**Who took it,** mainnet, someone else's transactions read from hsk.blockscout.com, not ours, `node scripts/arb-competitor.mjs`, `evidence/v4/arb-competitor-2026-11-06.json`. Contract `0xf9Ee…a07d` has sent 30 transactions since 18 September, all of which succeeded: its own deployment, and 29 round trips across these venues, 20 of them through WETH. Each is valued from its own token transfers and fee, at the price of its own HSKSwap leg. Four trades had no HSKSwap leg and use the nearest trade's price.
+
+| Measure | Value |
+|---|---:|
+| Round trips | 29, every one positive after gas |
+| Net from trading, after gas | +0.138 USDT, each between +0.0002 and +0.0198 |
+| Gas on those trades | 3.39 HSK |
+| Deployment | 3.47 HSK, about 0.338 USDT |
+| Net over its life, deployment included | about −0.200 USDT |
+
+- **Its two trades on 5 November netted +0.0012 and +0.0008 USDT.** Our history estimate for that block was +0.0014 at best, with HSKSwap's price impact left out, so the real take was lower, as expected.
+- **In seven weeks of being first, the best-placed bot on this chain has not earned back its deployment.** Its 29 trades came on 15 separate days, at most 7 in a day.
+
+**The replays,** lane replay, `node .test-build/src/cli/arb-replay.js --state-block 29775061`, `evidence/v4/replay-arb-2026-11-01.json` and `replay-arb-2026-11-02.json`. These are the two recorded windows the strategy replay uses. Their HSKSwap legs are the quotes recorded then. The other venues were not recorded, so they are read at block 29,775,061, the last block before the competitor's trade, and used only if nothing touched them from the window's first block to that one. The Solidly and Hyperindex pairs passed. DODO did not: 5 logs or transfers touched it, so its routes were left out. The WETH pool was not recorded, so the triangle is not replayed. 7 routes, at 0.25, 1, 5 and 15 USDT, sizes set before either run, one transaction a leg at the recorded network cost. **Simulated; no money was earned or lost.**
+
+| Window | Samples | Paid before gas | Paid after gas | Best after gas | Replay result |
+|---|---:|---:|---:|---:|---:|
+| 1 November, 12:40–13:24 UTC | 992 | 992 | 0 | −0.0075, HSKSwap to Solidly at 0.25 | 0 trades, 0 USDT |
+| 2 November, 17:50–18:50 UTC | 1,598 | 1,598 | 0 | −0.0073, the same route | 0 trades, 0 USDT |
+
+The best route took at most 0.0019 USDT before gas. Even the cheapest atomic transaction the competitor used costs about 0.0065, so no design we could build would have turned either window positive.
+
+### Why we did not build it
+
+- **There is almost nothing to take.** In 20 days, the estimate finds about 47 minutes of positive blocks, and the best of them is worth +0.0024 USDT before the price impact it leaves out.
+- **What there is, an incumbent already takes,** atomically and first, from the same small pairs. They hold about 44 and 38 USDT, so one trade closes the gap for everyone.
+- **The incumbent's own books say it does not pay.** About +0.14 USDT in seven weeks against a 0.34 USDT deployment.
+- **Our vault cannot do it.** It calls one router and one pool, fixed at deployment. A second venue means a new contract that keeps every one of the vault's limits, with its tests, mutants and static analysis, a new mainnet deployment the owner pays for (version 4 took 4.67M gas on a fork, about 2.3 HSK at the 500 gwei floor), and a separate review. Against the competitor's 0.138 USDT in seven weeks, that cost would not be earned back.
+- **What would change this:** a deeper second venue for WHSK/USDT, or HSKSwap moving several percent off the small pairs for longer than a block. The scan and history scripts can be rerun to check.
+
 ## Version 3
 
 The vault gained a price guard, a stop, a guardian and a daily budget. This is what that costs, on a fork of the real HSKSwap router, median of 20 rounds, `evidence/v3/gas-compare.json`. The tables further down are for earlier versions and are unchanged.
@@ -379,6 +456,13 @@ npm run frame-drift -- --minutes 60 --backfill-blocks 0 --run drift-run
 npm run bench:cold -- --mode local --run cold-local
 npm run bench:cold -- --mode network --minutes 15 --run cold-network
 npm run bench:route -- --label warp-on --n 100 --second https://hashkey.drpc.org
+npm run build:agent
+node scripts/arb-venues.mjs
+node .test-build/src/cli/arb-scan.js --minutes 80 --out evidence/v4/arb-scan-<date>
+node .test-build/src/cli/arb-history.js --out evidence/v4/arb-history-<date>.json
+node scripts/arb-competitor.mjs --out evidence/v4/arb-competitor-<date>.json
+node .test-build/src/cli/arb-replay.js --samples evidence/shadow/shadow-samples.jsonl --out evidence/v4/replay-arb-2026-11-01.json --state-block 29775061
+node .test-build/src/cli/arb-replay.js --samples evidence/shadow/shadow-2026-11-02/shadow-samples.jsonl --out evidence/v4/replay-arb-2026-11-02.json --state-block 29775061
 ```
 
 The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alone, and do not run a large `frame-drift` backfill next to anything else.
@@ -414,6 +498,11 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/v4/mutation-check.json`, `slither.json` | Deliberate bugs caught on version 4, and static analysis triage |
 | `evidence/v4/llm-live.json` | Live chat check, 14 of 14, DeepSeek V4 Pro through OpenRouter. The run before the fix it found is `llm-live-before-risk-fix.json` |
 | `evidence/v4/replay-rules*.json`, `replay-model*.json` | Strategy replays on recorded mainnet samples, rules and live model |
+| `evidence/v4/arb-venues-2026-11-02.json` | Every WHSK/USDT venue found on mainnet, read only |
+| `evidence/v4/arb-scan-2026-11-02.json`, `.samples.jsonl` | Cross-venue scan, mainnet read only, no trades, with every sample |
+| `evidence/v4/arb-history-2026-11-06.json` | About 20 days of HSKSwap prices against the two small pairs, an estimate from logs |
+| `evidence/v4/arb-competitor-2026-11-06.json` | Another contract's real round trips across these venues, from its receipts |
+| `evidence/v4/replay-arb-2026-11-01.json`, `replay-arb-2026-11-02.json` | Cross-venue replay of the two recorded windows |
 | `evidence/market/` | The 7-day pool activity read and the scripts behind it |
 | `evidence/shadow/` | Shadow report and every sample |
 | `evidence/frame-drift/` | Frame Drift report, the earlier run's mismatch and the Swap log check |

@@ -1,0 +1,767 @@
+{
+ "lane": "mainnet, someone else's transactions, read from the explorer; not ours",
+ "wallTime": "2026-11-05T20:35:48.675Z",
+ "contract": "0xf9ee4523742d52c9f1b4de779fc5b40d67e9a07d",
+ "explorer": "https://hsk.blockscout.com/address/0xf9ee4523742d52c9f1b4de779fc5b40d67e9a07d",
+ "method": "Each transaction's token transfers into and out of the contract, and its fee. WHSK and gas are valued at the USDT per WHSK of the transaction's own HSKSwap leg, which includes that leg's 0.3% fee, so it values what the contract kept slightly high. A trade with no HSKSwap leg uses the nearest trade's price (priceFromBlock). WETH that passes through is counted, and nets to zero. The deployment's fee is valued at the first trade's price",
+ "transactions": 30,
+ "succeeded": 30,
+ "failed": 0,
+ "trades": 29,
+ "tradesPricedFromNearest": 4,
+ "tradesNetUsdt": 0.13826852067113699,
+ "tradesGrossUsdt": 0.45166194832181716,
+ "tradesFeeHsk": 3.389062390087804,
+ "tradeNetRange": {
+  "min": 0.00016528291671278825,
+  "max": 0.019809685144553266
+ },
+ "winners": 29,
+ "losers": 0,
+ "deploymentFeeHsk": 3.469913819900884,
+ "deploymentUsdt": 0.3383150577844238,
+ "netAfterDeploymentUsdt": -0.2000465371132868,
+ "first": "2026-09-18T12:59:51.000000Z",
+ "last": "2026-11-05T16:47:41.000000Z",
+ "rows": [
+  {
+   "hash": "0x4af9d65e58e96ae5da2835aa79b6f9707fa9f834b97d72614ee0d451c446e8eb",
+   "block": 27694628,
+   "time": "2026-09-18T12:59:51.000000Z",
+   "status": "ok",
+   "kind": "deployment",
+   "method": null,
+   "venues": [],
+   "gasUsed": 5336537,
+   "gasPriceGwei": 650.0013,
+   "feeHsk": 3.469913819900884,
+   "delta": {
+    "WHSK": 0,
+    "USDT": 0,
+    "WETH": 0
+   },
+   "hskswapPrice": null,
+   "netUsdt": null,
+   "grossUsdt": null,
+   "ok": true
+  },
+  {
+   "hash": "0x59dab8b9bf1e622f385ad0e7acb9e3731a2f3c2a611a97b407b1c2be6a4e32c3",
+   "block": 27696000,
+   "time": "2026-09-18T13:45:35.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27cda5b9",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 271392,
+   "gasPriceGwei": 516.253089467,
+   "feeHsk": 0.14015706155501795,
+   "delta": {
+    "WHSK": 0.1585879107104553,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 1.0842021724855044e-18
+   },
+   "hskswapPrice": 0.09749955628410607,
+   "netUsdt": 0.0017979996145943509,
+   "grossUsdt": 0.015463250926292743,
+   "ok": true
+  },
+  {
+   "hash": "0x57a49da5d85d00b8daf188e16998382cc46229b3d865713c98aacd4de4ba3b8b",
+   "block": 27704683,
+   "time": "2026-09-18T18:35:01.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x276dc770",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "solidly-20"
+   ],
+   "gasUsed": 334927,
+   "gasPriceGwei": 507.239990398,
+   "feeHsk": 0.16993052062916805,
+   "delta": {
+    "WHSK": 0.18133872327723122,
+    "USDT": 0,
+    "WETH": 1.0299920638612292e-18
+   },
+   "hskswapPrice": null,
+   "netUsdt": 0.0011122946961853244,
+   "grossUsdt": 0.017680445056656342,
+   "ok": true,
+   "priceFromBlock": 27696000
+  },
+  {
+   "hash": "0x60e0b574afbb775856aef99d96440e5463caa5a412f75f614799bf99e21503fe",
+   "block": 27745592,
+   "time": "2026-09-19T17:18:39.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27515f38",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hyperindex-30"
+   ],
+   "gasUsed": 204101,
+   "gasPriceGwei": 506.86641076,
+   "feeHsk": 0.10349500218012875,
+   "delta": {
+    "WHSK": 0.11256134295604436,
+    "USDT": 0,
+    "WETH": 1.0028870095490916e-18
+   },
+   "hskswapPrice": null,
+   "netUsdt": 0.0008839642027722704,
+   "grossUsdt": 0.010974680992957415,
+   "ok": true,
+   "priceFromBlock": 27696000
+  },
+  {
+   "hash": "0x6761d1616249fc1d4d3f5bd72226b0ff81a27d29826c463a28b9deeac3e921f1",
+   "block": 27800907,
+   "time": "2026-09-21T00:02:29.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27b8823b",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 213458,
+   "gasPriceGwei": 515.630213441,
+   "feeHsk": 0.11007110369612676,
+   "delta": {
+    "WHSK": 0.12612371020457935,
+    "USDT": 0.000001000000000139778,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.09844138288010909,
+   "netUsdt": 0.001581240783522453,
+   "grossUsdt": 0.012416792446509058,
+   "ok": true
+  },
+  {
+   "hash": "0xf235bb07e8403e6276ec030acd2b4a3a3a48c5b5a1b26238908d54461cdd1dbb",
+   "block": 27816385,
+   "time": "2026-09-21T08:38:25.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27da3e49",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 219144,
+   "gasPriceGwei": 554.984745103,
+   "feeHsk": 0.12163882871304911,
+   "delta": {
+    "WHSK": 0.17284271401653228,
+    "USDT": 0.000001000000000139778,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.09774148105874647,
+   "netUsdt": 0.0050057435855247676,
+   "grossUsdt": 0.016894902858189363,
+   "ok": true
+  },
+  {
+   "hash": "0x6ea4e0e2fda0509ced8f03197435852d7907d8d2669652203d08f975c35226f7",
+   "block": 27843172,
+   "time": "2026-09-21T23:31:19.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27d0f7f6",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 213434,
+   "gasPriceGwei": 541.567613093,
+   "feeHsk": 0.11560095662594393,
+   "delta": {
+    "WHSK": 0.1559508783437451,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.0980249687519533,
+   "netUsdt": 0.003956299815531139,
+   "grossUsdt": 0.015288079976485201,
+   "ok": true
+  },
+  {
+   "hash": "0x5ce630484e46fa449eff8322bba38114499c4a928badc3098d1fa3c314940fad",
+   "block": 27916074,
+   "time": "2026-09-23T16:01:23.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27555087",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 203810,
+   "gasPriceGwei": 514.038463109,
+   "feeHsk": 0.1048603485832975,
+   "delta": {
+    "WHSK": 0.12044683562335745,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": null,
+   "netUsdt": 0.0015288649050546315,
+   "grossUsdt": 0.011807797298251299,
+   "ok": true,
+   "priceFromBlock": 27843172
+  },
+  {
+   "hash": "0x69ce9104fe6bdad3722a1a72dbaad4ae923ebbf014e8e0825af70ab6577a62b2",
+   "block": 28113259,
+   "time": "2026-09-28T05:34:13.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27b519c2",
+   "venues": [
+    "hskswap-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 204407,
+   "gasPriceGwei": 515.266794655,
+   "feeHsk": 0.10536134687786713,
+   "delta": {
+    "WHSK": 0.12047703193346493,
+    "USDT": 0.000001000000000139778,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.09815616224713196,
+   "netUsdt": 0.0014846976347939432,
+   "grossUsdt": 0.01182656309351422,
+   "ok": true
+  },
+  {
+   "hash": "0x87aac0ab0fd0ad5f807da9606cf0fb6d293734b380fd27043790ad636a72018c",
+   "block": 28324907,
+   "time": "2026-10-03T03:09:09.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x074cc3b1",
+   "venues": [
+    "hskswap-30",
+    "hyperindex-30"
+   ],
+   "gasUsed": 149212,
+   "gasPriceGwei": 500.355786478,
+   "feeHsk": 0.07466528794609814,
+   "delta": {
+    "WHSK": 0.0763079478074955,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.1000103068038743,
+   "netUsdt": 0.00016528291671278825,
+   "grossUsdt": 0.00763258127180168,
+   "ok": true
+  },
+  {
+   "hash": "0x4867d5faeb1fed2da05dcf881c2f0827564040fbd8b81e898cdffae3adfaae38",
+   "block": 28510267,
+   "time": "2026-10-07T10:07:49.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27567f5b",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 202845,
+   "gasPriceGwei": 517.547937678,
+   "feeHsk": 0.10500197551574021,
+   "delta": {
+    "WHSK": 0.12370832213405691,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": null,
+   "netUsdt": 0.0017967052026415763,
+   "grossUsdt": 0.011876310673900723,
+   "ok": true,
+   "priceFromBlock": 28536732
+  },
+  {
+   "hash": "0xc4763b6270708e18c3124dc726775a8625e0bff220eede834dd787f8fa9eac36",
+   "block": 28536732,
+   "time": "2026-10-08T00:49:59.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x077244b7",
+   "venues": [
+    "solidly-20",
+    "hskswap-30"
+   ],
+   "gasUsed": 273753,
+   "gasPriceGwei": 505.161051585,
+   "feeHsk": 0.1383026015551422,
+   "delta": {
+    "WHSK": 0.1458904708781592,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.09599443650227489,
+   "netUsdt": 0.0007293932399159448,
+   "grossUsdt": 0.014005673543000467,
+   "ok": true
+  },
+  {
+   "hash": "0x8362bae9af7db9d5b752589d25ab3dae0181a138f07bbe5779adc2ec675a0b5f",
+   "block": 28565738,
+   "time": "2026-10-08T16:56:51.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27dec195",
+   "venues": [
+    "hskswap-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 204391,
+   "gasPriceGwei": 558.8539933,
+   "feeHsk": 0.11444749305482482,
+   "delta": {
+    "WHSK": 0.24241437260656795,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.09527436512244956,
+   "netUsdt": 0.012192963205993217,
+   "grossUsdt": 0.023096875446647607,
+   "ok": true
+  },
+  {
+   "hash": "0x6af8c16bb71fed4384202cee239203cdfca5e9322ebe980ad373a022cc6d6980",
+   "block": 28565739,
+   "time": "2026-10-08T16:56:53.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27479311",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 245519,
+   "gasPriceGwei": 543.61278979,
+   "feeHsk": 0.13369003504669555,
+   "delta": {
+    "WHSK": 0.17632054822674803,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 1.0028870095490916e-18
+   },
+   "hskswapPrice": 0.0958484413903085,
+   "netUsdt": 0.0040870682439769525,
+   "grossUsdt": 0.01690104973261844,
+   "ok": true
+  },
+  {
+   "hash": "0x1c6410b0dc67a6c2585a8dfdb7b8a9cc52089b76ae0bc2979826bc4547ae4c87",
+   "block": 28887481,
+   "time": "2026-10-16T03:41:37.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x074812e9",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 155419,
+   "gasPriceGwei": 635.03099023,
+   "feeHsk": 0.0987020222289337,
+   "delta": {
+    "WHSK": 0.31404077569631283,
+    "USDT": 9.999999999732445e-7,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.0898059098481963,
+   "netUsdt": 0.019339692680714393,
+   "grossUsdt": 0.028203717590840678,
+   "ok": true
+  },
+  {
+   "hash": "0xed5b5c47dcd882c42574d99c2aae9bacbe0b91080e0b2527f654c843f9c3496a",
+   "block": 28887681,
+   "time": "2026-10-16T03:48:17.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x0782e54e",
+   "venues": [
+    "solidly-20",
+    "hskswap-30"
+   ],
+   "gasUsed": 272793,
+   "gasPriceGwei": 533.976942455,
+   "feeHsk": 0.14567077225874908,
+   "delta": {
+    "WHSK": 0.1876205797164321,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.0923047905407247,
+   "netUsdt": 0.0038731681906051894,
+   "grossUsdt": 0.017319278311854633,
+   "ok": true
+  },
+  {
+   "hash": "0x798f4c88c538e8dc0549d670de6116a1fa531683c78fed704f7a779862709797",
+   "block": 28888463,
+   "time": "2026-10-16T04:14:21.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x28010d48",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 219164,
+   "gasPriceGwei": 595.216612248,
+   "feeHsk": 0.13045716698712742,
+   "delta": {
+    "WHSK": 0.3450491646549132,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.09230859193183696,
+   "netUsdt": 0.019809685144553266,
+   "grossUsdt": 0.03185200253655152,
+   "ok": true
+  },
+  {
+   "hash": "0xcff35bddae11ccaedf3c108ccf4af327f53012e8b259ae0b9121462da4c21ff8",
+   "block": 28907807,
+   "time": "2026-10-16T14:59:09.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x076081e9",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 149705,
+   "gasPriceGwei": 550.210483683,
+   "feeHsk": 0.08238040740879227,
+   "delta": {
+    "WHSK": 0.11700657141299331,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.09097958744658467,
+   "netUsdt": 0.003151274115960021,
+   "grossUsdt": 0.010646209595693509,
+   "ok": true
+  },
+  {
+   "hash": "0xad25628ee88f3ad29e4050283d98be441abe9902ae446a2a0db03cc886a73a8c",
+   "block": 28909527,
+   "time": "2026-10-16T15:56:29.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27d246ba",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 219174,
+   "gasPriceGwei": 581.632782739,
+   "feeHsk": 0.12749295017025228,
+   "delta": {
+    "WHSK": 0.20740123796843868,
+    "USDT": 0.000001000000000139778,
+    "WETH": 1.0842021724855044e-18
+   },
+   "hskswapPrice": 0.08982450991172174,
+   "netUsdt": 0.007178722789357047,
+   "grossUsdt": 0.018630714555599517,
+   "ok": true
+  },
+  {
+   "hash": "0xc0fb5b1bfe824a60cbaed80c3ad2cf790e611c3d57c96661a6a4abdee4dc3be0",
+   "block": 28910007,
+   "time": "2026-10-16T16:12:29.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x077db857",
+   "venues": [
+    "solidly-20",
+    "hskswap-30"
+   ],
+   "gasUsed": 273749,
+   "gasPriceGwei": 520.739327382,
+   "feeHsk": 0.14256368561240834,
+   "delta": {
+    "WHSK": 0.16880381171705494,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08896377105797404,
+   "netUsdt": 0.0023354205713061772,
+   "grossUsdt": 0.01501842365930946,
+   "ok": true
+  },
+  {
+   "hash": "0x388a38af657ea7a52a5206d242f033ed9281ef27ffff23c7127ffb48d4d948f1",
+   "block": 28913951,
+   "time": "2026-10-16T18:23:57.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x0752c85a",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 149693,
+   "gasPriceGwei": 509.691972611,
+   "feeHsk": 0.07630714345788504,
+   "delta": {
+    "WHSK": 0.084126685607254,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08848445003304795,
+   "netUsdt": 0.0006929078865971789,
+   "grossUsdt": 0.0074449035090610296,
+   "ok": true
+  },
+  {
+   "hash": "0xea9c96f0899da806059ee987dbefdf89df49082b06bf4dfbe9eb9a9f54f1c58f",
+   "block": 29126823,
+   "time": "2026-10-21T16:39:41.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27b651ff",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 220070,
+   "gasPriceGwei": 534.659883909,
+   "feeHsk": 0.11768505310498863,
+   "delta": {
+    "WHSK": 0.15255736154456834,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 1.0299920638612292e-18
+   },
+   "hskswapPrice": 0.08745556940942437,
+   "netUsdt": 0.003050777591204437,
+   "grossUsdt": 0.013342990921479562,
+   "ok": true
+  },
+  {
+   "hash": "0x2ce95c6a0056504218b582778a8a22ef7e608517a4495cd3fefb93f32478fd1b",
+   "block": 29252119,
+   "time": "2026-10-24T14:16:13.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27aa55d8",
+   "venues": [
+    "hskswap-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 211083,
+   "gasPriceGwei": 525.286595664,
+   "feeHsk": 0.11088608884541899,
+   "delta": {
+    "WHSK": 0.13572664277645785,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08709206575045114,
+   "netUsdt": 0.002164415156239583,
+   "grossUsdt": 0.01182171369677518,
+   "ok": true
+  },
+  {
+   "hash": "0x6a6250bd1a0f810bc4d919107dbc1bd786b1adfd06175c0ef731c1a965527b4a",
+   "block": 29315794,
+   "time": "2026-10-26T01:38:43.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x279dcfa4",
+   "venues": [
+    "hskswap-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 204349,
+   "gasPriceGwei": 514.118454105,
+   "feeHsk": 0.10506540593056347,
+   "delta": {
+    "WHSK": 0.11914605012682067,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08770038934026642,
+   "netUsdt": 0.0012358779781734362,
+   "grossUsdt": 0.01045015498447699,
+   "ok": true
+  },
+  {
+   "hash": "0xb6a8356e5bb5b01127509b83bb9ca491fdb014f32d92eb8451c1e23d3058339d",
+   "block": 29495838,
+   "time": "2026-10-30T05:40:11.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27a46e3d",
+   "venues": [
+    "hskswap-30",
+    "hskswap-weth-30",
+    "hyperindex-weth-30"
+   ],
+   "gasUsed": 202474,
+   "gasPriceGwei": 520.429393537,
+   "feeHsk": 0.10541492785991072,
+   "delta": {
+    "WHSK": 0.25311519166831786,
+    "USDT": 0.000001000000000139778,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08709449744147252,
+   "netUsdt": 0.01286488024836627,
+   "grossUsdt": 0.022045940413154275,
+   "ok": true
+  },
+  {
+   "hash": "0x67d9a7302310df073795cee704d0404e010de8aef5ac66d68ddbf5a2fd73cfba",
+   "block": 29495838,
+   "time": "2026-10-30T05:40:11.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x274dd1ac",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 253029,
+   "gasPriceGwei": 549.28209251,
+   "feeHsk": 0.13902525221726247,
+   "delta": {
+    "WHSK": 0.19716507855963972,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 1.0028870095490916e-18
+   },
+   "hskswapPrice": 0.08761973118613554,
+   "netUsdt": 0.005095195955327727,
+   "grossUsdt": 0.01727655118268896,
+   "ok": true
+  },
+  {
+   "hash": "0xa523dae1eb81c143935f909ecdaa7e2bb0d2da6b579f11c1f1caf72770f2a73d",
+   "block": 29728431,
+   "time": "2026-11-04T14:53:17.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27ed12c9",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 222043,
+   "gasPriceGwei": 559.864287865,
+   "feeHsk": 0.12452995603752472,
+   "delta": {
+    "WHSK": 0.2656126503651244,
+    "USDT": 9.999999999177334e-7,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.08665156207596618,
+   "netUsdt": 0.01222603584537248,
+   "grossUsdt": 0.023016751061275393,
+   "ok": true
+  },
+  {
+   "hash": "0xf56dcbaac40f5e86e5d708b53ab971aacaf0923ceeb618cec52d4a950e6b8004",
+   "block": 29732137,
+   "time": "2026-11-04T16:56:49.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x27d3d13d",
+   "venues": [
+    "hyperindex-weth-30",
+    "hskswap-weth-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 222100,
+   "gasPriceGwei": 581.428370716,
+   "feeHsk": 0.12916954435273728,
+   "delta": {
+    "WHSK": 0.20991023980633905,
+    "USDT": 0.000001000000000139778,
+    "WETH": 9.75781955236954e-19
+   },
+   "hskswapPrice": 0.08662254054105688,
+   "netUsdt": 0.006994964165242886,
+   "grossUsdt": 0.018183958257607716,
+   "ok": true
+  },
+  {
+   "hash": "0x3aac3b2277054bc2e1d345a47adb7175aa3fb076c0e0745faf3fdda06ad1d663",
+   "block": 29775062,
+   "time": "2026-11-05T16:47:39.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x07567f7b",
+   "venues": [
+    "hyperindex-30",
+    "hskswap-30"
+   ],
+   "gasUsed": 149729,
+   "gasPriceGwei": 518.367159683,
+   "feeHsk": 0.07775129187293245,
+   "delta": {
+    "WHSK": 0.09132269722579434,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08596541973355054,
+   "netUsdt": 0.001167671557532956,
+   "grossUsdt": 0.007851593998215391,
+   "ok": true
+  },
+  {
+   "hash": "0x4bca95f33839e49a7f9b8843def2074cbf455dbe3bf1e8a33fbad8ea9da190ac",
+   "block": 29775063,
+   "time": "2026-11-05T16:47:41.000000Z",
+   "status": "ok",
+   "kind": "trade",
+   "method": "0x07769ed0",
+   "venues": [
+    "solidly-20",
+    "hskswap-30"
+   ],
+   "gasUsed": 273775,
+   "gasPriceGwei": 506.248313949,
+   "feeHsk": 0.13873815976321707,
+   "delta": {
+    "WHSK": 0.1476290596146832,
+    "USDT": 0.0000010000000000287557,
+    "WETH": 0
+   },
+   "hskswapPrice": 0.08596573576728653,
+   "netUsdt": 0.0007653127473645736,
+   "grossUsdt": 0.012692040730408876,
+   "ok": true
+  }
+ ]
+}
