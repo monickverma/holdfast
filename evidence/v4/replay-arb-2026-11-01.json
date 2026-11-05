@@ -1,0 +1,408 @@
+{
+ "lane": "replay",
+ "wallTime": "2026-11-05T20:38:08.278Z",
+ "source": "evidence/shadow/shadow-samples.jsonl",
+ "window": {
+  "first": "2026-11-01T12:40:33.219Z",
+  "last": "2026-11-01T13:23:57.954Z",
+  "firstBlock": "29594849",
+  "lastBlock": "29596151"
+ },
+ "caveats": [
+  "HSKSwap legs are the quotes recorded in the window, scaled to each amount from the next larger recorded size on the same side, as replay.ts scales them. 0.25 USDT is scaled from the 1 USDT quote.",
+  "The other venues' state was read after the window, at the block named below (stateCheck.readAtBlock). It is used only for venues with no log, and no WHSK or USDT transfer in or out, from the window's first block to that block; any other venue's routes are left out.",
+  "Network cost is the recorded cost of 200,000 gas plus one L1 fee, scaled to 104740 gas a leg, one transaction a leg.",
+  "Routes through WETH are not replayed: the WETH pool was not recorded.",
+  "Fills are simulated, and our own fill does not move later quotes. Each opportunity is taken once, at its first sample."
+ ],
+ "stateCheck": {
+  "lane": "mainnet read-only, no trades",
+  "readAtBlock": "29775061",
+  "fromBlock": "29594849",
+  "logRequests": 185,
+  "venues": [
+   {
+    "id": "solidly-20",
+    "address": "0x340bDfC78724B3C4E28385462D9A36d469ad047B",
+    "logsAndTransfers": 0,
+    "usedInReplay": true
+   },
+   {
+    "id": "hyperindex-30",
+    "address": "0xF8365695ccC4FCa53241d7d42BbDc3b2e7d43AE4",
+    "logsAndTransfers": 0,
+    "usedInReplay": true
+   },
+   {
+    "id": "dodo-dvm",
+    "address": "0xc070B6a1386b0f13Caf24168539C2566Bda11E47",
+    "logsAndTransfers": 5,
+    "usedInReplay": false
+   }
+  ],
+  "reservesAtRead": {
+   "solidly-20": {
+    "token0": "WHSK",
+    "reserve0": "493631474259707300516",
+    "reserve1": "44002372"
+   },
+   "hyperindex-30": {
+    "token0": "WHSK",
+    "reserve0": "429647702224969347067",
+    "reserve1": "38132505"
+   }
+  },
+  "dodoQuotesRead": 0
+ },
+ "notReplayed": [
+  {
+   "address": "0x1506de22674dfB4f5A757CE525b22B97560a8D4A",
+   "what": "WHSK/USDT 0.25% concentrated-liquidity pool on factory 0x4851…21ee",
+   "why": "No quoter on chain names that factory, and the pool holds 0.17 USDT, less than the smallest size sampled"
+  },
+  {
+   "address": "0xA2F4C3ede0bf2016eDAc7F2419aC8BEF6A6b20B5",
+   "what": "WHSK/WETH 0.25% concentrated-liquidity pool on the same factory",
+   "why": "No quoter for that factory; it holds 2,959 WHSK and 0.0099 WETH"
+  },
+  {
+   "address": "0xB580D654cE892181937Aac80EA165950CB7D0E02",
+   "what": "WHSK/USDC.e 0.3% on HSKSwap",
+   "why": "Holds 0.08 USDC.e, and no USDC.e/USDT pool exists on HSKSwap to close through"
+  },
+  {
+   "address": "0x711d26AA3ff64dd9Dc5FA22B7c64C26c1b28f8f2",
+   "what": "The WETH triangle",
+   "why": "The WETH/USDT pool was not recorded in the window"
+  }
+ ],
+ "routes": [
+  "hskswap-30>hskswap-30",
+  "hskswap-30>solidly-20",
+  "hskswap-30>hyperindex-30",
+  "solidly-20>hskswap-30",
+  "solidly-20>hyperindex-30",
+  "hyperindex-30>hskswap-30",
+  "hyperindex-30>solidly-20"
+ ],
+ "localVenues": [
+  "solidly-20",
+  "hyperindex-30"
+ ],
+ "sizesUsdt": [
+  0.25,
+  1,
+  5,
+  15
+ ],
+ "samples": 992,
+ "hours": 0.7235375,
+ "blocks": 965,
+ "legUsdt": {
+  "p10": 0.004588,
+  "p50": 0.004588,
+  "p90": 0.004588
+ },
+ "samplesWithPositiveNet": 0,
+ "samplesWithPositiveGross": 992,
+ "best": {
+  "route": "hskswap-30>solidly-20",
+  "sizeUsdt": 0.25,
+  "grossUsdt": 0.001711,
+  "netUsdt": -0.007465,
+  "block": "29594849"
+ },
+ "rows": [
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 992,
+   "netPositive": 0,
+   "maxGross": 0.001711,
+   "maxNet": -0.007465,
+   "medianNet": -0.007465
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 992,
+   "netPositive": 0,
+   "maxGross": 0.000155,
+   "maxNet": -0.009021,
+   "medianNet": -0.009021
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.0015,
+   "maxNet": -0.010676,
+   "medianNet": -0.010676
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.003179,
+   "maxNet": -0.012355,
+   "medianNet": -0.012355
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.005306,
+   "maxNet": -0.014482,
+   "medianNet": -0.014482
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.005997,
+   "maxNet": -0.015173,
+   "medianNet": -0.015173
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.006354,
+   "maxNet": -0.01553,
+   "medianNet": -0.01553
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.00696,
+   "maxNet": -0.016136,
+   "medianNet": -0.016136
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.010141,
+   "maxNet": -0.019317,
+   "medianNet": -0.019317
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.01869,
+   "maxNet": -0.027866,
+   "medianNet": -0.027866
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.03007,
+   "maxNet": -0.039246,
+   "medianNet": -0.039246
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.044008,
+   "maxNet": -0.053184,
+   "medianNet": -0.053184
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.044039,
+   "maxNet": -0.053215,
+   "medianNet": -0.053215
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.047205,
+   "maxNet": -0.056381,
+   "medianNet": -0.056381
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 1,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.055287,
+   "maxNet": -0.064463,
+   "medianNet": -0.064463
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.090887,
+   "maxNet": -0.100063,
+   "medianNet": -0.100063
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.459326,
+   "maxNet": -0.468502,
+   "medianNet": -0.468502
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.551412,
+   "maxNet": -0.560588,
+   "medianNet": -0.560588
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.609558,
+   "maxNet": -0.618734,
+   "medianNet": -0.618734
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.662321,
+   "maxNet": -0.671497,
+   "medianNet": -0.671497
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.984252,
+   "maxNet": -0.993428,
+   "medianNet": -0.993428
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 5,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -1.015919,
+   "maxNet": -1.025095,
+   "medianNet": -1.025095
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -3.708569,
+   "maxNet": -3.717745,
+   "medianNet": -3.717745
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.057928,
+   "maxNet": -4.067104,
+   "medianNet": -4.067104
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.179194,
+   "maxNet": -4.18837,
+   "medianNet": -4.18837
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.431092,
+   "maxNet": -4.440268,
+   "medianNet": -4.440268
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -6.349412,
+   "maxNet": -6.358588,
+   "medianNet": -6.358588
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 15,
+   "samples": 992,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -6.409803,
+   "maxNet": -6.418979,
+   "medianNet": -6.418979
+  }
+ ],
+ "opportunities": [],
+ "replay": {
+  "note": "Each opportunity taken once, at its first sample, at the size that paid most then. Simulated; not money earned",
+  "atZero": {
+   "minNetUsdt": 0,
+   "trades": 0,
+   "netUsdt": 0,
+   "worst": null,
+   "fills": []
+  }
+ }
+}

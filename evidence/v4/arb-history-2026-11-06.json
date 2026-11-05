@@ -1,0 +1,450 @@
+{
+ "lane": "mainnet read-only, no trades; historical logs, HSKSwap leg priced from spot",
+ "wallTime": "2026-11-05T20:45:03.391Z",
+ "method": "From the block after the pairs last changed until either changed again: proof that neither changed in between, and every HSKSwap Swap event's closing price, held until the next. Each price is run through every route between HSKSwap and those pairs, at each size, with the pairs' reserves read at the window's last block",
+ "caveats": [
+  "HSKSwap's leg is its spot less its 0.3% fee, with no price impact. A real quote is worse by the impact, so this flatters every trip.",
+  "Network cost is 500.001 gwei, the base-fee floor the scan saw, for 104740 gas a leg, plus an L1 fee of 24704148481954 wei a leg, the scan's first reading and above any it saw later. Both were taken as constant over the window. The L1 fee is under 0.1% of the leg's cost, so its exact value does not matter here.",
+  "Blocks are weighted equally; a price holds from one swap to the next. The stretch before the first swap in the window is left out.",
+  "Two costs: one transaction a leg at the scan's 104,740 gas, and one atomic transaction at the gas another contract's real round trips used (atomicGas). A route between the two small pairs is charged the Solidly figure; none was measured."
+ ],
+ "headAtRun": "29782134",
+ "windowEndBlock": "29775061",
+ "windowEndedBy": {
+  "block": "29775062",
+  "transactions": [
+   "0x3aac3b2277054bc2e1d345a47adb7175aa3fb076c0e0745faf3fdda06ad1d663",
+   "0x4bca95f33839e49a7f9b8843def2074cbf455dbe3bf1e8a33fbad8ea9da190ac"
+  ]
+ },
+ "lastChangeOnExplorer": "28913951",
+ "fromBlock": "28913952",
+ "pairsUntouched": "No log from either pair, and no WHSK or USDT transfer into or out of either, from fromBlock to windowEndBlock",
+ "atomicGas": {
+  "solidly": "273775",
+  "hyperindex": "149729"
+ },
+ "logRequests": 692,
+ "swaps": 1373,
+ "spotRange": {
+  "min": 0.085707,
+  "max": 0.088858
+ },
+ "reserves": {
+  "solidly-20": {
+   "token0": "WHSK",
+   "reserve0": "493631474259707300516",
+   "reserve1": "44002372"
+  },
+  "hyperindex-30": {
+   "token0": "WHSK",
+   "reserve0": "429647702224969347067",
+   "reserve1": "38132505"
+  }
+ },
+ "routes": [
+  "hskswap-30>solidly-20",
+  "hskswap-30>hyperindex-30",
+  "solidly-20>hskswap-30",
+  "solidly-20>hyperindex-30",
+  "hyperindex-30>hskswap-30",
+  "hyperindex-30>solidly-20"
+ ],
+ "sizesUsdt": [
+  0.1,
+  0.25,
+  0.5,
+  1,
+  5,
+  15
+ ],
+ "blocksCovered": "861109",
+ "blocksWithPositiveGross": "749585",
+ "blocksWithPositiveNet": "1422",
+ "blocksWithPositiveNetAtomic": "1119",
+ "positiveStretches": [
+  {
+   "fromBlock": "29773640",
+   "toBlock": "29773640",
+   "spot": 0.086101,
+   "bestNetTwoTx": 0.00008,
+   "bestNetAtomic": -0.000929
+  },
+  {
+   "fromBlock": "29773641",
+   "toBlock": "29773641",
+   "spot": 0.086085,
+   "bestNetTwoTx": 0.000175,
+   "bestNetAtomic": -0.000834
+  },
+  {
+   "fromBlock": "29773642",
+   "toBlock": "29773642",
+   "spot": 0.086069,
+   "bestNetTwoTx": 0.000271,
+   "bestNetAtomic": -0.00074
+  },
+  {
+   "fromBlock": "29773643",
+   "toBlock": "29773681",
+   "spot": 0.086054,
+   "bestNetTwoTx": 0.000361,
+   "bestNetAtomic": -0.000652
+  },
+  {
+   "fromBlock": "29773682",
+   "toBlock": "29773799",
+   "spot": 0.086053,
+   "bestNetTwoTx": 0.000366,
+   "bestNetAtomic": -0.000646
+  },
+  {
+   "fromBlock": "29773800",
+   "toBlock": "29773800",
+   "spot": 0.086038,
+   "bestNetTwoTx": 0.000456,
+   "bestNetAtomic": -0.000558
+  },
+  {
+   "fromBlock": "29773801",
+   "toBlock": "29773865",
+   "spot": 0.086022,
+   "bestNetTwoTx": 0.00055,
+   "bestNetAtomic": -0.000465
+  },
+  {
+   "fromBlock": "29773866",
+   "toBlock": "29773933",
+   "spot": 0.086022,
+   "bestNetTwoTx": 0.00055,
+   "bestNetAtomic": -0.000465
+  },
+  {
+   "fromBlock": "29773934",
+   "toBlock": "29773934",
+   "spot": 0.086006,
+   "bestNetTwoTx": 0.000646,
+   "bestNetAtomic": -0.00037
+  },
+  {
+   "fromBlock": "29773935",
+   "toBlock": "29773935",
+   "spot": 0.08599,
+   "bestNetTwoTx": 0.000741,
+   "bestNetAtomic": -0.000276
+  },
+  {
+   "fromBlock": "29773936",
+   "toBlock": "29773937",
+   "spot": 0.085974,
+   "bestNetTwoTx": 0.000837,
+   "bestNetAtomic": -0.000182
+  },
+  {
+   "fromBlock": "29773938",
+   "toBlock": "29773940",
+   "spot": 0.085958,
+   "bestNetTwoTx": 0.000933,
+   "bestNetAtomic": -0.000088
+  },
+  {
+   "fromBlock": "29773941",
+   "toBlock": "29773942",
+   "spot": 0.085943,
+   "bestNetTwoTx": 0.001023,
+   "bestNetAtomic": 0
+  },
+  {
+   "fromBlock": "29773943",
+   "toBlock": "29773944",
+   "spot": 0.085929,
+   "bestNetTwoTx": 0.001105,
+   "bestNetAtomic": 0.000083
+  },
+  {
+   "fromBlock": "29773945",
+   "toBlock": "29773945",
+   "spot": 0.085923,
+   "bestNetTwoTx": 0.001142,
+   "bestNetAtomic": 0.000119
+  },
+  {
+   "fromBlock": "29773946",
+   "toBlock": "29773946",
+   "spot": 0.085917,
+   "bestNetTwoTx": 0.001177,
+   "bestNetAtomic": 0.000154
+  },
+  {
+   "fromBlock": "29773947",
+   "toBlock": "29773947",
+   "spot": 0.085911,
+   "bestNetTwoTx": 0.001213,
+   "bestNetAtomic": 0.000189
+  },
+  {
+   "fromBlock": "29773948",
+   "toBlock": "29773948",
+   "spot": 0.085905,
+   "bestNetTwoTx": 0.00125,
+   "bestNetAtomic": 0.000224
+  },
+  {
+   "fromBlock": "29773949",
+   "toBlock": "29773949",
+   "spot": 0.085889,
+   "bestNetTwoTx": 0.001344,
+   "bestNetAtomic": 0.000319
+  },
+  {
+   "fromBlock": "29773950",
+   "toBlock": "29773950",
+   "spot": 0.085883,
+   "bestNetTwoTx": 0.001381,
+   "bestNetAtomic": 0.000354
+  },
+  {
+   "fromBlock": "29773951",
+   "toBlock": "29773951",
+   "spot": 0.085877,
+   "bestNetTwoTx": 0.001416,
+   "bestNetAtomic": 0.000389
+  },
+  {
+   "fromBlock": "29773952",
+   "toBlock": "29773952",
+   "spot": 0.085871,
+   "bestNetTwoTx": 0.001452,
+   "bestNetAtomic": 0.000425
+  },
+  {
+   "fromBlock": "29773953",
+   "toBlock": "29773953",
+   "spot": 0.085865,
+   "bestNetTwoTx": 0.001489,
+   "bestNetAtomic": 0.00046
+  },
+  {
+   "fromBlock": "29773954",
+   "toBlock": "29773955",
+   "spot": 0.085859,
+   "bestNetTwoTx": 0.001524,
+   "bestNetAtomic": 0.000496
+  },
+  {
+   "fromBlock": "29773956",
+   "toBlock": "29773960",
+   "spot": 0.085851,
+   "bestNetTwoTx": 0.001571,
+   "bestNetAtomic": 0.000543
+  },
+  {
+   "fromBlock": "29773961",
+   "toBlock": "29773967",
+   "spot": 0.085847,
+   "bestNetTwoTx": 0.001597,
+   "bestNetAtomic": 0.000566
+  },
+  {
+   "fromBlock": "29773968",
+   "toBlock": "29773968",
+   "spot": 0.085842,
+   "bestNetTwoTx": 0.001626,
+   "bestNetAtomic": 0.000596
+  },
+  {
+   "fromBlock": "29773969",
+   "toBlock": "29773973",
+   "spot": 0.085836,
+   "bestNetTwoTx": 0.001661,
+   "bestNetAtomic": 0.000631
+  },
+  {
+   "fromBlock": "29773974",
+   "toBlock": "29773979",
+   "spot": 0.085831,
+   "bestNetTwoTx": 0.001691,
+   "bestNetAtomic": 0.000661
+  },
+  {
+   "fromBlock": "29773980",
+   "toBlock": "29773984",
+   "spot": 0.085826,
+   "bestNetTwoTx": 0.001722,
+   "bestNetAtomic": 0.000691
+  },
+  {
+   "fromBlock": "29773985",
+   "toBlock": "29773987",
+   "spot": 0.085822,
+   "bestNetTwoTx": 0.001746,
+   "bestNetAtomic": 0.000714
+  },
+  {
+   "fromBlock": "29773988",
+   "toBlock": "29773993",
+   "spot": 0.085817,
+   "bestNetTwoTx": 0.001775,
+   "bestNetAtomic": 0.000744
+  },
+  {
+   "fromBlock": "29773994",
+   "toBlock": "29773995",
+   "spot": 0.085812,
+   "bestNetTwoTx": 0.001804,
+   "bestNetAtomic": 0.000773
+  },
+  {
+   "fromBlock": "29773996",
+   "toBlock": "29773997",
+   "spot": 0.085807,
+   "bestNetTwoTx": 0.001836,
+   "bestNetAtomic": 0.000802
+  },
+  {
+   "fromBlock": "29773998",
+   "toBlock": "29774003",
+   "spot": 0.085803,
+   "bestNetTwoTx": 0.001859,
+   "bestNetAtomic": 0.000827
+  },
+  {
+   "fromBlock": "29774004",
+   "toBlock": "29774026",
+   "spot": 0.085798,
+   "bestNetTwoTx": 0.001889,
+   "bestNetAtomic": 0.000856
+  },
+  {
+   "fromBlock": "29774027",
+   "toBlock": "29774073",
+   "spot": 0.085798,
+   "bestNetTwoTx": 0.001889,
+   "bestNetAtomic": 0.000856
+  },
+  {
+   "fromBlock": "29774074",
+   "toBlock": "29774075",
+   "spot": 0.085793,
+   "bestNetTwoTx": 0.001918,
+   "bestNetAtomic": 0.000886
+  },
+  {
+   "fromBlock": "29774076",
+   "toBlock": "29774076",
+   "spot": 0.085788,
+   "bestNetTwoTx": 0.00195,
+   "bestNetAtomic": 0.000915
+  },
+  {
+   "fromBlock": "29774077",
+   "toBlock": "29774078",
+   "spot": 0.085782,
+   "bestNetTwoTx": 0.001985,
+   "bestNetAtomic": 0.00095
+  },
+  {
+   "fromBlock": "29774079",
+   "toBlock": "29774080",
+   "spot": 0.085777,
+   "bestNetTwoTx": 0.002014,
+   "bestNetAtomic": 0.00098
+  },
+  {
+   "fromBlock": "29774081",
+   "toBlock": "29774083",
+   "spot": 0.085773,
+   "bestNetTwoTx": 0.002038,
+   "bestNetAtomic": 0.001004
+  },
+  {
+   "fromBlock": "29774084",
+   "toBlock": "29774087",
+   "spot": 0.085768,
+   "bestNetTwoTx": 0.002069,
+   "bestNetAtomic": 0.001033
+  },
+  {
+   "fromBlock": "29774088",
+   "toBlock": "29774143",
+   "spot": 0.085763,
+   "bestNetTwoTx": 0.002099,
+   "bestNetAtomic": 0.001063
+  },
+  {
+   "fromBlock": "29774144",
+   "toBlock": "29774183",
+   "spot": 0.085758,
+   "bestNetTwoTx": 0.002128,
+   "bestNetAtomic": 0.001092
+  },
+  {
+   "fromBlock": "29774184",
+   "toBlock": "29774191",
+   "spot": 0.085746,
+   "bestNetTwoTx": 0.002201,
+   "bestNetAtomic": 0.001163
+  },
+  {
+   "fromBlock": "29774192",
+   "toBlock": "29774192",
+   "spot": 0.08574,
+   "bestNetTwoTx": 0.002236,
+   "bestNetAtomic": 0.001198
+  },
+  {
+   "fromBlock": "29774193",
+   "toBlock": "29774204",
+   "spot": 0.085733,
+   "bestNetTwoTx": 0.00228,
+   "bestNetAtomic": 0.00124
+  },
+  {
+   "fromBlock": "29774205",
+   "toBlock": "29774231",
+   "spot": 0.085728,
+   "bestNetTwoTx": 0.002309,
+   "bestNetAtomic": 0.00127
+  },
+  {
+   "fromBlock": "29774232",
+   "toBlock": "29774287",
+   "spot": 0.085723,
+   "bestNetTwoTx": 0.002339,
+   "bestNetAtomic": 0.0013
+  },
+  {
+   "fromBlock": "29774288",
+   "toBlock": "29774296",
+   "spot": 0.085719,
+   "bestNetTwoTx": 0.002362,
+   "bestNetAtomic": 0.001323
+  },
+  {
+   "fromBlock": "29774297",
+   "toBlock": "29775060",
+   "spot": 0.085713,
+   "bestNetTwoTx": 0.0024,
+   "bestNetAtomic": 0.001359
+  },
+  {
+   "fromBlock": "29775061",
+   "toBlock": "29775061",
+   "spot": 0.085707,
+   "bestNetTwoTx": 0.002435,
+   "bestNetAtomic": 0.001394
+  }
+ ],
+ "positiveSpan": {
+  "fromBlock": "29773640",
+  "toBlock": "29775061"
+ },
+ "best": {
+  "block": "29775061",
+  "route": "hskswap-30>solidly-20",
+  "sizeUsdt": 0.5,
+  "grossUsdt": 0.011417,
+  "netUsdt": 0.002435,
+  "spot": 0.085707
+ }
+}

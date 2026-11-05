@@ -1,0 +1,1044 @@
+{
+ "lane": "mainnet read-only, no trades",
+ "startedAt": "2026-11-02T23:53:49.833Z",
+ "updatedAt": "2026-11-03T01:13:53.824Z",
+ "rpc": "https://mainnet.hsk.xyz",
+ "chainId": 177,
+ "method": "Each sample: the latest block's hash, then Multicall3 eth_calls pinned to that hash: HSKSwap slot0, the L1 gas oracle, the constant-product pairs' reserves, and every quote each trip needs, by the HSKSwap QuoterV2 and DODO's own query functions. Constant-product legs are computed from reserves with the fee each pair charges",
+ "venues": [
+  {
+   "id": "hskswap-30",
+   "address": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc",
+   "kind": "hskswap-v3",
+   "pair": [
+    "WHSK",
+    "USDT"
+   ],
+   "feePpm": "3000",
+   "evidence": "HSKSwap factory getPool(WHSK, USDT, 3000); the pool the vault trades in"
+  },
+  {
+   "id": "dodo-dvm",
+   "address": "0xc070B6a1386b0f13Caf24168539C2566Bda11E47",
+   "kind": "dodo-dvm",
+   "pair": [
+    "WHSK",
+    "USDT"
+   ],
+   "feePpm": "3000",
+   "evidence": "DODO vending machine, _BASE_TOKEN_ WHSK, _QUOTE_TOKEN_ USDT; quoted by its own querySellBase and querySellQuote, which include its 0.24% LP fee and its maintainer fee"
+  },
+  {
+   "id": "solidly-20",
+   "address": "0x340bDfC78724B3C4E28385462D9A36d469ad047B",
+   "kind": "solidly-volatile",
+   "pair": [
+    "WHSK",
+    "USDT"
+   ],
+   "feePpm": "2000",
+   "evidence": "Volatile pair; its Fees event takes 0.20% of input, and that reproduces its swap in block 28910007 exactly"
+  },
+  {
+   "id": "hyperindex-30",
+   "address": "0xF8365695ccC4FCa53241d7d42BbDc3b2e7d43AE4",
+   "kind": "uniswap-v2",
+   "pair": [
+    "WHSK",
+    "USDT"
+   ],
+   "feePpm": "3000",
+   "evidence": "Hyperindex factory 0x09ee…20D2; 0.30% reproduces its swaps in blocks 28907807 and 28913951"
+  },
+  {
+   "id": "hyperindex-weth-30",
+   "address": "0x711d26AA3ff64dd9Dc5FA22B7c64C26c1b28f8f2",
+   "kind": "uniswap-v2",
+   "pair": [
+    "WHSK",
+    "WETH"
+   ],
+   "feePpm": "3000",
+   "evidence": "Hyperindex factory; 0.30% reproduces its swap in block 29495838"
+  },
+  {
+   "id": "hskswap-weth-30",
+   "address": "0xb92b79ed6b370D5cFee2E14B1D0983C258304C16",
+   "kind": "hskswap-v3",
+   "pair": [
+    "WETH",
+    "USDT"
+   ],
+   "feePpm": "3000",
+   "evidence": "HSKSwap factory getPool(WETH, USDT, 3000)"
+  }
+ ],
+ "notSampled": [
+  {
+   "address": "0x1506de22674dfB4f5A757CE525b22B97560a8D4A",
+   "what": "WHSK/USDT 0.25% concentrated-liquidity pool on factory 0x4851…21ee",
+   "why": "No quoter on chain names that factory, and the pool holds 0.17 USDT, less than the smallest size here"
+  },
+  {
+   "address": "0xA2F4C3ede0bf2016eDAc7F2419aC8BEF6A6b20B5",
+   "what": "WHSK/WETH 0.25% concentrated-liquidity pool on the same factory",
+   "why": "No quoter for that factory; it holds 2,959 WHSK and 0.0099 WETH"
+  },
+  {
+   "address": "0xB580D654cE892181937Aac80EA165950CB7D0E02",
+   "what": "WHSK/USDC.e 0.3% on HSKSwap",
+   "why": "Holds 0.08 USDC.e, and no USDC.e/USDT pool exists on HSKSwap to close through"
+  }
+ ],
+ "assumptions": {
+  "gasPerLeg": "104740, the median HSKSwap router swap on a fork (evidence/v3/gas-compare.json). The other venues' swaps were not measured and are charged the same",
+  "transactions": "One transaction per leg, at the block's base fee plus eth_maxPriorityFeePerGas, plus one L1 data fee per leg for a 200-byte transaction. An atomic contract would save one 21,000 intrinsic charge and one L1 fee per extra leg; no such contract exists here",
+  "fills": "Quotes, not fills. Nothing was sent. A trip's net is what both venues quoted at that block, less network cost",
+  "opportunities": "Consecutive samples in which some trip nets above zero are one opportunity, valued at its first sample, because a real fill closes the gap"
+ },
+ "sizesUsdt": [
+  0.1,
+  0.25,
+  0.5,
+  1,
+  5,
+  15
+ ],
+ "reads": 565,
+ "failedReads": 0,
+ "lastFailure": "",
+ "quotePasses": {
+  "max": 2
+ },
+ "samples": 565,
+ "hours": 1.331903611111111,
+ "blocks": 565,
+ "legUsdt": {
+  "p10": 0.004584,
+  "p50": 0.004584,
+  "p90": 0.004584
+ },
+ "samplesWithPositiveNet": 0,
+ "samplesWithPositiveGross": 565,
+ "best": {
+  "route": "hskswap-30>solidly-20",
+  "sizeUsdt": 0.25,
+  "grossUsdt": 0.001903,
+  "netUsdt": -0.007265,
+  "block": "29658359"
+ },
+ "rows": [
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.001903,
+   "maxNet": -0.007265,
+   "medianNet": -0.007265
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.001796,
+   "maxNet": -0.007372,
+   "medianNet": -0.007372
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.001124,
+   "maxNet": -0.008044,
+   "medianNet": -0.008044
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.001108,
+   "maxNet": -0.00806,
+   "medianNet": -0.00806
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.000939,
+   "maxNet": -0.008229,
+   "medianNet": -0.008229
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.00055,
+   "maxNet": -0.008618,
+   "medianNet": -0.008618
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.000534,
+   "maxNet": -0.008634,
+   "medianNet": -0.008634
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.000346,
+   "maxNet": -0.008822,
+   "medianNet": -0.008822
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.000247,
+   "maxNet": -0.008921,
+   "medianNet": -0.008921
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 565,
+   "netPositive": 0,
+   "maxGross": 0.00024,
+   "maxNet": -0.008928,
+   "medianNet": -0.008928
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.000552,
+   "maxNet": -0.00972,
+   "medianNet": -0.00972
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.000584,
+   "maxNet": -0.009752,
+   "medianNet": -0.009752
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.0006,
+   "maxNet": -0.009768,
+   "medianNet": -0.009768
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.000691,
+   "maxNet": -0.009859,
+   "medianNet": -0.009859
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001412,
+   "maxNet": -0.01058,
+   "medianNet": -0.01058
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001499,
+   "maxNet": -0.010667,
+   "medianNet": -0.010667
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001605,
+   "maxNet": -0.010773,
+   "medianNet": -0.010773
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001874,
+   "maxNet": -0.011042,
+   "medianNet": -0.011042
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002235,
+   "maxNet": -0.011403,
+   "medianNet": -0.011403
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002325,
+   "maxNet": -0.011493,
+   "medianNet": -0.011493
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002529,
+   "maxNet": -0.011697,
+   "medianNet": -0.011697
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002573,
+   "maxNet": -0.011741,
+   "medianNet": -0.011741
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002618,
+   "maxNet": -0.011786,
+   "medianNet": -0.011786
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.002997,
+   "maxNet": -0.012165,
+   "medianNet": -0.012165
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.003179,
+   "maxNet": -0.012347,
+   "medianNet": -0.012347
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.003259,
+   "maxNet": -0.012427,
+   "medianNet": -0.012427
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.003692,
+   "maxNet": -0.01286,
+   "medianNet": -0.01286
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.004228,
+   "maxNet": -0.013396,
+   "medianNet": -0.013396
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.000629,
+   "maxNet": -0.014381,
+   "medianNet": -0.014381
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.005306,
+   "maxNet": -0.014474,
+   "medianNet": -0.014474
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 0.1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001372,
+   "maxNet": -0.015124,
+   "medianNet": -0.015124
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.005996,
+   "maxNet": -0.015164,
+   "medianNet": -0.015164
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.00654,
+   "maxNet": -0.015708,
+   "medianNet": -0.015708
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.001959,
+   "maxNet": -0.015711,
+   "medianNet": -0.015711
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.006903,
+   "maxNet": -0.016071,
+   "medianNet": -0.016071
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.007145,
+   "maxNet": -0.016313,
+   "medianNet": -0.016313
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.007505,
+   "maxNet": -0.016673,
+   "medianNet": -0.016673
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 0.25,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.003814,
+   "maxNet": -0.017566,
+   "medianNet": -0.017566
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.009308,
+   "maxNet": -0.018476,
+   "medianNet": -0.018476
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.0094,
+   "maxNet": -0.018568,
+   "medianNet": -0.018568
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.005208,
+   "maxNet": -0.01896,
+   "medianNet": -0.01896
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.010372,
+   "maxNet": -0.01954,
+   "medianNet": -0.01954
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.012242,
+   "maxNet": -0.02141,
+   "medianNet": -0.02141
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.012627,
+   "maxNet": -0.021795,
+   "medianNet": -0.021795
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.008902,
+   "maxNet": -0.022654,
+   "medianNet": -0.022654
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.016221,
+   "maxNet": -0.025389,
+   "medianNet": -0.025389
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.016424,
+   "maxNet": -0.025592,
+   "medianNet": -0.025592
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.017014,
+   "maxNet": -0.026182,
+   "medianNet": -0.026182
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.017394,
+   "maxNet": -0.026562,
+   "medianNet": -0.026562
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.017958,
+   "maxNet": -0.027126,
+   "medianNet": -0.027126
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 0.5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.018182,
+   "maxNet": -0.02735,
+   "medianNet": -0.02735
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.015533,
+   "maxNet": -0.029285,
+   "medianNet": -0.029285
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.021146,
+   "maxNet": -0.030314,
+   "medianNet": -0.030314
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.022865,
+   "maxNet": -0.036617,
+   "medianNet": -0.036617
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.030069,
+   "maxNet": -0.039237,
+   "medianNet": -0.039237
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.044739,
+   "maxNet": -0.053907,
+   "medianNet": -0.053907
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.04477,
+   "maxNet": -0.053938,
+   "medianNet": -0.053938
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.047205,
+   "maxNet": -0.056373,
+   "medianNet": -0.056373
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.048801,
+   "maxNet": -0.057969,
+   "medianNet": -0.057969
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.048832,
+   "maxNet": -0.058,
+   "medianNet": -0.058
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 1,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.055287,
+   "maxNet": -0.064455,
+   "medianNet": -0.064455
+  },
+  {
+   "route": "hskswap-30>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.090885,
+   "maxNet": -0.100053,
+   "medianNet": -0.100053
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.122224,
+   "maxNet": -0.131392,
+   "medianNet": -0.131392
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.127202,
+   "maxNet": -0.13637,
+   "medianNet": -0.13637
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.273247,
+   "maxNet": -0.286999,
+   "medianNet": -0.286999
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.307754,
+   "maxNet": -0.321506,
+   "medianNet": -0.321506
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.456207,
+   "maxNet": -0.465375,
+   "medianNet": -0.465375
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.531906,
+   "maxNet": -0.541074,
+   "medianNet": -0.541074
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.548403,
+   "maxNet": -0.557571,
+   "medianNet": -0.557571
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.612911,
+   "maxNet": -0.622079,
+   "medianNet": -0.622079
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.621469,
+   "maxNet": -0.630637,
+   "medianNet": -0.630637
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.665634,
+   "maxNet": -0.674802,
+   "medianNet": -0.674802
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.689043,
+   "maxNet": -0.698211,
+   "medianNet": -0.698211
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.739989,
+   "maxNet": -0.749157,
+   "medianNet": -0.749157
+  },
+  {
+   "route": "dodo-dvm>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.905072,
+   "maxNet": -0.91424,
+   "medianNet": -0.91424
+  },
+  {
+   "route": "hskswap-30>dodo-dvm",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.917662,
+   "maxNet": -0.92683,
+   "medianNet": -0.92683
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -0.984252,
+   "maxNet": -0.99342,
+   "medianNet": -0.99342
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 5,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -1.015919,
+   "maxNet": -1.025087,
+   "medianNet": -1.025087
+  },
+  {
+   "route": "hskswap-weth-30>hyperindex-weth-30>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -2.101042,
+   "maxNet": -2.114794,
+   "medianNet": -2.114794
+  },
+  {
+   "route": "hskswap-30>hyperindex-weth-30>hskswap-weth-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -2.191074,
+   "maxNet": -2.204826,
+   "medianNet": -2.204826
+  },
+  {
+   "route": "hskswap-30>solidly-20",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -3.702141,
+   "maxNet": -3.711309,
+   "medianNet": -3.711309
+  },
+  {
+   "route": "solidly-20>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.066202,
+   "maxNet": -4.07537,
+   "medianNet": -4.07537
+  },
+  {
+   "route": "dodo-dvm>solidly-20",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.167241,
+   "maxNet": -4.176409,
+   "medianNet": -4.176409
+  },
+  {
+   "route": "hskswap-30>hyperindex-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.173258,
+   "maxNet": -4.182426,
+   "medianNet": -4.182426
+  },
+  {
+   "route": "hyperindex-30>hskswap-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.439075,
+   "maxNet": -4.448243,
+   "medianNet": -4.448243
+  },
+  {
+   "route": "solidly-20>dodo-dvm",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.518993,
+   "maxNet": -4.528161,
+   "medianNet": -4.528161
+  },
+  {
+   "route": "dodo-dvm>hyperindex-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.603319,
+   "maxNet": -4.612487,
+   "medianNet": -4.612487
+  },
+  {
+   "route": "hyperindex-30>dodo-dvm",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -4.862287,
+   "maxNet": -4.871455,
+   "medianNet": -4.871455
+  },
+  {
+   "route": "hyperindex-30>solidly-20",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -6.349412,
+   "maxNet": -6.35858,
+   "medianNet": -6.35858
+  },
+  {
+   "route": "solidly-20>hyperindex-30",
+   "sizeUsdt": 15,
+   "samples": 565,
+   "grossPositive": 0,
+   "netPositive": 0,
+   "maxGross": -6.409803,
+   "maxNet": -6.418971,
+   "medianNet": -6.418971
+  }
+ ],
+ "opportunities": [],
+ "replay": {
+  "lane": "replay",
+  "note": "The strategy that takes each opportunity once, at its first sample. Simulated from quotes; not money earned",
+  "atZero": {
+   "minNetUsdt": 0,
+   "trades": 0,
+   "netUsdt": 0,
+   "worst": null,
+   "fills": []
+  }
+ }
+}

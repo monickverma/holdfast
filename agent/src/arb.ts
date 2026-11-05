@@ -5,6 +5,9 @@
 // summarizes samples works in plain numbers, as shadow.ts does, because it never sends anything.
 import type { Address } from "viem";
 import { MAINNET_MARKET } from "./config.js";
+import { scaledQuote } from "./replay.js";
+import type { ShadowSample } from "./shadow.js";
+import { nearestRank } from "./stats.js";
 
 export type ArbToken = "USDT" | "WHSK" | "WETH";
 export const ARB_TOKENS: Record<ArbToken, Address> = {
@@ -43,7 +46,7 @@ export const ARB_NOT_SAMPLED = [
   { address: "0xB580D654cE892181937Aac80EA165950CB7D0E02", what: "WHSK/USDC.e 0.3% on HSKSwap", why: "Holds 0.08 USDC.e, and no USDC.e/USDT pool exists on HSKSwap to close through" },
 ] as const;
 
-/** The median HSKSwap router swap on a mainnet fork, router alone, no vault: inherited from the original worktree evidence/v3/gas-compare.json. */
+/** The median HSKSwap router swap on a mainnet fork, router alone, no vault: evidence/v3/gas-compare.json. */
 export const ARB_GAS_PER_LEG = 104_740n;
 
 export const venueById = (id: string): ArbVenue => {
@@ -209,5 +212,237 @@ export function legCostUsdt(cost: LegCost): bigint {
 /** One transaction per leg, as an agent key without a contract of its own would send them. */
 export const tripCostUsdt = (route: ArbRoute, cost: LegCost): bigint => BigInt(route.legs.length) * legCostUsdt(cost);
 
+/**
+ * Every leg in one transaction, at the gas another contract really used for it on 5 November 2026: 0x4bca…90ac through
+ * the Solidly pair and 0x3aac…d663 through the Hyperindex pair. Their receipts, not our estimate.
+ */
+export const ARB_ATOMIC_GAS = { solidly: 273_775n, hyperindex: 149_729n } as const;
 
+/** A route through the Solidly pair is charged its figure, the higher one; any other route the Hyperindex figure. */
+export const atomicGasFor = (routeId: string): bigint => (routeId.split(">").includes("solidly-20") ? ARB_ATOMIC_GAS.solidly : ARB_ATOMIC_GAS.hyperindex);
 
+/** One transaction for the whole trip, as a contract of our own would send it. */
+export const atomicTripCostUsdt = (routeId: string, cost: Omit<LegCost, "gasPerLeg">): bigint => legCostUsdt({ ...cost, gasPerLeg: atomicGasFor(routeId) });
+
+/** The gas the shadow run's recorded network cost was for: GAS_ESTIMATE in decide.ts. */
+const SHADOW_GAS = 200_000n;
+
+/**
+ * One recorded shadow sample as an arb sample. HSKSwap legs come from the quotes recorded then, scaled to the amount the
+ * way replay.ts scales them. Constant-product legs use `reserves` and DODO legs `dodo`, both read later, so this is
+ * valid only for venues whose state did not change between the sample and that read. Routes through WETH come out
+ * empty, because the WETH pool was not recorded. `pending` is each DODO quote still to read.
+ */
+export function arbSampleFromShadow(
+  shadow: ShadowSample,
+  routes: readonly ArbRoute[],
+  sizesUsdt: readonly number[],
+  reserves: ReadonlyMap<string, PairReserves>,
+  dodo: ReadonlyMap<string, bigint | null>,
+  gasPerLeg: bigint,
+): { sample: ArbSample; pending: QuoteKey[] } {
+  const resolve: Resolve = (key) => {
+    if (key.venue === "hskswap-30") return scaledQuote(shadow, { tokenIn: ARB_TOKENS[key.tokenIn], amountIn: key.amountIn })?.amountOut ?? null;
+    if (key.venue === "dodo-dvm") return dodo.get(quoteKey(key));
+    return null;
+  };
+  const { trips, pending } = resolveTrips(routes, sizesUsdt.map((s) => BigInt(Math.round(s * 1e6))), reserves, resolve);
+  // The recorded cost is for 200,000 gas plus one L1 fee; scaling the whole of it scales the L1 fee too, which is small.
+  const legMicro = (BigInt(Math.round(shadow.networkUsdt * 1e6)) * gasPerLeg + SHADOW_GAS - 1n) / SHADOW_GAS;
+  const byId = new Map(routes.map((r) => [r.id, r]));
+  return {
+    sample: {
+      atMs: shadow.atMs,
+      block: shadow.block,
+      spot: shadow.spot,
+      legUsdt: Number(legMicro) / 1e6,
+      trips: trips.map((t) => ({ route: t.route, sizeUsdt: Number(t.sizeUsdt) / 1e6, grossUsdt: Number(t.grossUsdt) / 1e6, netUsdt: Number(t.grossUsdt - BigInt(byId.get(t.route)!.legs.length) * legMicro) / 1e6 })),
+    },
+    pending,
+  };
+}
+
+/**
+ * HSKSwap's leg priced from its spot alone: the fee comes off the input and nothing is lost to impact. A real quote is
+ * worse by the impact, so this flatters a trip. For history, where only each swap's closing price is on chain.
+ */
+export function spotResolver(spotPriceX18: bigint, feePpm = 3000n): Resolve {
+  return (key) => {
+    if (key.venue !== "hskswap-30" || spotPriceX18 <= 0n) return null;
+    const afterFee = (key.amountIn * (PPM - feePpm)) / PPM;
+    return key.tokenIn === "USDT" ? (afterFee * 10n ** 18n) / spotPriceX18 : (afterFee * spotPriceX18) / 10n ** 18n;
+  };
+}
+
+// ---- The report, over recorded samples. Plain numbers from here on.
+
+export interface ArbTrip {
+  route: string;
+  sizeUsdt: number;
+  grossUsdt: number;
+  netUsdt: number;
+}
+
+export interface ArbSample {
+  atMs: number;
+  block: string;
+  /** HSKSwap spot, USDT per HSK. */
+  spot: number;
+  /** Network cost of one leg, USDT. */
+  legUsdt: number;
+  /** What that cost was made of: the block's base fee plus the priority fee, and the L1 data fee, in wei. */
+  gasPriceWei?: string;
+  l1FeeWei?: string;
+  trips: ArbTrip[];
+}
+
+/**
+ * A sample as written to disk: each trip is [route index, size index, gross, net], against the header line that names
+ * the routes and sizes, because a row of objects for every trip in every sample makes the file several times larger.
+ */
+export interface PackedSample extends Omit<ArbSample, "trips"> {
+  t: Array<[number, number, number, number]>;
+}
+
+export interface ArbHeader {
+  routes: string[];
+  sizesUsdt: number[];
+}
+
+export function packSample(sample: ArbSample, header: ArbHeader): PackedSample {
+  const { trips, ...rest } = sample;
+  return { ...rest, t: trips.map((t) => [header.routes.indexOf(t.route), header.sizesUsdt.indexOf(t.sizeUsdt), t.grossUsdt, t.netUsdt]) };
+}
+
+export function unpackSample(packed: PackedSample, header: ArbHeader): ArbSample {
+  const { t, ...rest } = packed;
+  return { ...rest, trips: t.map(([r, s, grossUsdt, netUsdt]) => ({ route: header.routes[r]!, sizeUsdt: header.sizesUsdt[s]!, grossUsdt, netUsdt })) };
+}
+
+/** Reads a samples file: its first line is the header, every other line a packed sample. */
+export function parseArbSamples(text: string): { header: ArbHeader; samples: ArbSample[] } {
+  const [first, ...lines] = text.split("\n").filter(Boolean);
+  if (!first) throw new Error("empty samples file");
+  const header = JSON.parse(first) as ArbHeader;
+  if (!Array.isArray(header.routes) || !Array.isArray(header.sizesUsdt)) throw new Error("samples file has no header");
+  return { header, samples: lines.map((line) => unpackSample(JSON.parse(line) as PackedSample, header)) };
+}
+
+export interface ArbRow {
+  route: string;
+  sizeUsdt: number;
+  samples: number;
+  grossPositive: number;
+  netPositive: number;
+  maxGross: number;
+  maxNet: number;
+  medianNet: number;
+}
+
+export interface ArbOpportunity {
+  route: string;
+  sizeUsdt: number;
+  firstBlock: string;
+  lastBlock: string;
+  samples: number;
+  /** The net of its first sample: a real fill would close the gap, so the samples after it are not more profit. */
+  netUsdt: number;
+}
+
+export interface ArbReport {
+  samples: number;
+  hours: number;
+  blocks: number;
+  legUsdt: { p10: number; p50: number; p90: number } | null;
+  /** Samples in which any route at any size netted above zero after network cost. */
+  samplesWithPositiveNet: number;
+  samplesWithPositiveGross: number;
+  best: (ArbTrip & { block: string }) | null;
+  rows: ArbRow[];
+  opportunities: ArbOpportunity[];
+}
+
+/** A larger hole between samples ends an opportunity, because nothing is known inside it. */
+export const MAX_GAP_MS = 30_000;
+
+export function summarizeArb(samples: readonly ArbSample[], minNetUsdt = 0): ArbReport {
+  const keys = new Map<string, { route: string; sizeUsdt: number }>();
+  for (const s of samples) for (const t of s.trips) keys.set(`${t.route}@${t.sizeUsdt}`, { route: t.route, sizeUsdt: t.sizeUsdt });
+  const rows: ArbRow[] = [...keys.values()].map(({ route, sizeUsdt }) => {
+    const trips = samples.flatMap((s) => s.trips.filter((t) => t.route === route && t.sizeUsdt === sizeUsdt));
+    const nets = trips.map((t) => t.netUsdt);
+    return {
+      route,
+      sizeUsdt,
+      samples: trips.length,
+      grossPositive: trips.filter((t) => t.grossUsdt > 0).length,
+      netPositive: trips.filter((t) => t.netUsdt > minNetUsdt).length,
+      maxGross: Math.max(...trips.map((t) => t.grossUsdt)),
+      maxNet: Math.max(...nets),
+      medianNet: nearestRank(nets, 0.5),
+    };
+  });
+  rows.sort((a, b) => b.maxNet - a.maxNet);
+
+  let best: ArbReport["best"] = null;
+  for (const s of samples) for (const t of s.trips) if (!best || t.netUsdt > best.netUsdt) best = { ...t, block: s.block };
+  const legs = samples.map((s) => s.legUsdt);
+  return {
+    samples: samples.length,
+    hours: samples.length > 1 ? (samples.at(-1)!.atMs - samples[0]!.atMs) / 3_600_000 : 0,
+    blocks: new Set(samples.map((s) => s.block)).size,
+    legUsdt: legs.length ? { p10: nearestRank(legs, 0.1), p50: nearestRank(legs, 0.5), p90: nearestRank(legs, 0.9) } : null,
+    samplesWithPositiveNet: samples.filter((s) => s.trips.some((t) => t.netUsdt > minNetUsdt)).length,
+    samplesWithPositiveGross: samples.filter((s) => s.trips.some((t) => t.grossUsdt > 0)).length,
+    best,
+    rows,
+    opportunities: findOpportunities(samples, minNetUsdt),
+  };
+}
+
+/**
+ * Runs of consecutive samples in which some trip nets above the minimum. Each run is one opportunity, taken at its
+ * first sample at the size that paid most then, because a real fill would close the gap.
+ */
+export function findOpportunities(samples: readonly ArbSample[], minNetUsdt = 0): ArbOpportunity[] {
+  const out: ArbOpportunity[] = [];
+  let open: ArbOpportunity | null = null;
+  let previousAt = -Infinity;
+  for (const s of samples) {
+    const top = s.trips.reduce<ArbTrip | null>((a, t) => (t.netUsdt > minNetUsdt && (!a || t.netUsdt > a.netUsdt) ? t : a), null);
+    const contiguous = s.atMs - previousAt <= MAX_GAP_MS;
+    previousAt = s.atMs;
+    if (open && (!top || !contiguous)) {
+      out.push(open);
+      open = null;
+    }
+    if (!top) continue;
+    if (open) {
+      open.lastBlock = s.block;
+      open.samples++;
+    } else open = { route: top.route, sizeUsdt: top.sizeUsdt, firstBlock: s.block, lastBlock: s.block, samples: 1, netUsdt: top.netUsdt };
+  }
+  if (open) out.push(open);
+  return out;
+}
+
+export interface ArbReplay {
+  minNetUsdt: number;
+  trades: number;
+  /** USDT, after network cost. A replay's result, not money earned. */
+  netUsdt: number;
+  worst: number | null;
+  fills: ArbOpportunity[];
+}
+
+/** The strategy, replayed: take each opportunity once, at its first sample, if it nets above the minimum. */
+export function replayArb(samples: readonly ArbSample[], minNetUsdt = 0): ArbReplay {
+  const fills = findOpportunities(samples, minNetUsdt);
+  return {
+    minNetUsdt,
+    trades: fills.length,
+    netUsdt: fills.reduce((a, f) => a + f.netUsdt, 0),
+    worst: fills.length ? Math.min(...fills.map((f) => f.netUsdt)) : null,
+    fills,
+  };
+}
