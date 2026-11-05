@@ -1,0 +1,275 @@
+{
+  "lane": "public quotes and displayed order-book depth; non-atomic hedge simulation; no trades",
+  "completed": true,
+  "pair": {
+    "startMs": 1793686956046,
+    "receivedMs": 1793686957372,
+    "body": {
+      "id": "HSK_USDT",
+      "base": "HSK",
+      "base_name": "HashKey Platform Token",
+      "quote": "USDT",
+      "quote_name": "Tether",
+      "trade_quotes": [],
+      "fee": "0.2",
+      "min_base_amount": "1",
+      "min_quote_amount": "3",
+      "max_quote_amount": "5000000",
+      "amount_precision": 0,
+      "precision": 5,
+      "trade_status": "tradable",
+      "sell_start": 1577808000,
+      "buy_start": 1732615200,
+      "type": "normal",
+      "trade_url": "https://www.gate.com/trade/HSK_USDT",
+      "st_tag": false,
+      "up_rate": "0.4",
+      "down_rate": "0.4",
+      "slippage": "0.1",
+      "market_order_max_stock": "2105042",
+      "market_order_max_money": "200000"
+    }
+  },
+  "currency": {
+    "startMs": 1793686957381,
+    "receivedMs": 1793686957649,
+    "body": {
+      "currency": "HSK",
+      "name": "HashKey Platform Token",
+      "delisted": false,
+      "withdraw_disabled": false,
+      "withdraw_delayed": false,
+      "deposit_disabled": false,
+      "trade_disabled": false,
+      "fixed_rate": "",
+      "chain": "HSK",
+      "chains": [
+        {
+          "name": "HSK",
+          "addr": "",
+          "withdraw_disabled": false,
+          "withdraw_delayed": false,
+          "deposit_disabled": false
+        },
+        {
+          "name": "ETH",
+          "addr": "0xe7c6bf469e97eeb0bfb74c8dbff5bd47d4c1c98a",
+          "withdraw_disabled": false,
+          "withdraw_delayed": false,
+          "deposit_disabled": false
+        }
+      ],
+      "category": [],
+      "total_supply": "1000000000",
+      "market_cap": "9616200.0"
+    }
+  },
+  "assumptions": [
+    "Both endpoints are observed before and after the pinned DEX quote; worst endpoint net is used. This is not an execution guarantee.",
+    "Fees of 0/10/20 bps are scenarios, not verified account fees. Fee charged in quote currency assumed.",
+    "200000 gas per DEX leg is a scenario, plus synthetic 400-byte L1 fee; wrapping and rebalancing costs excluded.",
+    "Requires pre-funded inventories on both venues. Funding, withdrawals, bridge risk, failed hedge, inventory risk and capital cost remain unmeasured.",
+    "Whole-unit rounding and public minimum orders enforced; residual HSK receives no profit credit.",
+    "Freshness rejects clock skew over 5s, acquisition span over 10s or block age over 15s."
+  ],
+  "samples": [
+    {
+      "block": "29669911",
+      "usable": true,
+      "missingQuotes": 0,
+      "spanMs": 1158,
+      "best": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 20,
+        "bufferBps": 10,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.0716,
+            "fee": 0.006143200000000001,
+            "buffer": 0.0030716000000000003,
+            "dustHsk": 0,
+            "netUsdt": -0.03555480000000024
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.0716,
+            "fee": 0.006143200000000001,
+            "buffer": 0.0030716000000000003,
+            "dustHsk": 0,
+            "netUsdt": -0.03555480000000024
+          }
+        ],
+        "conservativeNetUsdt": -0.03555480000000024
+      },
+      "bestZeroFee": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 0,
+        "bufferBps": 0,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.0716,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02634000000000024
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.0716,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02634000000000024
+          }
+        ],
+        "conservativeNetUsdt": -0.02634000000000024
+      }
+    },
+    {
+      "block": "29669914",
+      "usable": true,
+      "missingQuotes": 0,
+      "spanMs": 1686,
+      "best": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 20,
+        "bufferBps": 10,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0.0061383,
+            "buffer": 0.00306915,
+            "dustHsk": 0,
+            "netUsdt": -0.03309745000000018
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0.0061383,
+            "buffer": 0.00306915,
+            "dustHsk": 0,
+            "netUsdt": -0.03309745000000018
+          }
+        ],
+        "conservativeNetUsdt": -0.03309745000000018
+      },
+      "bestZeroFee": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 0,
+        "bufferBps": 0,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02389000000000018
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02389000000000018
+          }
+        ],
+        "conservativeNetUsdt": -0.02389000000000018
+      }
+    },
+    {
+      "block": "29669918",
+      "usable": true,
+      "missingQuotes": 0,
+      "spanMs": 1770,
+      "best": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 20,
+        "bufferBps": 10,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0.0061383,
+            "buffer": 0.00306915,
+            "dustHsk": 0,
+            "netUsdt": -0.03309745000000018
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0.0061383,
+            "buffer": 0.00306915,
+            "dustHsk": 0,
+            "netUsdt": -0.03309745000000018
+          }
+        ],
+        "conservativeNetUsdt": -0.03309745000000018
+      },
+      "bestZeroFee": {
+        "venue": "hskswap-30",
+        "dexSide": "sell",
+        "hsk": 35,
+        "usdt": 3.054013,
+        "feeBps": 0,
+        "bufferBps": 0,
+        "eligible": true,
+        "evaluations": [
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02389000000000018
+          },
+          {
+            "eligible": true,
+            "quantity": 35,
+            "notional": 3.06915,
+            "fee": 0,
+            "buffer": 0,
+            "dustHsk": 0,
+            "netUsdt": -0.02389000000000018
+          }
+        ],
+        "conservativeNetUsdt": -0.02389000000000018
+      }
+    }
+  ]
+}

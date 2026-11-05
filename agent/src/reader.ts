@@ -1,5 +1,5 @@
 import { decodeFunctionResult, encodeFunctionData, parseAbi, type Abi, type Address, type Hex } from "viem";
-import { HSKSWAP, type Config } from "./config.js";
+import { HSKSWAP, type Config, type MarketAddresses } from "./config.js";
 import type { RpcCall, RpcClient } from "./rpc.js";
 
 const POOL_ABI = parseAbi([
@@ -213,9 +213,10 @@ export async function readMarket(
   config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">,
   head: Head,
   quoteRequests: QuoteRequest[],
+  market: MarketAddresses = HSKSWAP,
 ): Promise<MarketState> {
   const pin = { blockHash: head.hash };
-  const reads = marketReads(config, quoteRequests);
+  const reads = marketReads(config, quoteRequests, market);
   const calls: RpcCall[] = reads.map((read) => read.call ?? ethCall(read.target!, read.data!, pin));
   calls.push({ method: "eth_maxPriorityFeePerGas", params: [] });
   const raw = await rpc.batch(calls);
@@ -275,8 +276,8 @@ export async function readTick(
 }
 
 /** Every value a decision needs, in the fixed order buildMarket expects. */
-function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">, quoteRequests: QuoteRequest[]): MarketRead[] {
-  const pool = HSKSWAP.pool;
+function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVault" | "guardedVault">, quoteRequests: QuoteRequest[], market: MarketAddresses = HSKSWAP): MarketRead[] {
+  const pool = market.pool;
   const reads: MarketRead[] = [
     contractRead(pool, POOL_ABI, "slot0", []),
     contractRead(pool, POOL_ABI, "liquidity", []),
@@ -284,16 +285,16 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVau
     // Local Anvil has no fee oracle. Public testnet has the same predeploy as mainnet.
     process.env.TEST_MARKET_LOCAL === "1"
       ? { call: { method: "eth_chainId", params: [] }, decode: () => 0n }
-      : contractRead(HSKSWAP.gasOracle, ORACLE_ABI, "getL1Fee", [SAMPLE_TX]),
+      : contractRead(market.gasOracle, ORACLE_ABI, "getL1Fee", [SAMPLE_TX]),
   ];
   for (const request of quoteRequests) {
     reads.push(
-      contractRead(HSKSWAP.quoter, QUOTER_ABI, "quoteExactInputSingle", [
+      contractRead(market.quoter, QUOTER_ABI, "quoteExactInputSingle", [
         {
           tokenIn: request.tokenIn,
-          tokenOut: otherToken(request.tokenIn),
+          tokenOut: otherToken(request.tokenIn, market),
           amountIn: request.amountIn,
-          fee: HSKSWAP.fee,
+          fee: market.fee,
           sqrtPriceLimitX96: 0n,
         },
       ]),
@@ -303,7 +304,7 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVau
     const vault = config.vault;
     reads.push(contractRead(vault, VAULT_ABI, "paused", []));
     if (!config.legacyVault) reads.push(contractRead(vault, VAULT_ABI, "agentExpiry", []));
-    for (const token of [HSKSWAP.whsk, HSKSWAP.usdt]) {
+    for (const token of [market.whsk, market.usdt]) {
       reads.push(
         contractRead(token, ERC20_ABI, "balanceOf", [vault]),
         contractRead(vault, VAULT_ABI, "maxTrade", [token]),
@@ -318,7 +319,7 @@ function marketReads(config: Pick<Config, "vault" | "twapWindowSec" | "legacyVau
         contractRead(vault, VAULT_ABI, "guardBandTicks", []),
         contractRead(vault, VAULT_ABI, "priceGuardTicks", []),
       );
-      for (const token of [HSKSWAP.whsk, HSKSWAP.usdt]) {
+      for (const token of [market.whsk, market.usdt]) {
         reads.push(contractRead(vault, VAULT_ABI, "dailyBudget", [token]), contractRead(vault, VAULT_ABI, "dailyAvailable", [token]));
       }
     }
@@ -407,8 +408,8 @@ export function spotPriceX18(sqrtPriceX96: bigint): bigint {
   return (sqrtPriceX96 * sqrtPriceX96 * 10n ** 18n) >> 192n;
 }
 
-export function otherToken(token: Address): Address {
-  return sameAddress(token, HSKSWAP.whsk) ? HSKSWAP.usdt : HSKSWAP.whsk;
+export function otherToken(token: Address, market: MarketAddresses = HSKSWAP): Address {
+  return sameAddress(token, market.whsk) ? market.usdt : market.whsk;
 }
 
 export function sameAddress(a: Address, b: Address): boolean {

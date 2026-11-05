@@ -1,0 +1,106 @@
+{
+  "lane": "replay; shared buy with split sell; no trades",
+  "source": "evidence/arb/search-2026-11-03.samples.jsonl",
+  "method": "One HSKSwap/DODO buy quote, then marginal-price allocation between Solidly and Hyperindex with integer output re-evaluation.",
+  "caveats": [
+    "Gas budgets are hypothetical for the whole transaction, NOT fork estimates.",
+    "Finite recorded buy-size grid, only these two sell pools; not a global optimum certificate.",
+    "L1 fee copied from 400-byte approximation; actual bundle calldata is unmeasured.",
+    "Continuous optimum uses floating-point research arithmetic; integer reserve formulas evaluate candidates."
+  ],
+  "rows": [
+    {
+      "block": "29669625",
+      "testedAllocations": 92,
+      "best": {
+        "buyVenue": "hskswap-30",
+        "inputMicroUsdt": "450000",
+        "aIn": "3359460152787716608",
+        "bIn": "1766750996041226353",
+        "outUsdt": "452542",
+        "grossMicroUsdt": "2542",
+        "breakEvenGas": "58062",
+        "scenarios": [
+          {
+            "gas": "50000",
+            "netMicroUsdt": "353"
+          },
+          {
+            "gas": "100000",
+            "netMicroUsdt": "-1835"
+          },
+          {
+            "gas": "150000",
+            "netMicroUsdt": "-4023"
+          },
+          {
+            "gas": "200000",
+            "netMicroUsdt": "-6211"
+          }
+        ]
+      }
+    },
+    {
+      "block": "29669630",
+      "testedAllocations": 92,
+      "best": {
+        "buyVenue": "hskswap-30",
+        "inputMicroUsdt": "450000",
+        "aIn": "3359460152787716608",
+        "bIn": "1766750996041226353",
+        "outUsdt": "452542",
+        "grossMicroUsdt": "2542",
+        "breakEvenGas": "58062",
+        "scenarios": [
+          {
+            "gas": "50000",
+            "netMicroUsdt": "353"
+          },
+          {
+            "gas": "100000",
+            "netMicroUsdt": "-1835"
+          },
+          {
+            "gas": "150000",
+            "netMicroUsdt": "-4023"
+          },
+          {
+            "gas": "200000",
+            "netMicroUsdt": "-6211"
+          }
+        ]
+      }
+    },
+    {
+      "block": "29669635",
+      "testedAllocations": 92,
+      "best": {
+        "buyVenue": "hskswap-30",
+        "inputMicroUsdt": "450000",
+        "aIn": "3359460152787716608",
+        "bIn": "1766750996041226353",
+        "outUsdt": "452542",
+        "grossMicroUsdt": "2542",
+        "breakEvenGas": "58062",
+        "scenarios": [
+          {
+            "gas": "50000",
+            "netMicroUsdt": "353"
+          },
+          {
+            "gas": "100000",
+            "netMicroUsdt": "-1835"
+          },
+          {
+            "gas": "150000",
+            "netMicroUsdt": "-4023"
+          },
+          {
+            "gas": "200000",
+            "netMicroUsdt": "-6211"
+          }
+        ]
+      }
+    }
+  ]
+}

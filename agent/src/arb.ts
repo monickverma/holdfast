@@ -41,7 +41,7 @@ export const ARB_VENUES: readonly ArbVenue[] = [
 
 /** Found, and left out of the samples, with why. */
 export const ARB_NOT_SAMPLED = [
-  { address: "0x1506de22674dfB4f5A757CE525b22B97560a8D4A", what: "WHSK/USDT 0.25% concentrated-liquidity pool on factory 0x4851…21ee", why: "No quoter on chain names that factory, and the pool holds 0.17 USDT, less than the smallest size sampled" },
+  { address: "0x1506de22674dfB4f5A757CE525b22B97560a8D4A", what: "WHSK/USDT 0.25% concentrated-liquidity pool on factory 0x4851…21ee", why: "No compatible quoter integrated for this factory; prior discovery recorded 0.17 USDT liquidity. Excluded even though some search sizes are smaller." },
   { address: "0xA2F4C3ede0bf2016eDAc7F2419aC8BEF6A6b20B5", what: "WHSK/WETH 0.25% concentrated-liquidity pool on the same factory", why: "No quoter for that factory; it holds 2,959 WHSK and 0.0099 WETH" },
   { address: "0xB580D654cE892181937Aac80EA165950CB7D0E02", what: "WHSK/USDC.e 0.3% on HSKSwap", why: "Holds 0.08 USDC.e, and no USDC.e/USDT pool exists on HSKSwap to close through" },
 ] as const;

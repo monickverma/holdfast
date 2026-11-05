@@ -509,3 +509,9 @@ The public RPC rate-limits with HTTP 429. Run `bench:route` and `bench:cold` alo
 | `evidence/hot-path/` | Local and network idle and send lane results |
 | `evidence/route/warp-on.json` | Route, second endpoint and frame gaps with WARP on |
 | `evidence/inclusion/` | First frame holding each testnet send, by trigger frame and phase |
+
+## Cross-venue research and public evidence
+
+The [viewer](https://holdfast-09jn.onrender.com/#progress) exposes measurements and source links, with separate mainnet/testnet live reads. [Strategy research](docs/STRATEGY-RESEARCH.md) records 20 routes × 46 sizes on three blocks, a split exit improving gross spread by 31.17%, and depth/fee-sensitive hedge experiments. The best split result was 0.002542 USDT gross on 0.45 USDT input; at a hypothetical 100,000 total gas it was −0.001835 USDT net. No executable or earned profit is demonstrated. [Raw evidence](evidence/arb/) and [initial methods](docs/ARBITRAGE.md).
+
+The latest local agent/viewer/research suite is [recorded separately](evidence/progress/site-verification.json); do not add that count to older agent-suite counts. Existing contract, fork and model-call artifacts were not rerun as part of the website change.
