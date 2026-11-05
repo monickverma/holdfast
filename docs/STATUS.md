@@ -87,7 +87,7 @@ The rows below are **version 3 or earlier**, kept as they were.
 | Version 3 in use on testnet | Deployed at `0x9b31…1b28`, using 7,886,252 gas and 0.00789 test HSK. Guard off, no guardian, no stop armed, no swaps. The agent key holds about 0.00003 test HSK, too little to trade |
 | Public chat on the site | The site is live at holdfast-09jn.onrender.com and offers both mainnet and testnet vaults. Chat there needs a model key and `CHAT_TOKEN` set in the Render dashboard, and each answer costs money |
 | Demo video | None in the repository. [A script](DEMO-SCRIPT.md) is ready for the owner to record |
-| Contract source verification on the explorer | Not attempted. The runtime code was compared with the build instead, and matched |
+| Contract source verification on the explorer | **Done for the mainnet vault v4** on 6 November 2026 (IST): Blockscout returned "Pass - Verified" for [`0xbbd6…7d3c`](https://hsk.blockscout.com/address/0xbbd6f3df289a2fde6b5dd8edea19b827e0d07d3c), with constructor arguments taken from the deployment transaction. The testnet vaults are not verified; their runtime code was compared with the build and matched |
 | External audit | None. Everything here is our own review |
 | A real wallet on the owner controls | Tested with a mock provider in a browser |
 | Preflight latency on a live network | Not measured. See [BENCHMARKS.md](../BENCHMARKS.md#version-3) |
